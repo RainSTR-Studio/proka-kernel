@@ -36,13 +36,20 @@ endif
 .PHONY: all
 all:
 	RUSTFLAGS="-C relocation-model=static" cargo anaxa build --no-env --target $(RUST_TARGET) --profile $(RUST_PROFILE)
-	cp target/$(RUST_TARGET)/$(RUST_PROFILE_SUBDIR)/$$(cd target/$(RUST_TARGET)/$(RUST_PROFILE_SUBDIR) && find -maxdepth 1 -perm -111 -type f) kernel
+	@# Find the compiled binary and copy it to the current directory as 'kernel'
+	@BIN_NAME=$$(cd target/$(RUST_TARGET)/$(RUST_PROFILE_SUBDIR) && find . -maxdepth 1 -perm -111 -type f | head -n 1 | sed 's|^\./||'); \
+	if [ -n "$$BIN_NAME" ]; then \
+		cp "target/$(RUST_TARGET)/$(RUST_PROFILE_SUBDIR)/$$BIN_NAME" $(OUTPUT); \
+		echo "Kernel binary ready: $(OUTPUT)"; \
+	else \
+		echo "Failed to find kernel binary!"; exit 1; \
+	fi
 
 # Remove object files and the final executable.
 .PHONY: clean
 clean:
 	cargo clean
-	rm -rf kernel
+	rm -f $(OUTPUT)
 
 .PHONY: distclean
 distclean: clean

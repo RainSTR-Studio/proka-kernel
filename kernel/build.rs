@@ -8,7 +8,7 @@ use glob::glob;
 use std::path::Path;
 
 fn main() {
-    anaxa_builder::BuildHelper::new()
+    anaxa_builder::build_rs::BuildHelper::new()
         .expect("Failed to create BuildHelper")
         .with_kconfig_dir(".")
         .with_config_file(".config")
