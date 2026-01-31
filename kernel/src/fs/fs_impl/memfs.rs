@@ -381,3 +381,283 @@ impl FileSystem for MemFs {
         "memfs"
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec;
+
+    #[test_case]
+    fn test_memfs_mount_creates_root() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+        assert_eq!(root.node_type(), VNodeType::Dir);
+    }
+
+    #[test_case]
+    fn test_memfs_create_file() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let file = root.create("test.txt", VNodeType::File).unwrap();
+        assert_eq!(file.node_type(), VNodeType::File);
+
+        let metadata = file.metadata().unwrap();
+        assert_eq!(metadata.size, 0);
+    }
+
+    #[test_case]
+    fn test_memfs_create_dir() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let dir = root.create("testdir", VNodeType::Dir).unwrap();
+        assert_eq!(dir.node_type(), VNodeType::Dir);
+
+        let metadata = dir.metadata().unwrap();
+        assert_eq!(metadata.size, 0);
+    }
+
+    #[test_case]
+    fn test_memfs_create_duplicate_fails() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        root.create("test.txt", VNodeType::File).unwrap();
+        let result = root.create("test.txt", VNodeType::File);
+        assert!(matches!(result, Err(VfsError::AlreadyExists)));
+    }
+
+    #[test_case]
+    fn test_memfs_lookup() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        root.create("test.txt", VNodeType::File).unwrap();
+        let file = root.lookup("test.txt").unwrap();
+        assert_eq!(file.node_type(), VNodeType::File);
+    }
+
+    #[test_case]
+    fn test_memfs_lookup_not_found() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let result = root.lookup("nonexistent.txt");
+        assert!(matches!(result, Err(VfsError::NotFound)));
+    }
+
+    #[test_case]
+    fn test_memfs_write_and_read() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let file = root.create("test.txt", VNodeType::File).unwrap();
+        let data = b"Hello, World!";
+        let written = file.write_at(0, data).unwrap();
+        assert_eq!(written, data.len());
+
+        let mut buffer = vec![0u8; data.len()];
+        let read = file.read_at(0, &mut buffer).unwrap();
+        assert_eq!(read, data.len());
+        assert_eq!(&buffer, data);
+
+        let metadata = file.metadata().unwrap();
+        assert_eq!(metadata.size, data.len() as u64);
+    }
+
+    #[test_case]
+    fn test_memfs_write_at_offset() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let file = root.create("test.txt", VNodeType::File).unwrap();
+        file.write_at(0, b"Hello, ").unwrap();
+        file.write_at(7, b"World!").unwrap();
+
+        let mut buffer = vec![0u8; 13];
+        file.read_at(0, &mut buffer).unwrap();
+        assert_eq!(&buffer, b"Hello, World!");
+    }
+
+    #[test_case]
+    fn test_memfs_read_beyond_file() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let file = root.create("test.txt", VNodeType::File).unwrap();
+        file.write_at(0, b"Hello").unwrap();
+
+        let mut buffer = vec![0u8; 10];
+        let read = file.read_at(0, &mut buffer).unwrap();
+        assert_eq!(read, 5);
+    }
+
+    #[test_case]
+    fn test_memfs_truncate() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let file = root.create("test.txt", VNodeType::File).unwrap();
+        file.write_at(0, b"Hello, World!").unwrap();
+
+        file.truncate(5).unwrap();
+        let metadata = file.metadata().unwrap();
+        assert_eq!(metadata.size, 5);
+
+        let mut buffer = vec![0u8; 10];
+        let read = file.read_at(0, &mut buffer).unwrap();
+        assert_eq!(read, 5);
+        assert_eq!(&buffer[..5], b"Hello");
+    }
+
+    #[test_case]
+    fn test_memfs_truncate_extend() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let file = root.create("test.txt", VNodeType::File).unwrap();
+        file.write_at(0, b"Hello").unwrap();
+
+        file.truncate(10).unwrap();
+        let metadata = file.metadata().unwrap();
+        assert_eq!(metadata.size, 10);
+
+        let mut buffer = vec![0u8; 10];
+        file.read_at(0, &mut buffer).unwrap();
+        assert_eq!(&buffer[..5], b"Hello");
+        assert_eq!(&buffer[5..], b"\x00\x00\x00\x00\x00");
+    }
+
+    #[test_case]
+    fn test_memfs_list() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        root.create("file1.txt", VNodeType::File).unwrap();
+        root.create("file2.txt", VNodeType::File).unwrap();
+        root.create("dir1", VNodeType::Dir).unwrap();
+
+        let entries = root.list().unwrap();
+        assert_eq!(entries.len(), 3);
+        assert!(entries.contains(&String::from("file1.txt")));
+        assert!(entries.contains(&String::from("file2.txt")));
+        assert!(entries.contains(&String::from("dir1")));
+    }
+
+    #[test_case]
+    fn test_memfs_unlink() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        root.create("test.txt", VNodeType::File).unwrap();
+        root.unlink("test.txt").unwrap();
+
+        let result = root.lookup("test.txt");
+        assert!(matches!(result, Err(VfsError::NotFound)));
+    }
+
+    #[test_case]
+    fn test_memfs_unlink_not_found() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let result = root.unlink("nonexistent.txt");
+        assert!(matches!(result, Err(VfsError::NotFound)));
+    }
+
+    #[test_case]
+    fn test_memfs_rename() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        root.create("old.txt", VNodeType::File).unwrap();
+        root.rename("old.txt", "new.txt").unwrap();
+
+        let result = root.lookup("old.txt");
+        assert!(matches!(result, Err(VfsError::NotFound)));
+
+        let file = root.lookup("new.txt").unwrap();
+        assert_eq!(file.node_type(), VNodeType::File);
+    }
+
+    #[test_case]
+    fn test_memfs_rename_not_found() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let result = root.rename("old.txt", "new.txt");
+        assert!(matches!(result, Err(VfsError::NotFound)));
+    }
+
+    #[test_case]
+    fn test_memfs_rename_already_exists() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        root.create("file1.txt", VNodeType::File).unwrap();
+        root.create("file2.txt", VNodeType::File).unwrap();
+
+        let result = root.rename("file1.txt", "file2.txt");
+        assert!(matches!(result, Err(VfsError::AlreadyExists)));
+    }
+
+    #[test_case]
+    fn test_memfs_create_symlink() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let link = root.create_symlink("link.txt", "target.txt").unwrap();
+        assert_eq!(link.node_type(), VNodeType::SymLink);
+
+        let target = link.read_symlink().unwrap();
+        assert_eq!(target, "target.txt");
+    }
+
+    #[test_case]
+    fn test_memfs_directory_operations() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let dir = root.create("testdir", VNodeType::Dir).unwrap();
+
+        // File operations on directory should fail
+        let result = dir.read_at(0, &mut [0u8; 10]);
+        assert!(matches!(result, Err(VfsError::NotAFile)));
+
+        let result = dir.write_at(0, b"test");
+        assert!(matches!(result, Err(VfsError::NotAFile)));
+
+        let result = dir.create("subfile", VNodeType::File);
+        assert!(matches!(result, Err(VfsError::NotADirectory)));
+    }
+
+    #[test_case]
+    fn test_memfs_nested_directories() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let dir1 = root.create("dir1", VNodeType::Dir).unwrap();
+        let dir2 = dir1.create("dir2", VNodeType::Dir).unwrap();
+        let file = dir2.create("file.txt", VNodeType::File).unwrap();
+
+        file.write_at(0, b"nested").unwrap();
+
+        let lookup = dir2.lookup("file.txt").unwrap();
+        let mut buffer = vec![0u8; 6];
+        lookup.read_at(0, &mut buffer).unwrap();
+        assert_eq!(&buffer, b"nested");
+    }
+
+    #[test_case]
+    fn test_memfs_unlink_non_empty_dir() {
+        let fs = MemFs;
+        let root = fs.mount(None, None).unwrap();
+
+        let dir = root.create("testdir", VNodeType::Dir).unwrap();
+        dir.create("file.txt", VNodeType::File).unwrap();
+
+        let result = root.unlink("testdir");
+        assert!(matches!(result, Err(VfsError::DirectoryNotEmpty)));
+    }
+}

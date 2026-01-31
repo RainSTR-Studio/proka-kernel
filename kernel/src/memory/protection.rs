@@ -143,3 +143,160 @@ pub fn flags_can_write(flags: PageTableFlags) -> bool {
 pub fn flags_can_execute(flags: PageTableFlags) -> bool {
     flags.contains(PageTableFlags::PRESENT) && !flags.contains(PageTableFlags::NO_EXECUTE)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test_case]
+    fn test_protection_to_flags() {
+        let flags = Protection::Read.to_flags();
+        assert!(flags.contains(PageTableFlags::PRESENT));
+        assert!(flags.contains(PageTableFlags::USER_ACCESSIBLE));
+        assert!(flags.contains(PageTableFlags::NO_EXECUTE));
+        assert!(!flags.contains(PageTableFlags::WRITABLE));
+
+        let flags = Protection::ReadWrite.to_flags();
+        assert!(flags.contains(PageTableFlags::PRESENT));
+        assert!(flags.contains(PageTableFlags::USER_ACCESSIBLE));
+        assert!(flags.contains(PageTableFlags::NO_EXECUTE));
+        assert!(flags.contains(PageTableFlags::WRITABLE));
+
+        let flags = Protection::ReadExecute.to_flags();
+        assert!(flags.contains(PageTableFlags::PRESENT));
+        assert!(flags.contains(PageTableFlags::USER_ACCESSIBLE));
+        assert!(!flags.contains(PageTableFlags::NO_EXECUTE));
+        assert!(!flags.contains(PageTableFlags::WRITABLE));
+
+        let flags = Protection::ReadWriteExecute.to_flags();
+        assert!(flags.contains(PageTableFlags::PRESENT));
+        assert!(flags.contains(PageTableFlags::USER_ACCESSIBLE));
+        assert!(!flags.contains(PageTableFlags::NO_EXECUTE));
+        assert!(flags.contains(PageTableFlags::WRITABLE));
+
+        let flags = Protection::None.to_flags();
+        assert!(!flags.contains(PageTableFlags::PRESENT));
+    }
+
+    #[test_case]
+    fn test_protection_from_flags() {
+        let flags =
+            PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE | PageTableFlags::NO_EXECUTE;
+        assert_eq!(Protection::from(flags), Protection::Read);
+
+        let flags = PageTableFlags::PRESENT
+            | PageTableFlags::USER_ACCESSIBLE
+            | PageTableFlags::NO_EXECUTE
+            | PageTableFlags::WRITABLE;
+        assert_eq!(Protection::from(flags), Protection::ReadWrite);
+
+        let flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
+        assert_eq!(Protection::from(flags), Protection::ReadExecute);
+
+        let flags =
+            PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE | PageTableFlags::WRITABLE;
+        assert_eq!(Protection::from(flags), Protection::ReadWriteExecute);
+
+        let flags = PageTableFlags::empty();
+        assert_eq!(Protection::from(flags), Protection::None);
+    }
+
+    #[test_case]
+    fn test_kernel_flags() {
+        let flags = kernel_flags(false);
+        assert!(flags.contains(PageTableFlags::PRESENT));
+        assert!(!flags.contains(PageTableFlags::WRITABLE));
+        assert!(!flags.contains(PageTableFlags::USER_ACCESSIBLE));
+
+        let flags = kernel_flags(true);
+        assert!(flags.contains(PageTableFlags::PRESENT));
+        assert!(flags.contains(PageTableFlags::WRITABLE));
+        assert!(!flags.contains(PageTableFlags::USER_ACCESSIBLE));
+    }
+
+    #[test_case]
+    fn test_user_flags() {
+        let flags = user_flags(Protection::Read);
+        assert_eq!(flags, Protection::Read.to_flags());
+
+        let flags = user_flags(Protection::ReadWrite);
+        assert_eq!(flags, Protection::ReadWrite.to_flags());
+
+        let flags = user_flags(Protection::ReadExecute);
+        assert_eq!(flags, Protection::ReadExecute.to_flags());
+
+        let flags = user_flags(Protection::ReadWriteExecute);
+        assert_eq!(flags, Protection::ReadWriteExecute.to_flags());
+    }
+
+    #[test_case]
+    fn test_read_only_flags() {
+        let flags = read_only_flags();
+        assert!(flags.contains(PageTableFlags::PRESENT));
+        assert!(flags.contains(PageTableFlags::NO_EXECUTE));
+        assert!(!flags.contains(PageTableFlags::WRITABLE));
+        assert!(!flags.contains(PageTableFlags::USER_ACCESSIBLE));
+    }
+
+    #[test_case]
+    fn test_writable_flags() {
+        let flags = writable_flags();
+        assert!(flags.contains(PageTableFlags::PRESENT));
+        assert!(flags.contains(PageTableFlags::NO_EXECUTE));
+        assert!(flags.contains(PageTableFlags::WRITABLE));
+        assert!(!flags.contains(PageTableFlags::USER_ACCESSIBLE));
+    }
+
+    #[test_case]
+    fn test_executable_flags() {
+        let flags = executable_flags();
+        assert!(flags.contains(PageTableFlags::PRESENT));
+        assert!(!flags.contains(PageTableFlags::NO_EXECUTE));
+        assert!(!flags.contains(PageTableFlags::WRITABLE));
+        assert!(!flags.contains(PageTableFlags::USER_ACCESSIBLE));
+    }
+
+    #[test_case]
+    fn test_read_write_execute_flags() {
+        let flags = read_write_execute_flags();
+        assert!(flags.contains(PageTableFlags::PRESENT));
+        assert!(!flags.contains(PageTableFlags::NO_EXECUTE));
+        assert!(flags.contains(PageTableFlags::WRITABLE));
+        assert!(!flags.contains(PageTableFlags::USER_ACCESSIBLE));
+    }
+
+    #[test_case]
+    fn test_flags_can_read() {
+        let flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
+        assert!(flags_can_read(flags));
+
+        let flags = PageTableFlags::empty();
+        assert!(!flags_can_read(flags));
+    }
+
+    #[test_case]
+    fn test_flags_can_write() {
+        let flags =
+            PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
+        assert!(flags_can_write(flags));
+
+        let flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
+        assert!(!flags_can_write(flags));
+
+        let flags = PageTableFlags::empty();
+        assert!(!flags_can_write(flags));
+    }
+
+    #[test_case]
+    fn test_flags_can_execute() {
+        let flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
+        assert!(flags_can_execute(flags));
+
+        let flags =
+            PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE | PageTableFlags::NO_EXECUTE;
+        assert!(!flags_can_execute(flags));
+
+        let flags = PageTableFlags::empty();
+        assert!(!flags_can_execute(flags));
+    }
+}

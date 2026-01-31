@@ -98,3 +98,128 @@ pub const CYAN: Color = color!(0, 255, 255); // 绿+蓝
 pub const MAGENTA: Color = color!(255, 0, 255); // 红+蓝
                                                 // 中性色
 pub const GRAY: Color = color!(128, 128, 128);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test_case]
+    fn test_color_from_hex_rgb() {
+        let c = Color::from_hex("#ff8040");
+        assert_eq!(c.r, 255);
+        assert_eq!(c.g, 128);
+        assert_eq!(c.b, 64);
+        assert_eq!(c.a, 255);
+    }
+
+    #[test_case]
+    fn test_color_from_hex_rgba() {
+        let c = Color::from_hex("#ff804080");
+        assert_eq!(c.r, 255);
+        assert_eq!(c.g, 128);
+        assert_eq!(c.b, 64);
+        assert_eq!(c.a, 128);
+    }
+
+    #[test_case]
+    fn test_color_from_hex_without_hash() {
+        let c = Color::from_hex("ff8040");
+        assert_eq!(c.r, 255);
+        assert_eq!(c.g, 128);
+        assert_eq!(c.b, 64);
+    }
+
+    #[test_case]
+    fn test_color_from_hex_invalid() {
+        let c = Color::from_hex("invalid");
+        assert_eq!(c.r, 255);
+        assert_eq!(c.g, 255);
+        assert_eq!(c.b, 255);
+    }
+
+    #[test_case]
+    fn test_color_to_u32_with_alpha() {
+        let c = Color::with_alpha(0x12, 0x34, 0x56, 0x78);
+        let val = c.to_u32(true);
+        assert_eq!(val, 0x78123456);
+    }
+
+    #[test_case]
+    fn test_color_to_u32_without_alpha() {
+        let c = Color::new(0x12, 0x34, 0x56);
+        let val = c.to_u32(false);
+        assert_eq!(val, 0x12345600);
+    }
+
+    #[test_case]
+    fn test_color_from_u32() {
+        let val = 0x12345600;
+        let c = Color::from_u32(val);
+        assert_eq!(c.r, 0x12);
+        assert_eq!(c.g, 0x34);
+        assert_eq!(c.b, 0x56);
+    }
+
+    #[test_case]
+    fn test_color_mix_alpha() {
+        let c = Color::new(255, 128, 64);
+        let c = c.mix_alpha(128);
+        assert_eq!(c.r, 255);
+        assert_eq!(c.g, 128);
+        assert_eq!(c.b, 64);
+        assert_eq!(c.a, 128);
+    }
+
+    #[test_case]
+    fn test_color_mix_half() {
+        let c1 = Color::new(255, 0, 0);
+        let c2 = Color::new(0, 255, 0);
+        let result = c1.mix(&c2, 128);
+        assert_eq!(result.r, 128);
+        assert_eq!(result.g, 127);
+        assert_eq!(result.b, 0);
+    }
+
+    #[test_case]
+    fn test_color_mix_full_first() {
+        let c1 = Color::new(255, 0, 0);
+        let c2 = Color::new(0, 255, 0);
+        let result = c1.mix(&c2, 255);
+        assert_eq!(result.r, 255);
+        assert_eq!(result.g, 0);
+        assert_eq!(result.b, 0);
+    }
+
+    #[test_case]
+    fn test_color_mix_full_second() {
+        let c1 = Color::new(255, 0, 0);
+        let c2 = Color::new(0, 255, 0);
+        let result = c1.mix(&c2, 0);
+        assert_eq!(result.r, 0);
+        assert_eq!(result.g, 255);
+        assert_eq!(result.b, 0);
+    }
+
+    #[test_case]
+    fn test_color_invert() {
+        let c = Color::new(0, 128, 255);
+        let inverted = c.invert();
+        assert_eq!(inverted.r, 255);
+        assert_eq!(inverted.g, 127);
+        assert_eq!(inverted.b, 0);
+    }
+
+    #[test_case]
+    fn test_color_invert_white() {
+        let c = Color::new(255, 255, 255);
+        let inverted = c.invert();
+        assert_eq!(inverted, BLACK);
+    }
+
+    #[test_case]
+    fn test_color_invert_black() {
+        let c = Color::new(0, 0, 0);
+        let inverted = c.invert();
+        assert_eq!(inverted, WHITE);
+    }
+}
