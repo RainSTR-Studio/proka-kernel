@@ -1,4 +1,3 @@
 pub mod bio;
-pub mod kernfs;
-pub mod memfs;
+pub mod fs_impl;
 pub mod vfs;

@@ -1,7 +1,6 @@
 use crate::drivers::{Device, DeviceError, DEVICE_MANAGER};
 extern crate alloc;
-use super::kernfs::KernFs;
-use super::memfs::MemFs;
+use super::fs_impl;
 use alloc::format;
 use alloc::{
     collections::BTreeMap,
@@ -205,9 +204,9 @@ pub struct Vfs {
 impl Vfs {
     pub fn new() -> Self {
         let mut registry: BTreeMap<&'static str, Arc<dyn FileSystem>> = BTreeMap::new();
-        let kernfs = Arc::new(KernFs::new());
+        let kernfs = Arc::new(fs_impl::kernfs::KernFs::new());
         registry.insert("kernfs", kernfs.clone());
-        registry.insert("memfs", Arc::new(MemFs));
+        registry.insert("memfs", Arc::new(fs_impl::memfs::MemFs));
 
         let mounts = alloc::vec![MountPoint {
             path: "kernel".to_string(),
