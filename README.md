@@ -59,7 +59,7 @@ sudo apt-get install -y gcc make
 sudo apt-get install -y xorriso cpio qemu-system-x86
 
 # Install Kernel Config Generator
-cargo install anaxa-builder
+cargo install cargo-anaxa
 ```
 
 ### Build Process
