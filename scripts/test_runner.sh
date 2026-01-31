@@ -80,7 +80,7 @@ while IFS= read -r line; do
     
     TEST_NAME=$(echo "$line" | sed -E 's/Testing ([^.]+)\.\.\..*/\1/')
     
-    if echo "$line" | grep -q "\[ok\]"; then
+    if echo "$line" | grep -qi "\[OK\]"; then
         echo "  <testcase name=\"$TEST_NAME\" classname=\"kernel\" />" >> "$JUNIT_REPORT"
     else
         echo "  <testcase name=\"$TEST_NAME\" classname=\"kernel\">" >> "$JUNIT_REPORT"
@@ -110,7 +110,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     while IFS= read -r line; do
         if [[ -z "$line" ]]; then continue; fi
         TEST_NAME=$(echo "$line" | sed -E 's/Testing ([^.]+)\.\.\..*/\1/')
-        if echo "$line" | grep -q "\[ok\]"; then
+        if echo "$line" | grep -qi "\[OK\]"; then
             echo "| $TEST_NAME | ✅ 通过 |" >> "$GITHUB_STEP_SUMMARY"
         else
             echo "| $TEST_NAME | ❌ 失败 |" >> "$GITHUB_STEP_SUMMARY"
@@ -137,7 +137,7 @@ case $STATUS in
     35) echo "Tests FAILED"; exit 1 ;;
     *) 
         # If we have [ok] markers, it's likely fine even if exit code is weird
-        if grep -q "\[ok\]" "$OUTPUT_FILE"; then
+        if grep -qi "\[OK\]" "$OUTPUT_FILE"; then
             echo "Tests PASSED (with warnings)"
             exit 0
         else
