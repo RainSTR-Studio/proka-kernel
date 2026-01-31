@@ -1,6 +1,6 @@
 extern crate alloc;
 use alloc::collections::BTreeMap;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -117,6 +117,36 @@ pub enum DeviceInner {
     Block(Arc<dyn BlockDevice>),
 }
 
+pub struct NullDevice;
+
+impl SharedDeviceOps for NullDevice {
+    fn name(&self) -> &str {
+        "null"
+    }
+    fn device_type(&self) -> DeviceType {
+        DeviceType::Char
+    }
+
+    fn open(&self) -> Result<(), DeviceError> {
+        Ok(())
+    }
+    fn close(&self) -> Result<(), DeviceError> {
+        Ok(())
+    }
+    fn ioctl(&self, _cmd: u64, _arg: u64) -> Result<u64, DeviceError> {
+        Err(DeviceError::NotSupported)
+    }
+}
+
+impl CharDevice for NullDevice {
+    fn read(&self, _buf: &mut [u8]) -> Result<usize, DeviceError> {
+        Ok(0)
+    }
+    fn write(&self, buf: &[u8]) -> Result<usize, DeviceError> {
+        Ok(buf.len())
+    }
+}
+
 pub struct Device {
     pub name: String,
     pub major: u16,
@@ -147,6 +177,10 @@ impl Device {
             open_count: AtomicUsize::new(0),
             is_registered: AtomicBool::new(false),
         }
+    }
+
+    pub fn null() -> Self {
+        Self::new_auto_assign("null".to_string(), DeviceInner::Char(Arc::new(NullDevice)))
     }
 
     #[inline]

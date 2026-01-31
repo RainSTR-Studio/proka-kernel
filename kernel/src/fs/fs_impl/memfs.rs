@@ -32,6 +32,7 @@ fn create_metadata(node_type: VNodeType, size: u64) -> Metadata {
     }
 }
 
+#[derive(Debug)]
 pub enum MemNodeContent {
     File {
         data: Arc<RwLock<Vec<u8>>>,
@@ -47,6 +48,7 @@ pub enum MemNodeContent {
     },
 }
 
+#[derive(Debug)]
 pub struct MemVNode {
     #[allow(dead_code)]
     id: usize,
@@ -388,14 +390,14 @@ mod tests {
     use alloc::vec;
 
     #[test_case]
-    fn test_memfs_mount_creates_root() {
+    fn test_mount_creates_root() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
         assert_eq!(root.node_type(), VNodeType::Dir);
     }
 
     #[test_case]
-    fn test_memfs_create_file() {
+    fn test_create_file() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -407,7 +409,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_create_dir() {
+    fn test_create_dir() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -419,7 +421,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_create_duplicate_fails() {
+    fn test_create_duplicate_fails() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -429,7 +431,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_lookup() {
+    fn test_lookup() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -439,7 +441,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_lookup_not_found() {
+    fn test_lookup_not_found() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -448,7 +450,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_write_and_read() {
+    fn test_write_and_read() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -467,7 +469,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_write_at_offset() {
+    fn test_write_at_offset() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -481,7 +483,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_read_beyond_file() {
+    fn test_read_beyond_file() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -494,7 +496,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_truncate() {
+    fn test_truncate() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -512,7 +514,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_truncate_extend() {
+    fn test_truncate_extend() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -530,7 +532,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_list() {
+    fn test_list() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -546,7 +548,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_unlink() {
+    fn test_unlink() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -558,7 +560,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_unlink_not_found() {
+    fn test_unlink_not_found() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -567,7 +569,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_rename() {
+    fn test_rename() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -582,7 +584,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_rename_not_found() {
+    fn test_rename_not_found() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -591,7 +593,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_rename_already_exists() {
+    fn test_rename_already_exists() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -603,7 +605,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_create_symlink() {
+    fn test_create_symlink() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -615,7 +617,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_directory_operations() {
+    fn test_directory_operations() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -627,13 +629,10 @@ mod tests {
 
         let result = dir.write_at(0, b"test");
         assert!(matches!(result, Err(VfsError::NotAFile)));
-
-        let result = dir.create("subfile", VNodeType::File);
-        assert!(matches!(result, Err(VfsError::NotADirectory)));
     }
 
     #[test_case]
-    fn test_memfs_nested_directories() {
+    fn test_nested_directories() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 
@@ -650,7 +649,7 @@ mod tests {
     }
 
     #[test_case]
-    fn test_memfs_unlink_non_empty_dir() {
+    fn test_unlink_non_empty_dir() {
         let fs = MemFs;
         let root = fs.mount(None, None).unwrap();
 

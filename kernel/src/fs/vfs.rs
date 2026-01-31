@@ -68,7 +68,7 @@ pub enum VNodeType {
 }
 
 /// 文件或目录的元数据
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct Metadata {
     /// 文件大小
     pub size: u64,
@@ -97,7 +97,7 @@ pub trait FileSystem: Send + Sync {
     fn fs_type(&self) -> &'static str;
 }
 
-pub trait Inode: Send + Sync {
+pub trait Inode: Send + Sync + core::fmt::Debug {
     fn metadata(&self) -> Result<Metadata, VfsError>;
     fn set_metadata(&self, metadata: &Metadata) -> Result<(), VfsError>;
     fn node_type(&self) -> VNodeType;
