@@ -3,6 +3,7 @@
 //! This module implements the heap allocator for the kernel.
 //! It uses the `linked_list_allocator` crate to manage heap memory.
 
+use crate::config::KERNEL_DEFAULT_HEAP_SIZE;
 use talc::{ClaimOnOom, Span, Talc, Talck};
 use x86_64::{
     structures::paging::{
@@ -13,8 +14,6 @@ use x86_64::{
 
 /// The starting virtual address of the heap
 pub const HEAP_START: usize = 0x_4444_4444_0000;
-/// The size of the heap in bytes (8 MiB)
-pub const HEAP_SIZE: usize = crate::config::KERNEL_DEFAULT_HEAP_SIZE as usize;
 
 #[global_allocator]
 pub static ALLOCATOR: Talck<spin::Mutex<()>, ClaimOnOom> = Talc::new(unsafe {
@@ -40,7 +39,7 @@ pub fn init_heap(
     frame_allocator: &mut impl FrameAllocator<Size4KiB>,
 ) -> Result<(), MapToError<Size4KiB>> {
     let heap_start = VirtAddr::new(HEAP_START as u64);
-    let heap_end = heap_start + HEAP_SIZE as u64;
+    let heap_end = heap_start + KERNEL_DEFAULT_HEAP_SIZE;
 
     let page_range = {
         let heap_start_page = Page::containing_address(heap_start);

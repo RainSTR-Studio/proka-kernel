@@ -63,8 +63,6 @@ impl Console {
 
     #[inline(always)]
     fn scroll_up(&mut self) {
-        let st = crate::libs::time::time_since_boot();
-
         unsafe {
             let base_ptr = self.address as *mut u8;
             let scroll_bytes = (FONT_H as usize) * self.pitch as usize;
@@ -81,10 +79,6 @@ impl Console {
             // Clear last scroll_bytes area
             core::ptr::write_bytes(base_ptr.add(total_bytes - scroll_bytes), 0, scroll_bytes);
         }
-
-        let et = crate::libs::time::time_since_boot();
-        use crate::serial_println;
-        serial_println!("Scroll up used time: {} ms", (et - st) * 1000.0);
     }
 
     /// Print a char to framebuffer console.

@@ -5,9 +5,13 @@ name = "KERNEL_DEFAULT_HEAP_SIZE"
 type = "int"
 default = 8388608
 desc = "The size of the heap memory (Unit: Bytes)."
+help = "Default heap size for the kernel."
+rust_type = "u64"
 
 [[config]]
 name = "PAGE_SIZE"
 type = "int"
 default = 4096
 desc = "The Page Size (Unit: Bytes)."
+help = "The size of per page."
+rust_type = "usize"
