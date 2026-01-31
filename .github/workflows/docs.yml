@@ -18,9 +18,16 @@ jobs:
         with:
           targets: x86_64-unknown-none
 
-      - name: Install mdBook
+      - name: Install mdBook (Latest Binary)
         run: |
-          cargo install mdbook
+          mkdir bin
+          curl -sSL https://api.github.com/repos/rust-lang/mdBook/releases/latest \
+            | grep "browser_download_url.*x86_64-unknown-linux-gnu.tar.gz" \
+            | cut -d : -f 2,3 \
+            | tr -d \" \
+            | xargs curl -sSL \
+            | tar -xz -C bin
+          echo "$(pwd)/bin" >> $GITHUB_PATH
 
       - name: Build Documentation
         run: make doc
