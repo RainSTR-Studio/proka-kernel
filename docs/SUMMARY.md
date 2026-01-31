@@ -33,7 +33,7 @@
     - [Initrd 初始内存盘](fs/initrd.md)
 
 - [基础设施](infrastructure/index.md)
-    - [配置系统 (Kconfig)](infrastructure/config-system.md)
+    - [配置系统 (Anaxa Builder)](infrastructure/config-system.md)
     - [构建系统 (Makefile)](infrastructure/build-system.md)
     - [CI/CD 与工作流](infrastructure/ci-cd.md)
     - [项目目录结构](infrastructure/structure.md)
