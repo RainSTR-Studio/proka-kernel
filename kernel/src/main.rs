@@ -57,6 +57,17 @@ pub extern "C" fn kernel_main() -> ! {
     println!("Time since boot: {time}");
     println!("{}", proka_kernel::config::LOG_LEVEL);
 
+    #[allow(unused_parens)]
+    if (proka_kernel::config::ADDITIONAL_VERSION.is_empty()) {
+        println!("Proka Kernel v{}", env!("CARGO_PKG_VERSION"));
+    } else {
+        println!(
+            "Proka Kernel v{}-{}",
+            env!("CARGO_PKG_VERSION"),
+            proka_kernel::config::ADDITIONAL_VERSION
+        );
+    }
+
     loop {
         let mut buf = [0u8; 1];
         let kbd_device = {
