@@ -449,4 +449,199 @@ mod tests {
             VfsError::NotImplemented
         );
     }
+
+    // Mock Device and CharDevice for testing
+    struct MockCharDevice {
+        data: RwLock<Vec<u8>>,
+        name: String,
+    }
+
+    impl crate::drivers::SharedDeviceOps for MockCharDevice {
+        fn name(&self) -> &str {
+            &self.name
+        }
+        fn device_type(&self) -> crate::drivers::DeviceType {
+            crate::drivers::DeviceType::Char
+        }
+        fn open(&self) -> Result<(), crate::drivers::DeviceError> {
+            Ok(())
+        }
+        fn close(&self) -> Result<(), crate::drivers::DeviceError> {
+            Ok(())
+        }
+        fn ioctl(&self, _cmd: u64, _arg: u64) -> Result<u64, crate::drivers::DeviceError> {
+            Err(crate::drivers::DeviceError::NotSupported)
+        }
+    }
+
+    impl crate::drivers::CharDevice for MockCharDevice {
+        fn read(&self, buf: &mut [u8]) -> Result<usize, crate::drivers::DeviceError> {
+            let mut data = self.data.write();
+            let bytes_to_read = buf.len().min(data.len());
+            buf[..bytes_to_read].copy_from_slice(&data[..bytes_to_read]);
+            data.drain(..bytes_to_read);
+            Ok(bytes_to_read)
+        }
+
+        fn write(&self, buf: &[u8]) -> Result<usize, crate::drivers::DeviceError> {
+            self.data.write().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+    }
+
+    impl MockCharDevice {
+        fn new(name: &str, initial_data: &[u8]) -> Arc<Self> {
+            Arc::new(Self {
+                data: RwLock::new(initial_data.to_vec()),
+                name: name.to_string(),
+            })
+        }
+    }
+
+    // Mock BlockDevice for testing
+    struct MockBlockDevice {
+        name: String,
+        block_size: usize,
+        num_blocks: usize,
+        data: RwLock<Vec<u8>>,
+    }
+
+    impl crate::drivers::SharedDeviceOps for MockBlockDevice {
+        fn name(&self) -> &str {
+            &self.name
+        }
+        fn device_type(&self) -> crate::drivers::DeviceType {
+            crate::drivers::DeviceType::Block
+        }
+        fn open(&self) -> Result<(), crate::drivers::DeviceError> {
+            Ok(())
+        }
+        fn close(&self) -> Result<(), crate::drivers::DeviceError> {
+            Ok(())
+        }
+        fn ioctl(&self, _cmd: u64, _arg: u64) -> Result<u64, crate::drivers::DeviceError> {
+            Err(crate::drivers::DeviceError::NotSupported)
+        }
+    }
+
+    impl crate::drivers::BlockDevice for MockBlockDevice {
+        fn block_size(&self) -> usize {
+            self.block_size
+        }
+        fn num_blocks(&self) -> usize {
+            self.num_blocks
+        }
+
+        fn read_blocks(
+            &self,
+            block_idx: usize,
+            num_blocks: usize,
+            buf: &mut [u8],
+        ) -> Result<usize, crate::drivers::DeviceError> {
+            let start_byte = block_idx * self.block_size;
+            let end_byte = (block_idx + num_blocks) * self.block_size;
+            let data = self.data.read();
+
+            if start_byte >= data.len() {
+                return Ok(0);
+            }
+            let bytes_to_read = buf
+                .len()
+                .min(data.len() - start_byte)
+                .min(end_byte - start_byte);
+            buf[..bytes_to_read].copy_from_slice(&data[start_byte..(start_byte + bytes_to_read)]);
+            Ok(bytes_to_read)
+        }
+
+        fn write_blocks(
+            &self,
+            block_idx: usize,
+            num_blocks: usize,
+            buf: &[u8],
+        ) -> Result<usize, crate::drivers::DeviceError> {
+            let start_byte = block_idx * self.block_size;
+            let end_byte = (block_idx + num_blocks) * self.block_size;
+            let mut data = self.data.write();
+
+            if end_byte > data.len() {
+                data.resize(end_byte, 0);
+            }
+            let bytes_to_write = buf.len().min(end_byte - start_byte);
+            data[start_byte..(start_byte + bytes_to_write)]
+                .copy_from_slice(buf[..bytes_to_write].as_ref());
+            Ok(bytes_to_write)
+        }
+    }
+
+    impl MockBlockDevice {
+        fn new(name: &str, block_size: usize, num_blocks: usize, initial_data: &[u8]) -> Arc<Self> {
+            let mut data = initial_data.to_vec();
+            data.resize(block_size * num_blocks, 0);
+            Arc::new(Self {
+                name: name.to_string(),
+                block_size,
+                num_blocks,
+                data: RwLock::new(data),
+            })
+        }
+    }
+
+    #[test_case]
+    fn test_device_node_read_write() {
+        let root = KernInode::new_dir();
+        let mock_char_device = MockCharDevice::new("test_char_dev", b"device_data");
+        let char_device_arc = Arc::new(crate::drivers::Device::new_auto_assign(
+            "test_char_dev".to_string(),
+            crate::drivers::DeviceInner::Char(mock_char_device.clone()),
+        ));
+
+        let device_inode = root
+            .create_device("test_device", char_device_arc.clone())
+            .unwrap();
+        assert_eq!(device_inode.node_type(), VNodeType::Device);
+
+        // Read from char device
+        let mut read_buffer = vec![0; 5];
+        device_inode.read_at(0, &mut read_buffer).unwrap();
+        assert_eq!(read_buffer, b"devic"); // Wait, original was "device_data", first 5 bytes are "devic"
+
+        // Write to char device
+        let write_mock_device = MockCharDevice::new("write_char_dev", b"");
+        let write_device_arc = Arc::new(crate::drivers::Device::new_auto_assign(
+            "write_char_dev".to_string(),
+            crate::drivers::DeviceInner::Char(write_mock_device.clone()),
+        ));
+        let write_device_inode = root
+            .create_device("write_test_device", write_device_arc)
+            .unwrap();
+
+        write_device_inode.write_at(0, b"write_test").unwrap();
+        let mut fresh_read_buffer = vec![0; 10];
+        write_device_inode
+            .read_at(0, &mut fresh_read_buffer)
+            .unwrap();
+        assert_eq!(fresh_read_buffer, b"write_test");
+
+        // Test error when not a char device
+        let mock_block_device =
+            MockBlockDevice::new("test_block_dev", 512, 10, b"initial_block_data");
+        let block_device_arc = Arc::new(crate::drivers::Device::new_auto_assign(
+            "test_block_dev".to_string(),
+            crate::drivers::DeviceInner::Block(mock_block_device.clone()),
+        ));
+        let block_device_inode = root.create_device("block_dev", block_device_arc).unwrap();
+        assert_eq!(
+            block_device_inode.read_at(0, &mut [0]).unwrap_err(),
+            VfsError::NotImplemented
+        );
+
+        // Test null device
+        let null_device_arc = Arc::new(crate::drivers::Device::null());
+        let null_inode = root
+            .create_device("null_device_node", null_device_arc)
+            .unwrap();
+        let mut null_read_buf = [0; 10];
+        assert_eq!(null_inode.read_at(0, &mut null_read_buf).unwrap(), 0);
+        assert_eq!(null_inode.write_at(0, b"data").unwrap(), 4);
+    }
 }

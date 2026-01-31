@@ -1,7 +1,7 @@
 extern crate alloc;
+use crate::config::SERIAL_LOG_PORT;
 use crate::drivers::DEVICE_MANAGER;
 use uart_16550::SerialPort;
-use crate::config::SERIAL_LOG_PORT;
 
 pub fn serial_fallback(args: ::core::fmt::Arguments) {
     use core::fmt::Write;

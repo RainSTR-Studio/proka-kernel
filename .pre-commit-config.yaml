@@ -1,0 +1,20 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace # 删除尾部空格
+      - id: check-yaml # 检查 YAML 文件语法
+      - id: check-toml # 检查 TOML 文件语法
+      - id: check-added-large-files # 检查文件大小
+
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        description: Format Rust code in the kernel directory.
+        entry: bash -c 'cd kernel && cargo fmt --all -- "$@"' --
+        language: system
+        types: [rust]
+        pass_filenames: false
