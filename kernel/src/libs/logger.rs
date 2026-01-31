@@ -1,4 +1,4 @@
-use crate::dual_println;
+use crate::println;
 use log::{Log, Metadata, Record};
 
 /// 自定义日志记录器
@@ -32,7 +32,7 @@ impl Log for KernelLogger {
                 }
             }
 
-            let _ = dual_println!("{}[{}] {}\x1b[0m", color, level, record.args());
+            let _ = println!("{}[{}] {}\x1b[0m", color, level, record.args());
         }
     }
 
@@ -42,7 +42,7 @@ impl Log for KernelLogger {
 #[macro_export]
 macro_rules! success {
     ($($arg:tt)*) => {
-         dual_println!("\x1b[32m[SUCCESS] {}\x1b[0m", format_args!($($arg)*))
+         println!("\x1b[32m[SUCCESS] {}\x1b[0m", format_args!($($arg)*))
     };
 }
 

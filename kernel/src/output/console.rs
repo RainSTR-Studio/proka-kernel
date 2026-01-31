@@ -297,12 +297,12 @@ impl Write for Console {
 }
 
 #[macro_export]
-macro_rules! print {
+macro_rules! console_print {
     ($($arg:tt)*) => ($crate::output::console::_print(format_args!($($arg)*)));
 }
 
 #[macro_export]
-macro_rules! println {
+macro_rules! console_println {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }

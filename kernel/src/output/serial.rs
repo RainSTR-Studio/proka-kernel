@@ -7,10 +7,6 @@ pub fn serial_fallback(args: ::core::fmt::Arguments) {
     use core::fmt::Write;
     let mut serial_port = unsafe { SerialPort::new(SERIAL_LOG_PORT as u16) };
     serial_port.init();
-    // 输出错误信息
-    serial_port
-        .write_str("WARNING: Could not initialize serial port device\n")
-        .expect("Printing to serial failed");
     serial_port
         .write_fmt(args)
         .expect("Printing to serial failed");
