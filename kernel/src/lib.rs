@@ -108,7 +108,11 @@ macro_rules! extern_safe {
 mod tests {
 
     #[test_case]
-    fn test_extern_safe_macro() {
+    fn test_success() {
         assert_eq!(2 + 3, 5);
+    }
+    #[test_case]
+    fn test_failure() {
+        assert_eq!(2 + 3, 6);
     }
 }

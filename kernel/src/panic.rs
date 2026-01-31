@@ -25,8 +25,7 @@ pub fn panic(info: &PanicInfo) -> ! {
 // This is the panic handler for all testing function
 #[cfg(test)]
 pub fn panic_for_test(info: &PanicInfo) -> ! {
-    serial_println!("failed");
+    serial_println!("[FAILED]");
     serial_println!("Caused by:\n\t{}", info);
-    crate::test::exit_qemu(crate::test::QemuExitCode::Failed);
-    loop {} // Unreachable, but must write this
+    crate::test::long_jmp();
 }
