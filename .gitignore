@@ -12,3 +12,5 @@ kernel/proka-kernel
 
 
 AGENTS.md
+
+assets/initrd.cpio

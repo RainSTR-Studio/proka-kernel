@@ -21,12 +21,6 @@
 extern crate proka_kernel;
 extern crate alloc;
 use proka_kernel::BASE_REVISION;
-/* C functions extern area */
-extern_safe! {
-    fn add(a: i32, b: i32) -> i32;
-    fn sub(a: i32, b: i32) -> i32;
-}
-
 /* The Kernel main code */
 // The normal one
 #[unsafe(no_mangle)]

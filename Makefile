@@ -1,57 +1,85 @@
-# Proka Kernel - A kernel for ProkaOS
-# Copyright (C) RainSTR Studio 2025, All Rights Reserved.
-#
-# This is the Makefile, which will build the C and ASM code, in
-# order to help us to make a Rust kernel more easily.
-#
-#
-.PHONY: clean debug run iso
-# Define some basic variables
-BUILD_DIRS = kernel
-OBJ_DIR = $(PWD)/target/obj
-LDFLAGS = -nostdlib
-XORRISOFLAGS = -as mkisofs --efi-boot limine/limine-uefi-cd.bin
-QEMU_FLAGS := -bios ./assets/OVMF.fd -cdrom proka-kernel.iso --machine q35 -m 1G
-# QEMU_KVM := -enable-kvm -cpu host
-# QEMU_reOUT := > ./qemu.log
-QEMU_OUT := -serial stdio $(QEMU_reOUT)
-# Build the clean codes (easy, just run the Makefile in each dirs)
-all:
-	# Iterate all the BUILD_DIRS.
-	$(foreach dir, $(BUILD_DIRS), make -C $(dir) OBJ_DIR=$(OBJ_DIR);)
+# Proka Kernel - Root Makefile
+# Copyright (C) RainSTR Studio 2025-2026, All Rights Reserved.
+
+.DEFAULT_GOAL := all
+
+# Verbosity control
+ifeq ($(V),1)
+    Q :=
+else
+    Q := @
+endif
+
+# Core variables
+BUILD_DIRS   ?= kernel
+TARGET_DIR   ?= $(CURDIR)/target
+OBJ_DIR      ?= $(TARGET_DIR)/obj
+ISO_DIR      ?= $(TARGET_DIR)/iso
+ISO_IMAGE    ?= proka-kernel.iso
+INITRD       ?= assets/initrd.cpio
+
+# Build tools & flags
+XORRISO      ?= xorriso
+XORRISOFLAGS ?= -as mkisofs --efi-boot limine/limine-uefi-cd.bin -quiet
+QEMU         ?= qemu-system-x86_64
+QEMU_FLAGS   ?= -bios ./assets/OVMF.fd -cdrom $(ISO_IMAGE) --machine q35 -m 1G -enable-kvm
+QEMU_OUT     ?= -serial stdio
+QEMU_EXTRA   ?=
+
+# Profile handling (default to release)
+PROFILE      ?= dev
+export PROFILE
+
+.PHONY: all debug clean distclean run rundebug menuconfig iso $(BUILD_DIRS)
+
+# Standard build targets
+all: $(BUILD_DIRS)
 
 debug:
-	# Iterate all the BUILD_DIRS, but use debug.
-	$(foreach dir, $(BUILD_DIRS), make -C $(dir) OBJ_DIR=$(OBJ_DIR) PROFILE=dev;)
+	$(Q)$(MAKE) PROFILE=dev all
 
-## Build the ISO image
-# This code is from TMXQWQ/TKernel2 in github
-iso: debug kernel/kernel initrd
-	mkdir -p iso
-	cp -r ./assets/rootfs/* ./iso/
-	cp ./assets/initrd.cpio ./iso/initrd.cpio
-	rm -f ./assets/initrd.cpio
-	cp ./kernel/kernel ./iso/kernel
-	touch ./proka-kernel.iso
-	xorriso $(XORRISOFLAGS) ./iso -o ./proka-kernel.iso \
-	  2> /dev/null
-	rm -rf ./iso
-	@echo "ISO image built: proka-kernel.iso"
+$(BUILD_DIRS):
+	@echo "Entering directory: $@"
+	$(Q)mkdir -p $(OBJ_DIR)
+	$(Q)$(MAKE) -C $@ OBJ_DIR=$(OBJ_DIR) V=$(V)
 
-initrd:
-	cd ./assets/initrd && find . -print | cpio -H newc -v -o > ../initrd.cpio && cd ../..
+# ISO image creation
+iso: all $(INITRD)
+	@echo "Creating ISO image: $(ISO_IMAGE)"
+	$(Q)mkdir -p $(ISO_DIR)
+	$(Q)cp -r ./assets/rootfs/* $(ISO_DIR)/
+	$(Q)cp $(INITRD) $(ISO_DIR)/initrd.cpio
+	$(Q)cp ./kernel/kernel $(ISO_DIR)/kernel
+	$(Q)$(XORRISO) $(XORRISOFLAGS) $(ISO_DIR) -o $(ISO_IMAGE)
+	$(Q)rm -rf $(ISO_DIR)
+	@echo "ISO build complete."
 
+# Initrd creation
+INITRD_SRC := $(shell find assets/initrd -type f 2>/dev/null)
+$(INITRD): $(INITRD_SRC)
+	@echo "Creating initrd: $@"
+	$(Q)mkdir -p assets
+	$(Q)cd assets/initrd && find . -print | cpio -H newc -o > ../initrd.cpio 2>/dev/null
+
+# Execution & Debugging
 run: iso
-	qemu-system-x86_64 -enable-kvm $(QEMU_FLAGS) $(QEMU_OUT)
-	@echo "QEMU started"
+	$(Q)$(QEMU) $(QEMU_FLAGS) $(QEMU_OUT) $(QEMU_EXTRA)
 
-rundebug: iso
-	qemu-system-x86_64 -enable-kvm $(QEMU_FLAGS) $(QEMU_OUT) -s -S
+rundebug:
+	$(Q)$(MAKE) QEMU_EXTRA="-s -S" run
 
 menuconfig:
-	cd ./kernel && cargo anaxa menuconfig
+	$(Q)$(MAKE) -C kernel menuconfig
 
+# Cleanup
 clean:
-	make -C kernel clean
-	rm -rf proka-kernel.iso target
+	@for dir in $(BUILD_DIRS); do \
+		$(MAKE) -C $$dir clean V=$(V); \
+	done
+	$(Q)rm -f $(ISO_IMAGE) $(INITRD)
+	$(Q)rm -rf $(OBJ_DIR)
+	@echo "Cleaned."
 
+distclean: clean
+	$(Q)rm -rf $(TARGET_DIR)
+	@echo "Full cleanup complete."
