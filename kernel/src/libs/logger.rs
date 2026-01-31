@@ -13,26 +13,15 @@ impl Log for KernelLogger {
         if self.enabled(record.metadata()) {
             let level = record.level();
 
-            let color;
-            match record.level() {
-                log::Level::Error => {
-                    color = "\x1b[31m";
-                }
-                log::Level::Warn => {
-                    color = "\x1b[33m";
-                }
-                log::Level::Info => {
-                    color = "\x1b[37m";
-                }
-                log::Level::Debug => {
-                    color = "\x1b[34m";
-                }
-                log::Level::Trace => {
-                    color = "\x1b[35m";
-                }
-            }
+            let color = match record.level() {
+                log::Level::Error => "\x1b[31m",
+                log::Level::Warn => "\x1b[33m",
+                log::Level::Info => "\x1b[37m",
+                log::Level::Debug => "\x1b[34m",
+                log::Level::Trace => "\x1b[35m",
+            };
 
-            let _ = println!("{}[{}] {}\x1b[0m", color, level, record.args());
+            println!("{}[{}] {}\x1b[0m", color, level, record.args());
         }
     }
 

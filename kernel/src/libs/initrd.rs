@@ -1,3 +1,5 @@
+//! This code is originally from https://github.com/rcore-os/cpio/blob/main/src/lib.rs, with minor modifications made here.
+
 extern crate alloc;
 use crate::fs::fs_impl::MemFs;
 use crate::fs::vfs::{File, FileSystem, VNodeType, VfsError, VFS};
@@ -5,8 +7,6 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use log::{debug, error, info, warn};
-
-/// This code is originally from https://github.com/rcore-os/cpio/blob/main/src/lib.rs, with minor modifications made here.
 
 /// A CPIO file (newc format) reader.
 ///
@@ -203,8 +203,8 @@ pub fn load_cpio(initrd_data: &[u8]) -> Result<(), VfsError> {
         // We want absolute paths in VFS, e.g., "/foo/bar".
         let canonical_path = if path.starts_with('/') {
             path.to_string()
-        } else if path.starts_with("./") {
-            format!("/{}", &path[2..])
+        } else if let Some(stripped) = path.strip_prefix("./") {
+            format!("/{}", stripped)
         } else {
             format!("/{}", path)
         };
@@ -242,12 +242,11 @@ pub fn load_cpio(initrd_data: &[u8]) -> Result<(), VfsError> {
                         }
                     }
                     Err(VfsError::NotFound) => {
-                        vfs.create_dir(&current_dir_segment).map_err(|e| {
+                        vfs.create_dir(&current_dir_segment).inspect_err(|e| {
                             error!(
                                 "Failed to create directory {}: {:?}",
                                 current_dir_segment, e
                             );
-                            e
                         })?;
                     }
                     Err(e) => {

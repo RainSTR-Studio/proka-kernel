@@ -102,13 +102,3 @@ macro_rules! extern_safe {
         )*
     };
 }
-
-/* The test functions */
-#[cfg(test)]
-mod tests {
-
-    #[test_case]
-    fn test_success() {
-        assert_eq!(2 + 3, 5);
-    }
-}

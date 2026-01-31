@@ -238,11 +238,17 @@ pub struct KernFs {
     root: Arc<KernInode>,
 }
 
-impl KernFs {
-    pub fn new() -> Self {
+impl Default for KernFs {
+    fn default() -> Self {
         let root = KernInode::new_dir();
 
         Self { root }
+    }
+}
+
+impl KernFs {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn root(&self) -> Arc<KernInode> {

@@ -27,8 +27,7 @@ impl BlockCache {
         }
 
         let block_size = self.device.block_size();
-        let mut buf = Vec::with_capacity(block_size);
-        buf.resize(block_size, 0);
+        let mut buf = alloc::vec![0; block_size];
 
         if self.device.read_blocks(block_id, 1, &mut buf).is_ok() {
             let mut cache = self.cache.write();

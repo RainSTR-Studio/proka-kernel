@@ -294,6 +294,7 @@ impl Clone for Device {
     }
 }
 
+#[derive(Default)]
 pub struct DeviceManager {
     devices: Vec<Arc<Device>>,
     next_minor_counters: BTreeMap<u16, u16>,
@@ -302,11 +303,7 @@ pub struct DeviceManager {
 
 impl DeviceManager {
     pub fn new() -> Self {
-        Self {
-            devices: Vec::new(),
-            next_minor_counters: BTreeMap::new(),
-            free_minors: BTreeMap::new(),
-        }
+        Self::default()
     }
 
     pub fn register_device(&mut self, mut device: Device) -> Result<Arc<Device>, DeviceError> {
@@ -396,10 +393,7 @@ impl DeviceManager {
     }
 
     fn reclaim_device_number(&mut self, major: u16, minor: u16) {
-        self.free_minors
-            .entry(major)
-            .or_insert_with(Vec::new)
-            .push(minor);
+        self.free_minors.entry(major).or_default().push(minor);
     }
 
     pub fn get_device(&self, name: &str) -> Option<Arc<Device>> {

@@ -1,5 +1,5 @@
 extern crate alloc;
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -39,12 +39,12 @@ pub struct Task {
 
 impl Task {
     /// Create a new task object.
-    pub fn new(id: u16, priority: u8) -> Box<Self> {
-        Box::new(Self {
+    pub fn new(id: u16, priority: u8) -> Self {
+        Self {
             id,
             state: TaskState::Ready,
             priority,
-        })
+        }
     }
 
     /// Change the status of a task.
@@ -56,7 +56,7 @@ impl Task {
 /// The task manager which contains lots of tasks.
 pub struct TaskManager {
     /// The field which contains all tasks.
-    tasks: Vec<Box<Task>>,
+    tasks: Vec<Task>,
 
     /// The task ID which has been allocated.
     allocated_tid: Vec<u16>,
@@ -101,5 +101,11 @@ impl TaskManager {
 
         // Find the task to remove from [`tasks`].
         Ok(())
+    }
+}
+
+impl Default for TaskManager {
+    fn default() -> Self {
+        Self::new()
     }
 }

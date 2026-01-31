@@ -68,7 +68,7 @@ impl BitmapFrameAllocator {
                 let start = region.base as usize;
                 let end = (region.base + region.length) as usize;
                 let start_frame = start / PAGE_SIZE;
-                let end_frame = (end + PAGE_SIZE - 1) / PAGE_SIZE;
+                let end_frame = end.div_ceil(PAGE_SIZE);
 
                 self.alloc.insert(start_frame..end_frame);
                 self.total_frames += end_frame - start_frame;

@@ -13,10 +13,7 @@ use lazy_static::lazy_static;
 use spin::{Mutex, RwLock};
 
 lazy_static! {
-    pub static ref VFS: Vfs = {
-        let fs = Vfs::new();
-        fs
-    };
+    pub static ref VFS: Vfs = Vfs::new();
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -201,8 +198,10 @@ pub struct Vfs {
     fs_registry: RwLock<BTreeMap<&'static str, Arc<dyn FileSystem>>>,
 }
 
-impl Vfs {
-    pub fn new() -> Self {
+pub type WalkEntry = (String, Vec<String>, Vec<String>);
+
+impl Default for Vfs {
+    fn default() -> Self {
         let mut registry: BTreeMap<&'static str, Arc<dyn FileSystem>> = BTreeMap::new();
         let kernfs = Arc::new(fs_impl::kernfs::KernFs::new());
         registry.insert("kernfs", kernfs.clone());
@@ -219,6 +218,12 @@ impl Vfs {
             mounts: Mutex::new(mounts),
             fs_registry: RwLock::new(registry),
         }
+    }
+}
+
+impl Vfs {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn init_root(&self, root: Arc<dyn Inode>) {
@@ -455,10 +460,7 @@ impl Vfs {
         }
     }
 
-    pub fn walk(
-        &self,
-        start_path: &str,
-    ) -> Result<Vec<(String, Vec<String>, Vec<String>)>, VfsError> {
+    pub fn walk(&self, start_path: &str) -> Result<Vec<WalkEntry>, VfsError> {
         let mut results = Vec::new();
         let mut stack: Vec<String> = Vec::new();
         let normalized_start_path = self.normalize_path(start_path);

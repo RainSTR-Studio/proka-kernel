@@ -15,16 +15,14 @@ const XAPIC_EOI_OFFSET: u64 = 0x0B0;
 const XAPIC_SIVR_OFFSET: u64 = 0xF0;
 pub fn apic_is_available() -> bool {
     let cpuid = CpuId::new();
-    cpuid
-        .get_feature_info()
-        .map_or(false, |info| info.has_apic())
+    cpuid.get_feature_info().is_some_and(|info| info.has_apic())
 }
 
 pub fn x2apic_is_available() -> bool {
     let cpuid = CpuId::new();
     cpuid
         .get_feature_info()
-        .map_or(false, |info| info.has_x2apic())
+        .is_some_and(|info| info.has_x2apic())
 }
 
 /// Enables x2APIC mode

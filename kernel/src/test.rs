@@ -26,6 +26,10 @@ static FAIL_COUNT: Mutex<usize> = Mutex::new(0);
 
 /// Save the current context into the jump buffer.
 /// Returns 0 when saving, and 1 when returning from long_jmp.
+///
+/// # Safety
+/// This function is unsafe because it manipulates CPU registers directly
+/// and relies on the caller to manage the jump buffer correctly.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn set_jmp() -> u64 {
     let mut jmp_buf = JumpBuffer::default();
@@ -169,5 +173,7 @@ pub extern "C" fn kernel_main() -> ! {
     crate::interrupts::pic::init(); // Initialize PI
     x86_64::instructions::interrupts::enable(); // Enable interrupts
     crate::test_main();
-    loop {}
+    loop {
+        x86_64::instructions::hlt();
+    }
 }

@@ -20,8 +20,8 @@ pub struct Keyboard {
     name: String,
 }
 
-impl Keyboard {
-    pub fn new() -> Self {
+impl Default for Keyboard {
+    fn default() -> Self {
         Self {
             inner: Mutex::new(KeyboardInner {
                 pc_keyboard: PcKeyboard::new(
@@ -36,6 +36,12 @@ impl Keyboard {
             }),
             name: String::from("keyboard"),
         }
+    }
+}
+
+impl Keyboard {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn set_enabled(&self, enabled: bool) {
@@ -121,7 +127,7 @@ impl CharDevice for Keyboard {
                 }
             }
 
-            if read_count == 0 && buf.len() > 0 {
+            if read_count == 0 && !buf.is_empty() {
                 Err(DeviceError::WouldBlock)
             } else {
                 Ok(read_count)

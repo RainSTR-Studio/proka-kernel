@@ -41,22 +41,22 @@ lazy_static! {
         }
         // PIC 中断处理器设置
         // IRQ0 - 时钟中断, IRQ1 - 键盘中断
-        idt[PIC_1_OFFSET as u8].set_handler_fn(handler::pic_interrupt_handler_0); // IRQ0
-        idt[PIC_1_OFFSET as u8 + 1].set_handler_fn(handler::pic_interrupt_handler_1); // IRQ1
-        idt[PIC_1_OFFSET as u8 + 2].set_handler_fn(handler::pic_interrupt_handler_2); // IRQ2
-        idt[PIC_1_OFFSET as u8 + 3].set_handler_fn(handler::pic_interrupt_handler_3); // IRQ3
-        idt[PIC_1_OFFSET as u8 + 4].set_handler_fn(handler::pic_interrupt_handler_4); // IRQ4
-        idt[PIC_1_OFFSET as u8 + 5].set_handler_fn(handler::pic_interrupt_handler_5); // IRQ5
-        idt[PIC_1_OFFSET as u8 + 6].set_handler_fn(handler::pic_interrupt_handler_6); // IRQ6
-        idt[PIC_1_OFFSET as u8 + 7].set_handler_fn(handler::pic_interrupt_handler_7); // IRQ7
-        idt[PIC_2_OFFSET as u8].set_handler_fn(handler::pic_interrupt_handler_8);   // IRQ8
-        idt[PIC_2_OFFSET as u8 + 1].set_handler_fn(handler::pic_interrupt_handler_9);   // IRQ9
-        idt[PIC_2_OFFSET as u8 + 2].set_handler_fn(handler::pic_interrupt_handler_10);  // IRQ10
-        idt[PIC_2_OFFSET as u8 + 3].set_handler_fn(handler::pic_interrupt_handler_11);  // IRQ11
-        idt[PIC_2_OFFSET as u8 + 4].set_handler_fn(handler::pic_interrupt_handler_12);  // IRQ12
-        idt[PIC_2_OFFSET as u8 + 5].set_handler_fn(handler::pic_interrupt_handler_13);  // IRQ13
-        idt[PIC_2_OFFSET as u8 + 6].set_handler_fn(handler::pic_interrupt_handler_14);  // IRQ14
-        idt[PIC_2_OFFSET as u8 + 7].set_handler_fn(handler::pic_interrupt_handler_15);  // IRQ15
+        idt[PIC_1_OFFSET].set_handler_fn(handler::pic_interrupt_handler_0); // IRQ0
+        idt[PIC_1_OFFSET + 1].set_handler_fn(handler::pic_interrupt_handler_1); // IRQ1
+        idt[PIC_1_OFFSET + 2].set_handler_fn(handler::pic_interrupt_handler_2); // IRQ2
+        idt[PIC_1_OFFSET + 3].set_handler_fn(handler::pic_interrupt_handler_3); // IRQ3
+        idt[PIC_1_OFFSET + 4].set_handler_fn(handler::pic_interrupt_handler_4); // IRQ4
+        idt[PIC_1_OFFSET + 5].set_handler_fn(handler::pic_interrupt_handler_5); // IRQ5
+        idt[PIC_1_OFFSET + 6].set_handler_fn(handler::pic_interrupt_handler_6); // IRQ6
+        idt[PIC_1_OFFSET + 7].set_handler_fn(handler::pic_interrupt_handler_7); // IRQ7
+        idt[PIC_2_OFFSET].set_handler_fn(handler::pic_interrupt_handler_8);   // IRQ8
+        idt[PIC_2_OFFSET + 1].set_handler_fn(handler::pic_interrupt_handler_9);   // IRQ9
+        idt[PIC_2_OFFSET + 2].set_handler_fn(handler::pic_interrupt_handler_10);  // IRQ10
+        idt[PIC_2_OFFSET + 3].set_handler_fn(handler::pic_interrupt_handler_11);  // IRQ11
+        idt[PIC_2_OFFSET + 4].set_handler_fn(handler::pic_interrupt_handler_12);  // IRQ12
+        idt[PIC_2_OFFSET + 5].set_handler_fn(handler::pic_interrupt_handler_13);  // IRQ13
+        idt[PIC_2_OFFSET + 6].set_handler_fn(handler::pic_interrupt_handler_14);  // IRQ14
+        idt[PIC_2_OFFSET + 7].set_handler_fn(handler::pic_interrupt_handler_15);  // IRQ15
         idt
     };
 }

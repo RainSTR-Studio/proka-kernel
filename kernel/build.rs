@@ -27,12 +27,10 @@ fn main() {
     let obj_dir = workspace_root.join("target/obj");
 
     if let Ok(paths) = glob(&format!("{}/*.o", obj_dir.display())) {
-        for path_result in paths {
-            if let Ok(path) = path_result {
-                // Get the absolute path
-                let absolute_path = path.canonicalize().expect("Failed to canonicalize path");
-                println!("cargo:rustc-link-arg={}", absolute_path.display());
-            }
+        for path in paths.flatten() {
+            // Get the absolute path
+            let absolute_path = path.canonicalize().expect("Failed to canonicalize path");
+            println!("cargo:rustc-link-arg={}", absolute_path.display());
         }
     }
 }
