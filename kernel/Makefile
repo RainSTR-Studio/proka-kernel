@@ -45,6 +45,12 @@ $(BIN_PATH): .FORCE
 
 .FORCE:
 
+menuconfig:
+	$(Q)cargo anaxa menuconfig
+
+fmt:
+	$(Q)cargo fmt
+
 clean:
 	$(Q)cargo clean
 	$(Q)rm -f $(OUTPUT)

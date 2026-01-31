@@ -71,6 +71,9 @@ rundebug:
 menuconfig:
 	$(Q)$(MAKE) -C kernel menuconfig
 
+fmt:
+	$(Q)$(MAKE) -C kernel fmt
+
 # Cleanup
 clean:
 	@for dir in $(BUILD_DIRS); do \
