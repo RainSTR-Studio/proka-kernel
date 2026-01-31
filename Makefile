@@ -30,7 +30,27 @@ QEMU_EXTRA   ?=
 PROFILE      ?= dev
 export PROFILE
 
-.PHONY: all debug clean distclean run rundebug menuconfig iso $(BUILD_DIRS)
+.PHONY: all debug clean distclean run rundebug menuconfig iso $(BUILD_DIRS) docs-build docs-serve docs-clean
+
+# Documentation targets
+doc:
+	@echo "Building guide (mdBook)..."
+	$(Q)mdbook build
+	@echo "Building API documentation (rustdoc)..."
+	$(Q)cd kernel && cargo doc --no-deps
+	$(Q)rm -rf book/api
+	$(Q)cp -r kernel/target/x86_64-unknown-none/doc book/api
+	@echo "Documentation built in book/"
+
+docs-serve:
+	@echo "Serving documentation..."
+	$(Q)mdbook serve --hostname 0.0.0.0
+
+docs-clean:
+	@echo "Cleaning documentation..."
+	$(Q)mdbook clean
+	$(Q)rm -rf book
+	$(Q)cd kernel && cargo clean --doc
 
 # Standard build targets
 all: $(BUILD_DIRS)
@@ -75,7 +95,7 @@ fmt:
 	$(Q)$(MAKE) -C kernel fmt
 
 # Cleanup
-clean:
+clean: docs-clean
 	@for dir in $(BUILD_DIRS); do \
 		$(MAKE) -C $$dir clean V=$(V); \
 	done
