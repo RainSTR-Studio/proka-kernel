@@ -27,9 +27,9 @@ dependencies = [
 
 [[package]]
 name = "anaxa-builder"
-version = "0.4.4"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40b0cc6ddb752bbd5421fcd74a240fa0013ef798e8fe6ec1ae2a5b232cac1dc1"
+checksum = "7f3a4a06087ba6012af155edfae89dc5c7965c5d09a2e541cdccf25fa56e0df3"
 dependencies = [
  "anyhow",
  "evalexpr",
