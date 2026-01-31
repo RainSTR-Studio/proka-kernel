@@ -27,6 +27,6 @@ pub fn panic(info: &PanicInfo) -> ! {
 pub fn panic_for_test(info: &PanicInfo) -> ! {
     serial_println!("failed");
     serial_println!("Caused by:\n\t{}", info);
-    // exit_qemu(QemuExitCode::Failed);
+    crate::test::exit_qemu(crate::test::QemuExitCode::Failed);
     loop {} // Unreachable, but must write this
 }
