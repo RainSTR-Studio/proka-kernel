@@ -35,15 +35,19 @@ pub struct Task {
 
     /// The priority of the kernel (1-8)
     priority: u8,
+
+    /// The entry point of the task.
+    entry_point: usize,
 }
 
 impl Task {
     /// Create a new task object.
-    pub fn new(id: u16, priority: u8) -> Self {
+    pub fn new(id: u16, priority: u8, entry_point: usize) -> Self {
         Self {
             id,
             state: TaskState::Ready,
             priority,
+            entry_point,
         }
     }
 
@@ -74,7 +78,7 @@ impl TaskManager {
         }
     }
 
-    pub fn create_task(&mut self, priority: u8) {
+    pub fn create_task(&mut self, priority: u8, entry_point: usize) {
         // Allocate a task id
         let mut task_id = self.next_tid;
 
@@ -84,7 +88,7 @@ impl TaskManager {
         }
 
         // Push the task to the tasks container
-        self.tasks.push(Task::new(task_id, priority));
+        self.tasks.push(Task::new(task_id, priority, entry_point));
 
         // Set the current id is allocated.
         self.allocated_tid.push(task_id);
@@ -98,6 +102,12 @@ impl TaskManager {
         if !self.allocated_tid.contains(&task_id) {
             return Err("The task ID is unable to discovor.");
         }
+
+        // Remove the task from [`tasks`].
+        self.tasks.retain(|task| task.id != task_id);
+
+        // Remove the task from [`allocated_tid`].
+        self.allocated_tid.retain(|id| *id != task_id);
 
         // Find the task to remove from [`tasks`].
         Ok(())
