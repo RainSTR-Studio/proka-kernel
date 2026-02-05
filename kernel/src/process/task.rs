@@ -42,12 +42,12 @@ pub struct Task {
 
 impl Task {
     /// Create a new task object.
-    pub fn new(id: u16, priority: u8, entry_point: usize) -> Self {
+    pub fn new(id: u16, priority: u8, entry_point: extern "C" fn()) -> Self {
         Self {
             id,
             state: TaskState::Ready,
             priority,
-            entry_point,
+            entry_point: entry_point as usize,
         }
     }
 
@@ -78,7 +78,7 @@ impl TaskManager {
         }
     }
 
-    pub fn create_task(&mut self, priority: u8, entry_point: usize) {
+    pub fn create_task(&mut self, priority: u8, entry_point: extern "C" fn()) {
         // Allocate a task id
         let mut task_id = self.next_tid;
 
