@@ -4,6 +4,8 @@
 
 ---
 
+Documentation: [https://prokadoc.pages.dev/](https://prokadoc.pages.dev/)
+
 Welcome to Proka Kernel, an operating system kernel developed by young talents at RainSTR Studio.
 Primarily for learning and practice, our goal is to evolve it into a stable and reliable system.
 
