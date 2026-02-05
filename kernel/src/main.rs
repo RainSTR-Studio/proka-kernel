@@ -39,6 +39,17 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::interrupts::pic::init(); // Initialize PI
     x86_64::instructions::interrupts::enable(); // Enable interrupts
 
+    #[allow(unused_parens)]
+    if (proka_kernel::config::ADDITIONAL_VERSION.is_empty()) {
+        println!("Starting \x1b[36mProka Kernel v{}\x1b[0m", env!("CARGO_PKG_VERSION"));
+    } else {
+        println!(
+            "Starting \x1b[36mProka Kernel v{}-{}\x1b[0m",
+            env!("CARGO_PKG_VERSION"),
+            proka_kernel::config::ADDITIONAL_VERSION
+        );
+    }
+
     println!("Device list:");
     for device in proka_kernel::drivers::DEVICE_MANAGER
         .read()
@@ -56,17 +67,6 @@ pub extern "C" fn kernel_main() -> ! {
     let time = proka_kernel::libs::time::time_since_boot();
     println!("Time since boot: {time}");
     println!("{}", proka_kernel::config::LOG_LEVEL);
-
-    #[allow(unused_parens)]
-    if (proka_kernel::config::ADDITIONAL_VERSION.is_empty()) {
-        println!("Proka Kernel v{}", env!("CARGO_PKG_VERSION"));
-    } else {
-        println!(
-            "Proka Kernel v{}-{}",
-            env!("CARGO_PKG_VERSION"),
-            proka_kernel::config::ADDITIONAL_VERSION
-        );
-    }
 
     loop {
         let mut buf = [0u8; 1];
