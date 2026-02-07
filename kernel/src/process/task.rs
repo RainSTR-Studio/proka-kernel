@@ -1,10 +1,14 @@
 extern crate alloc;
 use alloc::vec::Vec;
+use core::{
+    atomic::{AtomicU16, Ordering},
+    sync::atomic::{AtomicU16, Ordering},
+};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
 lazy_static! {
-    pub static ref TASK_MANAGER: Mutex<TaskManager> = Mutex::new(TaskManager::new());
+    pub static ref TASK_MANAGER: TaskManager = TaskManager::new();
 }
 
 /// Defintion of task state
@@ -66,7 +70,7 @@ pub struct TaskManager {
     allocated_tid: Vec<u16>,
 
     /// The next task id
-    next_tid: u16,
+    next_tid: AtomicU16,
 }
 
 impl TaskManager {
@@ -74,17 +78,16 @@ impl TaskManager {
         Self {
             tasks: Vec::new(),
             allocated_tid: Vec::new(),
-            next_tid: 0,
+            next_tid: AtomicU16::new(0),
         }
     }
 
-    pub fn create_task(&mut self, priority: u8, entry_point: extern "C" fn()) {
+    pub fn create_task(&mut self, priority: u8, entry_point: extern "C" fn()) -> u16 {
         // Allocate a task id
-        let mut task_id = self.next_tid;
-
-        // Check: is current ID has been allocated
+        let task_id = self.next_tid.load(Ordering::SeqCst);
         if self.allocated_tid.contains(&task_id) {
-            task_id += 1;
+            self.next_tid
+                .store(task_id.wrapping_add(1), Ordering::SeqCst);
         }
 
         // Push the task to the tasks container
@@ -93,8 +96,7 @@ impl TaskManager {
         // Set the current id is allocated.
         self.allocated_tid.push(task_id);
 
-        // Set up new ID
-        self.next_tid = self.next_tid.wrapping_add(1);
+        task_id
     }
 
     pub fn delete_task(&mut self, task_id: u16) -> Result<(), &'static str> {
