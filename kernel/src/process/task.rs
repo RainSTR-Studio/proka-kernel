@@ -1,15 +1,13 @@
-extern crate alloc;
 use alloc::vec::Vec;
-use core::{
-    atomic::{AtomicU16, Ordering},
-    sync::atomic::{AtomicU16, Ordering},
-};
+use bitmap_allocator::{BitAlloc, BitAlloc64K};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
 lazy_static! {
-    pub static ref TASK_MANAGER: TaskManager = TaskManager::new();
+    pub static ref TASK_MANAGER: Mutex<TaskManager> = Mutex::new(TaskManager::new());
 }
+
+type EntryPoint = extern "C" fn();
 
 /// Defintion of task state
 pub enum TaskState {
@@ -26,37 +24,37 @@ pub enum TaskState {
 }
 
 /// The object of a task.
-#[allow(unused)]
 pub struct Task {
     /// The ID of this task.
-    ///
-    /// This uses type "u16", which means the task limit is
-    /// 65535. (id range is 0~65535)
-    id: u16,
+    pub id: u16,
 
     /// The state of the task.
-    state: TaskState,
+    pub state: TaskState,
 
     /// The priority of the kernel (1-8)
-    priority: u8,
+    pub priority: u8,
 
     /// The entry point of the task.
-    entry_point: usize,
+    pub entry_point: usize,
+
+    /// The stack pointer (placeholder for context switching)
+    pub stack_top: usize,
 }
 
 impl Task {
     /// Create a new task object.
-    pub fn new(id: u16, priority: u8, entry_point: extern "C" fn()) -> Self {
+    pub fn new(id: u16, priority: u8, entry_point: EntryPoint) -> Self {
         Self {
             id,
             state: TaskState::Ready,
             priority,
             entry_point: entry_point as usize,
+            stack_top: 0, // Should be initialized during stack allocation
         }
     }
 
     /// Change the status of a task.
-    pub fn update_stat(&mut self, new_state: TaskState) {
+    pub fn update_state(&mut self, new_state: TaskState) {
         self.state = new_state
     }
 }
@@ -64,55 +62,52 @@ impl Task {
 /// The task manager which contains lots of tasks.
 pub struct TaskManager {
     /// The field which contains all tasks.
-    tasks: Vec<Task>,
+    pub tasks: Vec<Task>,
 
-    /// The task ID which has been allocated.
-    allocated_tid: Vec<u16>,
-
-    /// The next task id
-    next_tid: AtomicU16,
+    /// The bitmap allocator for tracking allocated task IDs.
+    allocator: BitAlloc64K,
 }
 
 impl TaskManager {
     pub const fn new() -> Self {
         Self {
             tasks: Vec::new(),
-            allocated_tid: Vec::new(),
-            next_tid: AtomicU16::new(0),
+            allocator: BitAlloc64K::DEFAULT,
         }
     }
 
-    pub fn create_task(&mut self, priority: u8, entry_point: extern "C" fn()) -> u16 {
-        // Allocate a task id
-        let task_id = self.next_tid.load(Ordering::SeqCst);
-        if self.allocated_tid.contains(&task_id) {
-            self.next_tid
-                .store(task_id.wrapping_add(1), Ordering::SeqCst);
-        }
+    /// Allocate a unique task ID using the bitmap allocator.
+    fn alloc_tid(&mut self) -> Option<u16> {
+        self.allocator.alloc().map(|tid| tid as u16)
+    }
 
-        // Push the task to the tasks container
+    pub fn create_task(
+        &mut self,
+        priority: u8,
+        entry_point: EntryPoint,
+    ) -> Result<u16, &'static str> {
+        let task_id = self.alloc_tid().ok_or("No available Task IDs")?;
+
         self.tasks.push(Task::new(task_id, priority, entry_point));
-
-        // Set the current id is allocated.
-        self.allocated_tid.push(task_id);
-
-        task_id
+        Ok(task_id)
     }
 
     pub fn delete_task(&mut self, task_id: u16) -> Result<(), &'static str> {
-        // Check is task ID allocated.
-        if !self.allocated_tid.contains(&task_id) {
-            return Err("The task ID is unable to discovor.");
-        }
-
-        // Remove the task from [`tasks`].
+        let len_before = self.tasks.len();
         self.tasks.retain(|task| task.id != task_id);
 
-        // Remove the task from [`allocated_tid`].
-        self.allocated_tid.retain(|id| *id != task_id);
+        if self.tasks.len() == len_before {
+            return Err("Task ID not found");
+        }
 
-        // Find the task to remove from [`tasks`].
+        // Release the ID back to the allocator
+        self.allocator.dealloc(task_id as usize);
         Ok(())
+    }
+
+    /// Get a mutable reference to a task by ID.
+    pub fn get_task_mut(&mut self, task_id: u16) -> Option<&mut Task> {
+        self.tasks.iter_mut().find(|t| t.id == task_id)
     }
 }
 
@@ -135,7 +130,7 @@ mod tests {
     #[test_case]
     fn test_create_task() {
         let mut task_manager = TaskManager::new();
-        task_manager.create_task(1, example_task);
+        task_manager.create_task(1, example_task).unwrap();
         assert_eq!(task_manager.tasks.len(), 1);
     }
 
@@ -143,10 +138,10 @@ mod tests {
     fn test_delete_task() {
         // Create a task
         let mut task_manager = TaskManager::new();
-        task_manager.create_task(1, example_task);
+        let tid = task_manager.create_task(1, example_task).unwrap();
 
         // And remove it
-        task_manager.delete_task(0).unwrap(); // TaskManager allocates ID 0
+        task_manager.delete_task(tid).unwrap();
         assert_eq!(task_manager.tasks.len(), 0);
     }
 }
