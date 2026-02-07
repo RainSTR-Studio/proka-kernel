@@ -36,12 +36,15 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::libs::initrd::load_initrd(); // Load initrd
     proka_kernel::interrupts::gdt::init(); // Initialize GDT
     proka_kernel::interrupts::idt::init_idt(); // Initialize IDT
-    proka_kernel::interrupts::pic::init(); // Initialize PI
+    proka_kernel::interrupts::pic::init(); // Initialize PIC
     x86_64::instructions::interrupts::enable(); // Enable interrupts
 
     #[allow(unused_parens)]
     if (proka_kernel::config::ADDITIONAL_VERSION.is_empty()) {
-        println!("Starting \x1b[36mProka Kernel v{}\x1b[0m", env!("CARGO_PKG_VERSION"));
+        println!(
+            "Starting \x1b[36mProka Kernel v{}\x1b[0m",
+            env!("CARGO_PKG_VERSION")
+        );
     } else {
         println!(
             "Starting \x1b[36mProka Kernel v{}-{}\x1b[0m",

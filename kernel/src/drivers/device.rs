@@ -41,9 +41,9 @@ pub enum DeviceError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScanInfo {
     pub device_id: String,                                 // Device ID
-    pub protocol_type: String,                             // Communication protocol type (e.g. USB/PCI/I2C)
-    pub vendor_id: Option<u16>,                            // Vendor ID
-    pub product_id: Option<u16>,                           // Product ID
+    pub protocol_type: String, // Communication protocol type (e.g. USB/PCI/I2C)
+    pub vendor_id: Option<u16>, // Vendor ID
+    pub product_id: Option<u16>, // Product ID
     pub additional_data: Option<BTreeMap<String, String>>, // Additional data
 }
 

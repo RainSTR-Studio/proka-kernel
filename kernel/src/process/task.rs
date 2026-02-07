@@ -143,9 +143,8 @@ mod tests {
         let mut task_manager = TaskManager::new();
         task_manager.create_task(1, example_task);
 
-
         // And remove it
-        task_manager.delete_task(0).unwrap();   // TaskManager allocates ID 0
+        task_manager.delete_task(0).unwrap(); // TaskManager allocates ID 0
         assert_eq!(task_manager.tasks.len(), 0);
     }
 }

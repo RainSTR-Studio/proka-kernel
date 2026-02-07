@@ -119,7 +119,7 @@ impl<'a> Renderer<'a> {
             self.mask_color(&mixed_color)
         };
 
-        let pixel_bytes = color_u32.to_le_bytes();  // Convert to byte array
+        let pixel_bytes = color_u32.to_le_bytes(); // Convert to byte array
         unsafe {
             let dst_ptr = self.back_buffer.as_mut_ptr().add(offset);
             core::ptr::copy_nonoverlapping(pixel_bytes.as_ptr(), dst_ptr, self.pixel_size);
