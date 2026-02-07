@@ -119,3 +119,33 @@ impl Default for TaskManager {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::serial_println;
+
+    /// The example function
+    extern "C" fn example_task() {
+        serial_println!("Testing is this function work...");
+    }
+
+    #[test_case]
+    fn test_create_task() {
+        let mut task_manager = TaskManager::new();
+        task_manager.create_task(1, example_task);
+        assert_eq!(task_manager.tasks.len(), 1);
+    }
+
+    #[test_case]
+    fn test_delete_task() {
+        // Create a task
+        let mut task_manager = TaskManager::new();
+        task_manager.create_task(1, example_task);
+
+
+        // And remove it
+        task_manager.delete_task(0).unwrap();   // TaskManager allocates ID 0
+        assert_eq!(task_manager.tasks.len(), 0);
+    }
+}
