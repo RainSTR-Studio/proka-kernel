@@ -1,5 +1,7 @@
 // font8x16.rs
-// 8x16 pixel font data, which was converted from C.
+// Constant 8x16 pixel font data, which was converted from C.
+// Source: https://github.com/hubenchang0515/font8x16
+// Converted by: deepseek
 
 pub const FONT8X16: [[u8; 16]; 128] = [
     [

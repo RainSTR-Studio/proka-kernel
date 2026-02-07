@@ -11,7 +11,7 @@ macro_rules! exception_handler {
     ($name:ident, $msg:expr) => {
         pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame) {
             serial_println!("EXCEPTION: {}\n{:#?}", $msg, stack_frame);
-            hlt_loop() // 需替换为恢复逻辑或panic处理
+            hlt_loop() // TODO: Replace it to recovor logic
         }
     };
 }
@@ -20,7 +20,7 @@ macro_rules! exception_handler_with_error_code {
     ($name:ident, $msg:expr) => {
         pub extern "x86-interrupt" fn $name(
             stack_frame: InterruptStackFrame,
-            error_code: u64, // 统一使用u64接收错误码
+            error_code: u64, // Uses u64 as error code
         ) {
             serial_println!(
                 "EXCEPTION: {} [ERR: {:#x}]\n{:#?}",
@@ -33,7 +33,7 @@ macro_rules! exception_handler_with_error_code {
     };
 }
 
-// 无错误码异常 -------------------------------------------------
+// Non-error-code exception -------------------------------------------------
 exception_handler!(divide_error_handler, "DIVIDE ERROR");
 exception_handler!(debug_handler, "DEBUG");
 exception_handler!(nmi_handler, "NON-MASKABLE INTERRUPT");
@@ -43,7 +43,7 @@ exception_handler!(invalid_opcode_handler, "INVALID OPCODE");
 exception_handler!(device_not_available_handler, "DEVICE NOT AVAILABLE");
 exception_handler!(x87_floating_point_handler, "x87 FLOATING POINT ERROR");
 
-// 有错误码异常 -------------------------------------------------
+// Error-code exception -------------------------------------------------
 exception_handler_with_error_code!(invalid_tss_handler, "INVALID TSS");
 exception_handler_with_error_code!(segment_not_present_handler, "SEGMENT NOT PRESENT");
 exception_handler_with_error_code!(stack_segment_handler, "STACK-SEGMENT FAULT");
@@ -51,10 +51,10 @@ exception_handler_with_error_code!(general_protection_handler, "GENERAL PROTECTI
 exception_handler_with_error_code!(alignment_check_handler, "ALIGNMENT CHECK");
 exception_handler_with_error_code!(control_protection_handler, "CONTROL PROTECTION EXCEPTION");
 
-// 特殊处理异常 -------------------------------------------------
+// Special handler -------------------------------------------------
 pub extern "x86-interrupt" fn spurious_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    // 伪中断不需要发送 EOI，仅作为占位符防止未处理中断引发异常
-    // 在调试模式下可以打印日志
+    // Fake interrupt doesn't need to send EIO
+    // Can print log in debug mode
     // serial_println!("SPURIOUS INTERRUPT");
 }
 
@@ -62,13 +62,13 @@ pub extern "x86-interrupt" fn double_fault_handler(
     stack_frame: InterruptStackFrame,
     error_code: u64,
 ) -> ! {
-    // 必须标记为永不返回
+    // Must mark as never return
     serial_println!(
         "CRITICAL: DOUBLE FAULT [ERR: {:#x}]\n{:#?}",
         error_code,
         stack_frame
     );
-    panic!("SYSTEM HALT"); // 安全地停止系统
+    panic!("SYSTEM HALT"); // Stop system safely
 }
 
 pub extern "x86-interrupt" fn pagefault_handler(
@@ -88,7 +88,7 @@ pub extern "x86-interrupt" fn pagefault_handler(
         error_code,
         stack_frame
     );
-    // 实际应执行页面分配回收逻辑
+    // TODO: Exception recovery logic
     hlt_loop()
 }
 
@@ -128,19 +128,19 @@ macro_rules! pic_interrupt_handler {
     };
 }
 // 为所有 16 个 IRQ 定义处理函数
-pic_interrupt_handler!(pic_interrupt_handler_0, 0); // 时钟中断 Timer
-pic_interrupt_handler!(pic_interrupt_handler_1, 1); // 键盘中断 Keyboard
-pic_interrupt_handler!(pic_interrupt_handler_2, 2); // 级联到 PIC2
-pic_interrupt_handler!(pic_interrupt_handler_3, 3); // 串口 COM2
-pic_interrupt_handler!(pic_interrupt_handler_4, 4); // 串口 COM1
-pic_interrupt_handler!(pic_interrupt_handler_5, 5); // 并口 LPT2 / 声卡
-pic_interrupt_handler!(pic_interrupt_handler_6, 6); // 软盘控制器 Floppy Disk
-pic_interrupt_handler!(pic_interrupt_handler_7, 7); // 并口 LPT1 / 伪中断
+pic_interrupt_handler!(pic_interrupt_handler_0, 0); // Timer Interrupt
+pic_interrupt_handler!(pic_interrupt_handler_1, 1); // Keyboard Interrupt
+pic_interrupt_handler!(pic_interrupt_handler_2, 2); // Cascade to PIC2
+pic_interrupt_handler!(pic_interrupt_handler_3, 3); // Serial COM2
+pic_interrupt_handler!(pic_interrupt_handler_4, 4); // Serial COM1
+pic_interrupt_handler!(pic_interrupt_handler_5, 5); // Parallel Port LPT2 / Sound Card
+pic_interrupt_handler!(pic_interrupt_handler_6, 6); // Floppy Disk Controller
+pic_interrupt_handler!(pic_interrupt_handler_7, 7); // Parallel Port LPT1 / Fake Interrupt
 pic_interrupt_handler!(pic_interrupt_handler_8, 8); // RTC Real Time Clock
-pic_interrupt_handler!(pic_interrupt_handler_9, 9); // 重定向 IRQ2
-pic_interrupt_handler!(pic_interrupt_handler_10, 10); // 空闲 / SCSI / 网卡
-pic_interrupt_handler!(pic_interrupt_handler_11, 11); // 空闲 / SCSI / 网卡
-pic_interrupt_handler!(pic_interrupt_handler_12, 12); // PS/2 鼠标
-pic_interrupt_handler!(pic_interrupt_handler_13, 13); // FPU / 协处理器
-pic_interrupt_handler!(pic_interrupt_handler_14, 14); // 主 IDE Primary IDE
-pic_interrupt_handler!(pic_interrupt_handler_15, 15); // 次 IDE Secondary IDE
+pic_interrupt_handler!(pic_interrupt_handler_9, 9); // Redirect IRQ2
+pic_interrupt_handler!(pic_interrupt_handler_10, 10); // Freed / SCSI / Netcard
+pic_interrupt_handler!(pic_interrupt_handler_11, 11); // Freed / SCSI / Netcard
+pic_interrupt_handler!(pic_interrupt_handler_12, 12); // PS/2 mouse
+pic_interrupt_handler!(pic_interrupt_handler_13, 13); // FPU / MPU
+pic_interrupt_handler!(pic_interrupt_handler_14, 14); // Primary IDE
+pic_interrupt_handler!(pic_interrupt_handler_15, 15); // Secondary IDE

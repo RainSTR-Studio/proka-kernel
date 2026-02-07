@@ -35,10 +35,10 @@ macro_rules! pixel {
 }
 
 pub struct Renderer<'a> {
-    framebuffer: Framebuffer<'a>, // 前台缓冲区
-    back_buffer: Vec<u8>,         // 后台缓冲区
-    pixel_size: usize,            // 每个像素占用的字节数
-    clear_color: color::Color,    // 默认清屏颜色
+    framebuffer: Framebuffer<'a>, // Fore framebuffer (FF)
+    back_buffer: Vec<u8>,         // Back framebuffer (BF)
+    pixel_size: usize,            // Used byte in each pixel
+    clear_color: color::Color,    // Default cleaning color
     dirty_min_x: u64,
     dirty_min_y: u64,
     dirty_max_x: u64,
@@ -54,9 +54,9 @@ impl<'a> Renderer<'a> {
         let height = framebuffer.height() as usize;
         let bpp = framebuffer.bpp() as usize; // bits per pixel
         let pixel_size = bpp / 8; // bytes per pixel
-        let buffer_size = width * height * pixel_size; // 后台缓冲区总字节数
+        let buffer_size = width * height * pixel_size; // Total bytes in BF
 
-        // 初始化后台缓冲区，填充为0（黑色）
+        // Init BF, color = black (0)
         let back_buffer = vec![0; buffer_size];
         Self {
             framebuffer: framebuffer,
@@ -73,15 +73,14 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    /// 获取后台缓冲区偏移
+    /// Get BF offset
     #[inline(always)]
     fn get_buffer_offset(&self, x: u64, y: u64) -> usize {
-        // 后台缓冲区的布局是线性的，不一定与framebuffer的pitch相同
         y as usize * self.framebuffer.width() as usize * self.pixel_size
             + x as usize * self.pixel_size
     }
 
-    /// 转换颜色为帧缓冲区格式
+    /// Convert color to framebuffer format
     #[inline(always)]
     fn mask_color(&self, color: &color::Color) -> u32 {
         if self.bpp == 32 {
@@ -96,7 +95,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    /// 绘制像素到后台缓冲区
+    /// Draw pixel to BF
     #[inline(always)]
     pub unsafe fn set_pixel_raw_unchecked(&mut self, x: u64, y: u64, color: &color::Color) {
         let offset = self.get_buffer_offset(x, y);
@@ -106,10 +105,10 @@ impl<'a> Renderer<'a> {
         } else if color.a == 0 {
             return;
         } else {
-            // 读取后台缓冲区当前像素颜色进行alpha混合
+            // Read BF and execute alpha mix
             let current_color = self.get_pixel_raw(x, y);
 
-            // 执行alpha混合: result = (source * alpha + destination * (255 - alpha)) / 255
+            // Execute alpha mix: result = (source * alpha + destination * (255 - alpha)) / 255
             let alpha = color.a as u32;
             let inv_alpha = 255 - alpha;
             let r = (color.r as u32 * alpha + current_color.r as u32 * inv_alpha) / 255;
@@ -120,7 +119,7 @@ impl<'a> Renderer<'a> {
             self.mask_color(&mixed_color)
         };
 
-        let pixel_bytes = color_u32.to_le_bytes(); // 转换为字节数组
+        let pixel_bytes = color_u32.to_le_bytes();  // Convert to byte array
         unsafe {
             let dst_ptr = self.back_buffer.as_mut_ptr().add(offset);
             core::ptr::copy_nonoverlapping(pixel_bytes.as_ptr(), dst_ptr, self.pixel_size);
@@ -134,27 +133,27 @@ impl<'a> Renderer<'a> {
 
     #[inline(always)]
     pub fn set_pixel_raw(&mut self, x: u64, y: u64, color: &color::Color) {
-        // 边界检查：确保像素在屏幕范围内
+        // Boundary check
         if x >= self.width as u64 || y >= self.height as u64 {
             return;
         }
         unsafe { self.set_pixel_raw_unchecked(x, y, color) };
     }
 
-    /// 设置像素
+    /// Set pixel
     #[inline(always)]
     pub fn set_pixel(&mut self, pixel: Pixel, color: &color::Color) {
         let (x, y) = pixel.to_coord();
         self.set_pixel_raw(x, y, color);
     }
 
-    /// 获取像素
+    /// Get pixel
     pub fn get_pixel(&self, pixel: Pixel) -> color::Color {
         let (x, y) = pixel.to_coord();
-        self.get_pixel_raw(x, y) // 从前台缓冲区获取
+        self.get_pixel_raw(x, y) // Get from FF
     }
 
-    /// 获取像素
+    /// Get pixel, but just uses pixel's position
     fn get_pixel_raw(&self, x: u64, y: u64) -> color::Color {
         let offset = self.get_buffer_offset(x, y);
         let mut pixel_data_u32 = 0u32;
@@ -164,22 +163,24 @@ impl<'a> Renderer<'a> {
         color::Color::from_u32(pixel_data_u32)
     }
 
+    /// Setup clear color.
     pub fn set_clear_color(&mut self, color: color::Color) {
         self.clear_color = color;
     }
 
+    /// Get clear color
     pub fn get_clear_color(&self) -> color::Color {
         self.clear_color
     }
 
-    // 清空后台缓冲区
+    // Clear BF
     pub fn clear(&mut self) {
         let width = self.framebuffer.width();
         let height = self.framebuffer.height();
         let color = self.clear_color.clone();
-        // 优化清空操作：直接填充后台缓冲区
+        // Optimize clear operation
         let masked_clear_color = self.mask_color(&color);
-        let pixel_bytes = masked_clear_color.to_le_bytes(); // 转换为字节数组
+        let pixel_bytes = masked_clear_color.to_le_bytes(); // To byte array
         let bytes_to_fill = &pixel_bytes[..self.pixel_size];
         for y in 0..height {
             for x in 0..width {
@@ -196,7 +197,8 @@ impl<'a> Renderer<'a> {
         self.dirty_max_y = height;
     }
 
-    /// 绘制线
+    /* ======== Drawing Example functions ======== */
+    /// Draw a line
     pub fn draw_line(&mut self, p1: Pixel, p2: Pixel, color: color::Color) {
         let dx_abs = ((p2.x as i64 - p1.x as i64).abs()) as u64;
         let dy_abs = ((p2.y as i64 - p1.y as i64).abs()) as u64;
@@ -218,7 +220,7 @@ impl<'a> Renderer<'a> {
         let mut y = y1 as i64;
         for x in x1..=x2 {
             if steep {
-                // 确保 y, x 坐标在帧缓冲区范围内
+                // Boundary check
                 if y >= 0 && (y as u64) < self.framebuffer.width() && x < self.framebuffer.height()
                 {
                     self.set_pixel_raw(y as u64, x, &color);
@@ -237,21 +239,19 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    /// 绘制三角形
+    /// Draw a triangle
     pub fn draw_triangle(&mut self, p1: Pixel, p2: Pixel, p3: Pixel, color: color::Color) {
         self.draw_line(p1, p2, color);
         self.draw_line(p2, p3, color);
         self.draw_line(p3, p1, color);
     }
 
-    /// 填充三角形
+    /// Fill a triangle
     pub fn fill_triangle(&mut self, p1: Pixel, p2: Pixel, p3: Pixel, color: color::Color) {
         let (x1, y1) = p1.to_coord();
         let (x2, y2) = p2.to_coord();
         let (x3, y3) = p3.to_coord();
-        // 定义3个变换后的 Pixel
         let mut pts = [pixel!(x1, y1), pixel!(x2, y2), pixel!(x3, y3)];
-        // 按 y 轻量排序：冒泡排序也可以
         for i in 0..pts.len() {
             for j in i + 1..pts.len() {
                 if pts[i].y > pts[j].y {
@@ -262,15 +262,14 @@ impl<'a> Renderer<'a> {
         let p1 = pts[0];
         let p2 = pts[1];
         let p3 = pts[2];
-        // 如果三点 y 相同，不画
+        // If 3 points' y position is same, don't draw.
         if p1.y == p3.y {
             return;
         }
-        // 获取 u32 坐标
+        // Get u32 position
         let (x1, y1) = (p1.x as i32, p1.y as i32);
         let (x2, y2) = (p2.x as i32, p2.y as i32);
         let (x3, y3) = (p3.x as i32, p3.y as i32);
-        // 水平线闭包填充函数
         let mut fill_h_line = |start_x: i32, end_x: i32, y: i32| {
             if y < 0 || y >= self.framebuffer.height() as i32 {
                 return;
@@ -287,7 +286,7 @@ impl<'a> Renderer<'a> {
                     return;
                 }
             }
-            // 填充到后台缓冲区
+            // Fill to BF
             for x in start_x..=end_x {
                 if x >= 0 {
                     let pixel = pixel!(x, y);
@@ -298,7 +297,7 @@ impl<'a> Renderer<'a> {
         let long_dx = x3 - x1;
         let long_dy = y3 - y1;
         if long_dy != 0 {
-            // 上半部分三角形（p1 -> p2）
+            // Half-up triangle (p1 -> p2)
             let upper_dx = x2 - x1;
             let upper_dy = y2 - y1;
             let y_start = y1;
@@ -317,7 +316,7 @@ impl<'a> Renderer<'a> {
                 };
                 fill_h_line(x_long, x_upper, y);
             }
-            // 下半部分三角形（p2 -> p3）
+            // Half-down triangle (p2 -> p3)
             let lower_dx = x3 - x2;
             let lower_dy = y3 - y2;
             if lower_dy != 0 {
@@ -348,19 +347,19 @@ impl<'a> Renderer<'a> {
         self.framebuffer.height()
     }
 
-    /// 绘制矩形
+    /// Draw a rectangle
     pub fn draw_rect(&mut self, pixel: Pixel, width: u64, height: u64, color: color::Color) -> () {
         let (x, y) = pixel.to_coord();
         let x2 = x + width;
         let y2 = y + height;
-        // 绘制到后台缓冲区
+        // Draw to BF
         self.draw_line(pixel!(x, y), pixel!(x2, y), color);
         self.draw_line(pixel!(x2, y), pixel!(x2, y2), color);
         self.draw_line(pixel!(x2, y2), pixel!(x, y2), color);
         self.draw_line(pixel!(x, y2), pixel!(x, y), color);
     }
 
-    /// 填充矩形
+    /// Fill up a rectangle
     pub fn fill_rect(&mut self, pixel: Pixel, width: u64, height: u64, color: color::Color) {
         let (x_min, y_min) = pixel.to_coord();
         let x_max = x_min + width;
@@ -371,39 +370,39 @@ impl<'a> Renderer<'a> {
         let y_end = y_max.min(self.height() - 1);
         for y in y_start..=y_end {
             for x in x_start..=x_end {
-                self.set_pixel_raw(x, y, &color); // 绘制到后台缓冲区
+                self.set_pixel_raw(x, y, &color); // Draw to BF
             }
         }
     }
 
-    /// 绘制任意多边形（轮廓）
+    /// Draw arbitrary polygon (outline)
     pub fn draw_polygon(&mut self, points: &[Pixel], color: color::Color) {
         if points.len() < 3 {
-            return; // 少于3个点无法构成多边形
+            return; // Less than 3 points cannot form a polygon
         }
-        // 连接所有点形成闭合多边形
+        // Connect all points to form a closed polygon
         for i in 0..points.len() {
             let p1 = points[i];
-            let p2 = points[(i + 1) % points.len()]; // 最后一个点连接回第一个点
+            let p2 = points[(i + 1) % points.len()]; // Last point connects back to first point
             self.draw_line(p1, p2, color);
         }
     }
-    /// 填充任意凸多边形（扫描线算法）
+    /// Fill arbitrary convex polygon (scanline algorithm)
     pub fn fill_convex_polygon(&mut self, points: &[Pixel], color: color::Color) {
         if points.len() < 3 {
-            return; // 少于3个点无法构成多边形
+            return; // Less than 3 points cannot form a polygon
         }
-        // 收集所有边的信息
+        // Collect all edge information
         let mut edges = Vec::new();
         for i in 0..points.len() {
             let p1 = points[i];
             let p2 = points[(i + 1) % points.len()];
             edges.push((p1, p2));
         }
-        // 找到多边形的y范围
+        // Find the y range of the polygon
         let min_y = edges.iter().map(|&(p, _)| p.y).min().unwrap_or(0);
         let max_y = edges.iter().map(|&(p, _)| p.y).max().unwrap_or(0);
-        // 计算每一条边的x增量信息
+        // Calculate x increment information for each edge
         let mut edge_info: Vec<(f64, f64, f64, f64)> = Vec::new();
         for &(p1, p2) in &edges {
             if p1.y != p2.y {
@@ -418,20 +417,20 @@ impl<'a> Renderer<'a> {
                 edge_info.push((y_start, y_end, x_start, dx));
             }
         }
-        // 扫描线填充
+        // Scanline fill
         for y in min_y..=max_y {
             let mut intersections = Vec::new();
 
-            // 计算当前扫描线y与所有边的交点
+            // Calculate intersections of current scanline y with all edges
             for &(y_start, y_end, x_start, dx) in &edge_info {
                 if (y as f64) >= y_start && (y as f64) <= y_end {
                     let x = x_start + (y as f64 - y_start) * dx;
                     intersections.push(x);
                 }
             }
-            // 交点排序
+            // Sort intersections
             intersections.sort_by(|a, b| a.partial_cmp(b).expect("Float comparison failed"));
-            // 填充扫描线交点之间的区域
+            // Fill areas between scanline intersections
             for i in (0..intersections.len()).step_by(2) {
                 if i + 1 >= intersections.len() {
                     break;
@@ -450,15 +449,15 @@ impl<'a> Renderer<'a> {
             }
         }
     }
-    /// 填充任意多边形（使用奇偶规则）
+    /// Fill arbitrary polygon (using even-odd rule)
     pub fn fill_polygon(&mut self, points: &[Pixel], color: color::Color) {
         if points.len() < 3 {
             return;
         }
-        // 找到多边形的y范围
+        // Find the y range of the polygon
         let min_y = points.iter().map(|p| p.y).min().unwrap_or(0);
         let max_y = points.iter().map(|p| p.y).max().unwrap_or(0);
-        // 收集所有边的信息
+        // Collect all edge information
         let mut edge_table = Vec::new();
         for i in 0..points.len() {
             let p1 = points[i];
@@ -470,11 +469,11 @@ impl<'a> Renderer<'a> {
                 edge_table.push((start.y as f64, end.y as f64, start.x as f64, dx));
             }
         }
-        // 扫描线填充
+        // Scanline fill
         for y in min_y..=max_y {
             let mut intersections = Vec::new();
 
-            // 检查每条边是否与当前扫描线相交
+            // Check if each edge intersects with current scanline
             for &(y_min, y_max, mut x, dx) in &edge_table {
                 if (y as f64) >= y_min && (y as f64) < y_max {
                     if y as f64 > y_min {
@@ -483,15 +482,15 @@ impl<'a> Renderer<'a> {
                     intersections.push(x);
                 }
             }
-            // 交点排序
+            // Sort intersections
             intersections.sort_by(|a, b| a.partial_cmp(b).expect("Float comparison failed"));
-            // 填充扫描线交点之间的区域（奇偶规则）
+            // Fill areas between scanline intersections (even-odd rule)
             let mut inside = false;
             for i in 0..intersections.len() {
                 if inside && i < intersections.len() {
                     let start_x = intersections[i].max(0.0).min(self.width() as f64 - 1.0) as u64;
 
-                    // 确保不会越界访问
+                    // Ensure no out-of-bounds access
                     if i + 1 < intersections.len() {
                         let end_x =
                             intersections[i + 1].max(0.0).min(self.width() as f64 - 1.0) as u64;
@@ -502,7 +501,7 @@ impl<'a> Renderer<'a> {
                             }
                         }
                     } else {
-                        // 处理最后一个点
+                        // Handle the last point
                         let end_x = self.width().min(self.width() - 1);
                         if start_x <= end_x {
                             for x in start_x..=end_x {
@@ -516,7 +515,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    /// 绘制BMP图像
+    /// Draw BMP image
     pub fn draw_bmp(&mut self, pos: Pixel, bmp: &BmpImage) {
         let (x_start, y_start) = (pos.x, pos.y);
 
@@ -528,14 +527,14 @@ impl<'a> Renderer<'a> {
             }
         }
     }
-    /// 绘制BMP图像 (带缩放)
+    /// Draw BMP image (with scaling)
     pub fn draw_bmp_scaled(&mut self, pos: Pixel, bmp: &BmpImage, scale_x: f32, scale_y: f32) {
         let scaled_width = (bmp.width() as f32 * scale_x) as u64;
         let scaled_height = (bmp.height() as f32 * scale_y) as u64;
 
         for y in 0..scaled_height {
             for x in 0..scaled_width {
-                // 计算原始图像中的对应位置
+                // Calculate corresponding position in original image
                 let src_x = (x as f32 / scale_x) as u32;
                 let src_y = (y as f32 / scale_y) as u32;
 
@@ -545,18 +544,18 @@ impl<'a> Renderer<'a> {
             }
         }
     }
-    /// 绘制BMP图像 (扭曲变形)
+    /// Draw BMP image (distorted transformation)
     pub fn draw_bmp_distorted(&mut self, corners: [Pixel; 4], bmp: &BmpImage) {
-        // 计算包围盒
+        // Calculate bounding box
         let min_x = corners.iter().map(|p| p.x).min().unwrap_or(0);
         let max_x = corners.iter().map(|p| p.x).max().unwrap_or(0);
         let min_y = corners.iter().map(|p| p.y).min().unwrap_or(0);
         let max_y = corners.iter().map(|p| p.y).max().unwrap_or(0);
 
-        // 计算变换矩阵 (简化的双线性插值)
+        // Calculate transformation matrix (simplified bilinear interpolation)
         for y in min_y..=max_y {
             for x in min_x..=max_x {
-                // 计算相对位置 (简化版，实际应该使用更精确的纹理映射)
+                // Calculate relative position (simplified version, should use more accurate texture mapping)
                 let u = (x - min_x) as f32 / (max_x - min_x) as f32;
                 let v = (y - min_y) as f32 / (max_y - min_y) as f32;
 
@@ -569,14 +568,14 @@ impl<'a> Renderer<'a> {
             }
         }
     }
-    /// 从字节加载并绘制BMP图像
+    /// Load and draw BMP image from bytes
     pub fn draw_bmp_from_bytes(&mut self, pos: Pixel, data: &[u8]) -> Result<(), BmpError> {
         let bmp = BmpImage::from_bytes(data)?;
         self.draw_bmp(pos, &bmp);
         Ok(())
     }
 
-    /// 绘制圆形
+    /// Draw circle
     pub fn draw_circle(&mut self, center: Pixel, radius: u64, color: color::Color) {
         if radius == 0 {
             return;
@@ -588,7 +587,7 @@ impl<'a> Renderer<'a> {
         let mut d = 3 - 2 * radius as i64;
 
         while x <= y {
-            // 绘制8个对称点
+            // Draw 8 symmetric points
             self.set_pixel_raw((cx as i64 + x) as u64, (cy as i64 + y) as u64, &color);
             self.set_pixel_raw((cx as i64 + x) as u64, (cy as i64 - y) as u64, &color);
             self.set_pixel_raw((cx as i64 - x) as u64, (cy as i64 + y) as u64, &color);
@@ -676,7 +675,7 @@ impl<'a> Renderer<'a> {
         self.dirty_max_y = height;
     }
 
-    /// 将后台缓冲区的内容复制到前台帧缓冲区，从而显示绘制结果。
+    /// Copy the back buffer content to the front framebuffer, thereby displaying the drawing result.
     pub fn present(&mut self) {
         let fb_width = self.framebuffer.width();
         let fb_height = self.framebuffer.height();
@@ -691,8 +690,8 @@ impl<'a> Renderer<'a> {
         }
 
         let width = (max_x - min_x) as usize;
-        let pitch = self.framebuffer.pitch() as usize; // Framebuffer每行的字节数
-        let pixel_size = self.pixel_size; // 后台缓冲区每个像素的字节数
+        let pitch = self.framebuffer.pitch() as usize; // Number of bytes per row in framebuffer
+        let pixel_size = self.pixel_size; // Number of bytes per pixel in back buffer
 
         unsafe {
             let front_buffer_addr = self.framebuffer.addr();

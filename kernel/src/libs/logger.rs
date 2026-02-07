@@ -35,7 +35,7 @@ macro_rules! success {
     };
 }
 
-/// 初始化日志系统
+/// Init logger system
 pub fn init_logger() {
     static LOGGER: KernelLogger = KernelLogger;
     log::set_logger(&LOGGER).expect("Failed to set logger");

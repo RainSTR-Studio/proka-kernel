@@ -40,11 +40,11 @@ pub enum DeviceError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScanInfo {
-    pub device_id: String,                                 // 设备唯一标识
-    pub protocol_type: String,                             // 通信协议类型（如USB/PCI/I2C）
-    pub vendor_id: Option<u16>,                            // 供应商ID
-    pub product_id: Option<u16>,                           // 产品ID
-    pub additional_data: Option<BTreeMap<String, String>>, // 附加数据
+    pub device_id: String,                                 // Device ID
+    pub protocol_type: String,                             // Communication protocol type (e.g. USB/PCI/I2C)
+    pub vendor_id: Option<u16>,                            // Vendor ID
+    pub product_id: Option<u16>,                           // Product ID
+    pub additional_data: Option<BTreeMap<String, String>>, // Additional data
 }
 
 pub trait SharedDeviceOps: Send + Sync {
@@ -81,7 +81,6 @@ pub trait BlockDevice: SharedDeviceOps {
         buf: &[u8],
     ) -> Result<usize, DeviceError>;
 
-    // 新增擦除块操作
     fn erase_blocks(&self, start_block: usize, num_blocks: usize) -> Result<usize, DeviceError> {
         let _ = (start_block, num_blocks);
         Err(DeviceError::NotSupported)

@@ -18,17 +18,17 @@ pub struct BmpImage {
 
 impl BmpImage {
     pub fn from_bytes(data: &[u8]) -> Result<Self, BmpError> {
-        // 检查BMP文件头
+        // Check BMP file header
         if data.len() < 54 || data[0] != b'B' || data[1] != b'M' {
             return Err(BmpError::InvalidSignature);
         }
 
-        // 解析BMP文件头
+        // Parse BMP file header
         let width = u32::from_le_bytes([data[18], data[19], data[20], data[21]]);
         let height = u32::from_le_bytes([data[22], data[23], data[24], data[25]]);
         let bpp = u16::from_le_bytes([data[28], data[29]]);
 
-        // 目前只支持24位和32位BMP
+        // Only support 24-bit and 32-bit BMP
         if bpp != 24 && bpp != 32 {
             return Err(BmpError::UnsupportedFormat);
         }
@@ -39,7 +39,7 @@ impl BmpImage {
         let bytes_per_pixel = (bpp / 8) as usize;
         let row_padding = (4 - (width * bytes_per_pixel as u32) % 4) % 4;
 
-        // 解析像素数据 (BMP是倒序存储的)
+        // Parse pixel data (BMP is stored bottom-up)
         for y in 0..height {
             let row_start = data_offset
                 + ((height - y - 1) * (width * bytes_per_pixel as u32 + row_padding)) as usize;

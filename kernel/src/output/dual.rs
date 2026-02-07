@@ -2,19 +2,19 @@
 use crate::output::console::_print as console_print;
 use crate::output::serial::_print as serial_print;
 
-/// 双重打印宏：同时输出到控制台和串口
+/// Double println macro
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {
         {
             $crate::output::dual::_dual_print_serial(format_args!($($arg)*));
-            // 总是输出到控制台
+            // Always print to console
             $crate::output::dual::_dual_print_console(format_args!($($arg)*))
         }
     };
 }
 
-/// 双重打印宏（带换行）
+/// Double println macro, but can switch line.
 #[macro_export]
 macro_rules! println {
     () => {
@@ -25,7 +25,7 @@ macro_rules! println {
     };
 }
 
-// 内部函数：处理控制台打印
+// Inner function: print to console
 #[doc(hidden)]
 #[allow(unused_variables)]
 pub fn _dual_print_console(args: core::fmt::Arguments) {
@@ -33,7 +33,7 @@ pub fn _dual_print_console(args: core::fmt::Arguments) {
     console_print(args);
 }
 
-// 内部函数：处理串口打印
+// Inner function: print to serial port
 #[doc(hidden)]
 pub fn _dual_print_serial(args: core::fmt::Arguments) {
     serial_print(args);

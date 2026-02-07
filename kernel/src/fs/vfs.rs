@@ -18,31 +18,31 @@ lazy_static! {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum VfsError {
-    /// 文件或目录不存在
+    /// Directory/File not exist
     NotFound,
-    /// 文件或目录已存在
+    /// File/Directory already exists
     AlreadyExists,
-    /// 路径不是目录
+    /// Path is not directory
     NotADirectory,
-    /// 路径不是文件
+    /// Path is not file
     NotAFile,
-    /// 权限不足
+    /// Permission denied
     PermissionDenied,
-    /// 设备错误
+    /// Device error
     DeviceError(DeviceError),
-    /// 无效的参数
+    /// Invalid argument
     InvalidArgument,
-    /// IO 错误
+    /// IO error
     IoError,
-    /// 符号链接深度过深
+    /// Symlink too deep
     MaxSymlinkDepth,
-    /// 文件系统类型不支持
+    /// File system type not supported
     FsTypeNotSupported,
-    /// 路径为空
+    /// Path is empty
     EmptyPath,
-    /// 功能未实现
+    /// Function not implemented
     NotImplemented,
-    /// 目录非空
+    /// Directory is not empty
     DirectoryNotEmpty,
 }
 
@@ -54,34 +54,34 @@ impl From<DeviceError> for VfsError {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VNodeType {
-    /// 文件
+    /// File
     File,
-    /// 目录
+    /// Directory
     Dir,
-    /// 符号链接
+    /// Symbol link
     SymLink,
-    /// 设备
+    /// Device
     Device,
 }
 
-/// 文件或目录的元数据
+/// File/Directory's metadata
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct Metadata {
-    /// 文件大小
+    /// File size
     pub size: u64,
-    /// UNIX权限位，如0o755
+    /// UNIX permission, such as 0o755
     pub permissions: u32,
-    /// 用户ID
+    /// User ID
     pub uid: u32,
-    /// 组ID
+    /// Group ID
     pub gid: u32,
-    /// 创建时间 (秒)
+    /// Create time (s)
     pub ctime: u64,
-    /// 最后修改时间 (秒)
+    /// Last edited time ()
     pub mtime: u64,
-    /// 占用的块数
+    /// Used blocks
     pub blocks: u64,
-    /// 硬链接数量
+    /// Hard link numbers
     pub nlinks: u64,
 }
 

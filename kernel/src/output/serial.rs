@@ -18,13 +18,13 @@ pub fn serial_fallback(args: ::core::fmt::Arguments) {
 pub fn _print(args: ::core::fmt::Arguments) {
     use core::fmt::Write;
 
-    // 获取设备管理器锁
+    // Get device manager's lock
     let device_manager = DEVICE_MANAGER.read();
 
-    // 尝试获取设备号为 (1, 0) 的字符设备
+    // Try to get the device numbered (1,0)
     match device_manager.get_device_by_major_minor(1, 0) {
         Some(device) => {
-            // 尝试将设备转换为字符设备
+            // Try to convert the device to a character device
             if let Some(char_device_arc) = device.as_char_device() {
                 let mut buffer = alloc::string::String::new();
                 buffer.write_fmt(args).expect("Failed to format string");
@@ -37,7 +37,7 @@ pub fn _print(args: ::core::fmt::Arguments) {
             }
         }
         None => {
-            // 设备 (1,0) 未找到
+            // Device (1, 0) not found
             serial_fallback(args);
         }
     }

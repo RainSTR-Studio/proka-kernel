@@ -24,8 +24,8 @@ impl SerialDevice {
         }
     }
 
-    /// 创建一个串口字符设备实例，并封装为通用的 `Device` 结构。
-    /// 用户需要手动指定 major/minor 号。
+    /// Create a serial char device object and uses [`Device`] sturct.
+    /// The user must specify major/minor number manually.
     pub fn create_device(major: u16, minor: u16, port_address: u16) -> Device {
         let serial = Arc::new(SerialDevice::new(port_address));
         Device::new(
@@ -36,7 +36,7 @@ impl SerialDevice {
         )
     }
 
-    /// 创建一个串口字符设备实例，并让 `DeviceManager` 自动分配 major/minor 号。
+    /// Create a serial char device object and let [`DeviceManager`] auto assign major/minor number.
     pub fn create_device_auto_assign(port_address: u16) -> Device {
         let serial = Arc::new(SerialDevice::new(port_address));
         Device::new_auto_assign(serial.name().to_string(), DeviceInner::Char(serial))

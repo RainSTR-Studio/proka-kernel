@@ -2,6 +2,7 @@
 //! Copyright (C) RainSTR Studio 2025, All rights reserved.
 //!
 //! This provides the test trait and runner.
+//! Code example from: Writing an OS in Rust (blog)
 
 use crate::{serial_print, serial_println};
 use core::arch::asm;
@@ -36,7 +37,7 @@ pub unsafe extern "C" fn set_jmp() -> u64 {
     let res: u64;
 
     asm!(
-        // 保存寄存器状态
+        // Save the current context into the jump buffer.
         "mov [rcx + 0], rbx",
         "mov [rcx + 8], rsp",
         "mov [rcx + 16], rbp",
@@ -44,15 +45,15 @@ pub unsafe extern "C" fn set_jmp() -> u64 {
         "mov [rcx + 32], r13",
         "mov [rcx + 40], r14",
         "mov [rcx + 48], r15",
-        // 保存返回地址
+        // Save the return address into the jump buffer.
         "lea rdx, [rip + 2f]",
         "mov [rcx + 56], rdx",
-        // 首次调用返回 0
+        // First call returns 0
         "mov rax, 0",
         "jmp 3f",
-        // longjmp 返回点
+        // longjmp return point
         "2:",
-        // longjmp 后返回 1
+        // longjmp returns 1
         "mov rax, 1",
         "3:",
         in("rcx") &mut jmp_buf,
@@ -71,15 +72,15 @@ pub unsafe extern "C" fn set_jmp() -> u64 {
 pub fn long_jmp() -> ! {
     let jmp_buf = TEST_JMP_BUF.lock().expect("No jump buffer set!");
 
-    // 在恢复寄存器前增加错误计数
-    // 这样错误计数不会因为寄存器恢复而被覆盖
+    // Add error count before recover register
+    // So that the counter won't be overwrite
     let mut fail_count = FAIL_COUNT.lock();
     *fail_count += 1;
-    drop(fail_count); // 释放锁，防止死锁
+    drop(fail_count); // Free lock
 
     unsafe {
         asm!(
-            // 恢复寄存器状态
+            // Recovor register status
             "mov rbx, [rcx + 0]",
             "mov rsp, [rcx + 8]",
             "mov rbp, [rcx + 16]",
@@ -87,7 +88,7 @@ pub fn long_jmp() -> ! {
             "mov r13, [rcx + 32]",
             "mov r14, [rcx + 40]",
             "mov r15, [rcx + 48]",
-            // 跳转回保存的地址
+            // Jump back to the saved address
             "jmp [rcx + 56]",
             in("rcx") &jmp_buf,
             options(noreturn)
@@ -109,15 +110,15 @@ where
     fn run(&self) {
         serial_print!("Testing {}... ", core::any::type_name::<T>());
 
-        // 使用 setjmp/longjmp 进行测试
+        // Use setjmp/longjmp to test the function
         unsafe {
             if set_jmp() == 0 {
-                // 第一次执行测试
+                // First call run the test function
                 self();
                 serial_println!("[OK]");
             } else {
-                // longjmp 返回，测试失败
-                // [FAILED] 已在 panic 处理程序中打印
+                // longjmp returns, test failed
+                serial_println!("[FAILED]");
             }
         }
     }

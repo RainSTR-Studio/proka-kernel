@@ -15,19 +15,19 @@ pub type ReadCallback = Box<dyn Fn(u64, &mut [u8]) -> Result<usize, VfsError> + 
 pub type WriteCallback = Box<dyn Fn(u64, &[u8]) -> Result<usize, VfsError> + Send + Sync>;
 
 pub enum KernNodeContent {
-    /// 目录
+    /// Directory node
     Dir(RwLock<BTreeMap<String, Arc<KernInode>>>),
-    /// 读写函数
+    /// Read-write function node
     File {
         read: Option<ReadCallback>,
         write: Option<WriteCallback>,
         size: u64,
     },
-    /// 设备映射
+    /// Device mapping
     Device { device: Arc<Device> },
 }
 
-/// 内核文件系统节点
+/// Kernel file system node
 pub struct KernInode {
     node_type: VNodeType,
     content: KernNodeContent,
@@ -42,7 +42,7 @@ impl core::fmt::Debug for KernInode {
 }
 
 impl KernInode {
-    /// 创建目录节点
+    /// Create dir node
     pub fn new_dir() -> Arc<Self> {
         Arc::new(Self {
             node_type: VNodeType::Dir,
@@ -50,7 +50,7 @@ impl KernInode {
         })
     }
 
-    /// 创建文件节点
+    /// Create file node
     pub fn new_file(read: Option<ReadCallback>, write: Option<WriteCallback>) -> Arc<Self> {
         Arc::new(Self {
             node_type: VNodeType::File,
@@ -61,7 +61,7 @@ impl KernInode {
             },
         })
     }
-    /// 创建设备节点
+    /// Create device node
     pub fn new_device(device: Arc<Device>) -> Arc<Self> {
         Arc::new(Self {
             node_type: VNodeType::Device,
@@ -69,7 +69,7 @@ impl KernInode {
         })
     }
 
-    /// 添加子节点（仅目录节点可用）
+    /// Add child node to directory
     pub fn add_child(&self, name: &str, child: Arc<KernInode>) -> Result<(), VfsError> {
         match &self.content {
             KernNodeContent::Dir(entries) => {
