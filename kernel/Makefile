@@ -6,7 +6,7 @@ MAKEFLAGS += -rR
 .SUFFIXES:
 
 # Output binary name
-OUTPUT     := kernel
+OUTPUT     := ../$(OUT_DIR)/kernel
 # Cargo package name
 PKG_NAME   := proka-kernel
 # Rust target triple
@@ -32,7 +32,7 @@ endif
 RUSTFLAGS  ?= -C relocation-model=static
 
 # Binary path relative to kernel directory
-BIN_PATH := target/$(RUST_TARGET)/$(PROFILE_DIR)/$(PKG_NAME)
+BIN_PATH := ../target/$(RUST_TARGET)/$(PROFILE_DIR)/$(PKG_NAME)
 
 .PHONY: all clean distclean menuconfig fmt clippy test
 
@@ -62,6 +62,5 @@ fmt:
 
 clean:
 	$(Q)cargo clean
-	$(Q)rm -f $(OUTPUT)
 
 distclean: clean

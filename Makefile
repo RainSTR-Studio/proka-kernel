@@ -28,11 +28,12 @@ define log_error
 endef
 
 # Core variables
+OUTPUT		 ?= output
 BUILD_DIRS   ?= kernel
 TARGET_DIR   ?= $(CURDIR)/target
 OBJ_DIR      ?= $(TARGET_DIR)/obj
 ISO_DIR      ?= $(TARGET_DIR)/iso
-ISO_IMAGE    ?= proka-kernel.iso
+ISO_IMAGE    ?= $(OUTPUT)/proka-kernel.iso
 INITRD       ?= assets/initrd.cpio
 
 # Build tools & flags
@@ -43,8 +44,6 @@ QEMU         ?= qemu-system-x86_64
 # Accelerator selection
 ifeq ($(UNAME_S),Linux)
     QEMU_ACCEL ?= -enable-kvm
-else ifeq ($(UNAME_S),Darwin)
-    QEMU_ACCEL ?= -accel hvf
 endif
 
 QEMU_FLAGS   ?= -bios ./assets/OVMF.fd -cdrom $(ISO_IMAGE) --machine q35 -m 1G $(QEMU_ACCEL)
@@ -56,7 +55,7 @@ PROFILE      ?= dev
 export PROFILE
 
 .PHONY: all help debug clean distclean run rundebug menuconfig iso $(BUILD_DIRS) \
-        docs-build docs-serve docs-clean test clippy fmt check-tools
+        docs-build docs-serve docs-clean test clippy fmt check-tools mkdir
 
 help:
 	@echo "$(COLOR_INFO)Proka Kernel Build System$(COLOR_RESET)"
@@ -114,15 +113,12 @@ docs-clean:
 	$(Q)cd kernel && cargo clean --doc
 
 # Standard build targets
-all: $(BUILD_DIRS)
-
-debug:
-	$(Q)$(MAKE) PROFILE=dev all
+all: mkdir $(BUILD_DIRS)
 
 $(BUILD_DIRS):
 	$(call log_info,Entering directory: $@)
 	$(Q)mkdir -p $(OBJ_DIR)
-	$(Q)$(MAKE) -C $@ OBJ_DIR=$(OBJ_DIR) V=$(V)
+	$(Q)$(MAKE) -C $@ OBJ_DIR=$(OBJ_DIR) V=$(V) OUT_DIR=$(OUTPUT)
 
 # ISO image creation
 ROOTFS_SRC := $(shell find assets/rootfs -type f 2>/dev/null)
@@ -131,7 +127,7 @@ iso: all $(INITRD) $(ROOTFS_SRC)
 	$(Q)mkdir -p $(ISO_DIR)
 	$(Q)cp -r ./assets/rootfs/* $(ISO_DIR)/
 	$(Q)cp $(INITRD) $(ISO_DIR)/initrd.cpio
-	$(Q)cp ./kernel/kernel $(ISO_DIR)/kernel
+	$(Q)cp ./$(OUTPUT)/kernel $(ISO_DIR)/kernel
 	$(Q)$(XORRISO) $(XORRISOFLAGS) $(ISO_DIR) -o $(ISO_IMAGE)
 	$(Q)rm -rf $(ISO_DIR)
 	$(call log_success,ISO build complete.)
@@ -165,15 +161,18 @@ fmt:
 	$(Q)$(MAKE) -C kernel fmt
 
 # Cleanup
-clean: docs-clean
+clean:
 	@for dir in $(BUILD_DIRS); do \
 		$(MAKE) -C $$dir clean V=$(V); \
 	done
-	$(Q)rm -f $(ISO_IMAGE) $(INITRD)
-	$(Q)rm -rf $(OBJ_DIR)
+	$(Q)rm -rf $(OUTPUT)
 	$(call log_success,Cleaned.)
 
 distclean: clean
 	$(Q)rm -rf $(TARGET_DIR)
 	$(call log_success,Full cleanup complete.)
 
+# Auxilary target
+mkdir:
+	$(call log_info,Building guide (mdBook)...)
+	$(Q)mkdir -p $(OUTPUT)

@@ -4,6 +4,9 @@ proka-kernel.iso
 # Ignore the build directory
 target/*
 
+# Ignore the output directory
+output/*
+
 # Ignore the ISO temporary directory
 iso/*
 
