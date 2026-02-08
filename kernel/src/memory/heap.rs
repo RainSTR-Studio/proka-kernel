@@ -92,7 +92,7 @@ pub fn init_heap(
 ) -> Result<(), MapToError<Size4KiB>> {
     let heap_start = VirtAddr::new(HEAP_START as u64);
     // Map initial 64KB for boot-strapping VMM
-    let initial_size = 64 * 1024;
+    let initial_size = crate::config::KERNEL_INIT_HEAP_SIZE;
     let heap_end = heap_start + initial_size;
 
     let page_range = {
