@@ -98,6 +98,9 @@ pub enum ConsoleType {
 
 pub fn select_console(t: ConsoleType) {
     let mut console = CONSOLE.lock();
+    // Must do clear before switching console, in order to
+    // avoid 2 console displaying problem.
+    console.clear();
     *console = match t {
         #[cfg(ENABLE_BITFONT_CONSOLE)]
         ConsoleType::Bitfont => alloc::boxed::Box::new(BitfontConsole::init()),
