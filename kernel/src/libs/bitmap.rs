@@ -131,3 +131,19 @@ impl<const N: usize> PreAllocBitMap<N> {
         N * 64
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test_case]
+    fn test_bitmap() {
+        let mut bitmap = BitMap::<1>::new();
+        assert_eq!(bitmap.alloc(), Some(0));
+        assert_eq!(bitmap.alloc(), Some(1));
+        assert!(bitmap.test(0));
+        assert!(bitmap.test(1));
+        bitmap.clear(0);
+        assert!(!bitmap.test(0));
+    }
+}
