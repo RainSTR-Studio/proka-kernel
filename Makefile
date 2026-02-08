@@ -22,7 +22,7 @@ INITRD       ?= assets/initrd.cpio
 XORRISO      ?= xorriso
 XORRISOFLAGS ?= -as mkisofs --efi-boot limine/limine-uefi-cd.bin -quiet
 QEMU         ?= qemu-system-x86_64
-QEMU_FLAGS   ?= -bios ./assets/OVMF.fd -cdrom $(ISO_IMAGE) --machine q35 -m 1G -enable-kvm
+QEMU_FLAGS   ?= -bios ./assets/OVMF.fd -cdrom $(ISO_IMAGE) --machine q35 -m 1G
 QEMU_OUT     ?= -serial stdio
 QEMU_EXTRA   ?=
 
