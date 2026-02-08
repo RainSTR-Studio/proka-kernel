@@ -14,48 +14,48 @@ pub use console_bitfont::BitfontConsole;
 #[cfg(ENABLE_TTF_CONSOLE)]
 pub use console_ttf::TtfConsole;
 
-/// 统一的 Console trait，定义所有 console 实现的通用接口
+/// General [`Console`] trait, which defined generic APIs.
 pub trait Console: Write {
-    /// 清除屏幕
+    /// Clean screen
     fn clear(&mut self);
 
-    /// 设置前景色
+    /// Set up foreground color
     fn set_fg_color(&mut self, color: Color);
 
-    /// 设置背景色
+    /// Set up background color
     fn set_bg_color(&mut self, color: Color);
 
-    /// 获取当前前景色
+    /// Get current foreground color
     fn get_fg_color(&self) -> Color;
 
-    /// 获取当前背景色
+    /// Get current background color
     fn get_bg_color(&self) -> Color;
 
-    /// 打印单个字符
+    /// Print single char
     fn put_char(&mut self, ch: char);
 
-    /// 光标上移
+    /// Move cursor up
     fn cursor_up(&mut self, lines: u32);
 
-    /// 光标下移
+    /// Move cursor down
     fn cursor_down(&mut self, lines: u32);
 
-    /// 光标左移
+    /// Move cursor left
     fn cursor_left(&mut self, cols: u32);
 
-    /// 光标右移
+    /// Move cursor right
     fn cursor_right(&mut self, cols: u32);
 
-    /// 设置光标位置
+    /// Set up cursor position
     fn set_cursor_pos(&mut self, x: u32, y: u32);
 
-    /// 获取光标位置
+    /// Get current cursor posision
     fn get_cursor_pos(&self) -> (u32, u32);
 
-    /// 隐藏光标
+    /// Hide cursor
     fn cursor_hide(&mut self);
 
-    /// 显示光标
+    /// Show cursor
     fn cursor_show(&mut self);
 }
 

@@ -310,11 +310,10 @@ impl crate::output::console::Console for BitfontConsole {
     }
 
     fn put_char(&mut self, ch: char) {
-        // 将 char 转换为 u8，如果是 ASCII 范围内的字符
         if ch.is_ascii() {
             self.print_char(ch as u8);
         } else {
-            // 对于非 ASCII 字符，打印替换字符 '?'
+            // For non-ASCII characters, use "?" to replace.
             self.print_char(b'?');
         }
     }
