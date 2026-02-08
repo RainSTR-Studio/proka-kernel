@@ -2,12 +2,82 @@
 //!
 //! A simple bitset implementation for tracking allocation status of resources.
 
+use core::mem::MaybeUninit;
+
 /// A simple bitmap for tracking free/allocated slots.
 pub struct BitMap<const N: usize> {
-    bits: [u64; N],
+    bits: MaybeUninit<[u64; N]>,
 }
 
 impl<const N: usize> BitMap<N> {
+    /// Create a new bitmap with all bits set to 0 (all slots free).
+    pub const fn new() -> Self {
+        let bits = MaybeUninit::new([0; N]);
+        Self { bits }
+    }
+
+    /// Mark a bit as allocated (1).
+    pub fn set(&mut self, index: usize) {
+        let word = index / 64;
+        let bit = index % 64;
+        if word < N {
+            unsafe {
+                self.bits.assume_init_mut()[word] |= 1 << bit;
+            }
+        }
+    }
+
+    /// Mark a bit as free (0).
+    pub fn clear(&mut self, index: usize) {
+        let word = index / 64;
+        let bit = index % 64;
+        if word < N {
+            unsafe {
+                self.bits.assume_init_mut()[word] &= !(1 << bit);
+            }
+        }
+    }
+
+    /// Check if a bit is set (allocated).
+    pub fn test(&self, index: usize) -> bool {
+        let word = index / 64;
+        let bit = index % 64;
+        if word < N {
+            unsafe { (self.bits.assume_init_ref()[word] & (1 << bit)) != 0 }
+        } else {
+            true // Out of bounds is considered allocated
+        }
+    }
+
+    /// Find the first free slot (0 bit) and mark it as allocated (1).
+    pub fn alloc(&mut self) -> Option<usize> {
+        for i in 0..N {
+            unsafe {
+                // Safety: We know that the bitmap is initialized
+                let bits_ref = self.bits.assume_init_mut();
+                if bits_ref[i] != u64::MAX {
+                    // Find first trailing one bit in the inverted word
+                    // which is the first zero bit in the original word.
+                    let bit = (!bits_ref[i]).trailing_zeros() as usize;
+                    bits_ref[i] |= 1 << bit;
+                    return Some(i * 64 + bit);
+                }
+            }
+        }
+        None
+    }
+
+    /// Get total capacity of the bitmap.
+    pub const fn capacity(&self) -> usize {
+        N * 64
+    }
+}
+
+pub struct PreAllocBitMap<const N: usize> {
+    bits: [u64; N],
+}
+
+impl<const N: usize> PreAllocBitMap<N> {
     /// Create a new bitmap with all bits set to 0 (all slots free).
     pub const fn new() -> Self {
         Self { bits: [0; N] }
