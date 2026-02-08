@@ -99,7 +99,7 @@ doc:
 	$(call log_info,Building API documentation (rustdoc)...)
 	$(Q)cd kernel && cargo doc --no-deps
 	$(Q)rm -rf book/api
-	$(Q)cp -r kernel/target/x86_64-unknown-none/doc book/api
+	$(Q)cp -r target/x86_64-unknown-none/doc book/api
 	$(call log_success,Documentation built in book/)
 
 docs-serve:
