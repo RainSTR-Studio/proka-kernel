@@ -155,7 +155,7 @@ impl<'a> TtfConsole<'a> {
             font_baseline: 0.0,
             cursor_needs_redraw: true,
             glyph_cache: GlyphCache::new(GLYPH_CACHE_SIZE),
-            hidden_cursor: false,
+            hidden_cursor: true,
             ansi_parse_state: AnsiParseState::Normal,
             ansi_params: [0; MAX_ANSI_PARAMS],
             ansi_param_count: 0,
@@ -377,7 +377,8 @@ impl<'a> TtfConsole<'a> {
         }
     }
 
-    pub fn put_char(&mut self, ch: char) {
+    /// 将字符写入当前光标位置（不移动光标）
+    fn put_char_impl(&mut self, ch: char) {
         self.ensure_buffer_capacity();
 
         let current_buf_y = (self.cursor_y + self.scroll_offset_y as u32) as usize;
@@ -615,7 +616,7 @@ impl<'a> TtfConsole<'a> {
                     spaces_to_add = TAB_SPACES as u32;
                 }
                 for _ in 0..spaces_to_add {
-                    self.put_char(' ');
+                    self.put_char_impl(' ');
                     self.cursor_x += 1;
                     if self.cursor_x >= self.width_chars {
                         self.cursor_x = 0;
@@ -626,7 +627,7 @@ impl<'a> TtfConsole<'a> {
                 }
             }
             _ => {
-                self.put_char(c);
+                self.put_char_impl(c);
                 self.cursor_x += 1;
                 if self.cursor_x >= self.width_chars {
                     self.cursor_x = 0;
@@ -778,5 +779,126 @@ impl Write for TtfConsole<'_> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.write_string(s);
         Ok(())
+    }
+}
+
+// Implement the unified [`Console`] trait
+impl<'a> crate::output::console::Console for TtfConsole<'a> {
+    fn clear(&mut self) {
+        self.buffer.fill(None);
+        self.cursor_x = 0;
+        self.cursor_y = 0;
+        self.scroll_offset_y = 0;
+        self.cursor_needs_redraw = true;
+        self.redraw();
+    }
+
+    fn set_fg_color(&mut self, color: Color) {
+        if self.current_color != color {
+            self.current_color = color;
+            self.cursor_needs_redraw = true;
+        }
+    }
+
+    fn set_bg_color(&mut self, color: Color) {
+        if self.current_bg_color != color {
+            self.current_bg_color = color;
+            self.renderer.set_clear_color(color);
+            self.cursor_needs_redraw = true;
+            self.redraw();
+        }
+    }
+
+    fn get_fg_color(&self) -> Color {
+        self.current_color
+    }
+
+    fn get_bg_color(&self) -> Color {
+        self.current_bg_color
+    }
+
+    fn put_char(&mut self, ch: char) {
+        // 使用现有的 handle_normal_char 方法处理字符
+        // 但对于普通字符，直接调用 put_char 并更新位置
+        match ch {
+            '\n' => {
+                self.cursor_x = 0;
+                self.cursor_y += 1;
+                self.ensure_buffer_capacity();
+            }
+            '\r' => {
+                self.cursor_x = 0;
+            }
+            '\t' => {
+                let mut spaces_to_add = TAB_SPACES as u32 - (self.cursor_x % TAB_SPACES as u32);
+                if spaces_to_add == 0 {
+                    spaces_to_add = TAB_SPACES as u32;
+                }
+                for _ in 0..spaces_to_add {
+                    self.put_char_impl(' ');
+                    self.cursor_x += 1;
+                    if self.cursor_x >= self.width_chars {
+                        self.cursor_x = 0;
+                        self.cursor_y += 1;
+                        self.ensure_buffer_capacity();
+                        break;
+                    }
+                }
+            }
+            _ => {
+                self.put_char_impl(ch);
+                self.cursor_x += 1;
+                if self.cursor_x >= self.width_chars {
+                    self.cursor_x = 0;
+                    self.cursor_y += 1;
+                    self.ensure_buffer_capacity();
+                }
+            }
+        }
+        self.cursor_needs_redraw = true;
+        self.draw_cursor();
+        self.renderer.present();
+    }
+
+    fn cursor_up(&mut self, lines: u32) {
+        self.cursor_y = self.cursor_y.saturating_sub(lines);
+        self.cursor_needs_redraw = true;
+    }
+
+    fn cursor_down(&mut self, lines: u32) {
+        self.cursor_y = (self.cursor_y + lines).min(self.height_chars - 1);
+        self.ensure_buffer_capacity();
+        self.cursor_needs_redraw = true;
+    }
+
+    fn cursor_left(&mut self, cols: u32) {
+        self.cursor_x = self.cursor_x.saturating_sub(cols);
+        self.cursor_needs_redraw = true;
+    }
+
+    fn cursor_right(&mut self, cols: u32) {
+        self.cursor_x = (self.cursor_x + cols).min(self.width_chars - 1);
+        self.cursor_needs_redraw = true;
+    }
+
+    fn set_cursor_pos(&mut self, x: u32, y: u32) {
+        self.cursor_x = x.min(self.width_chars - 1);
+        self.cursor_y = y;
+        self.ensure_buffer_capacity();
+        self.cursor_needs_redraw = true;
+    }
+
+    fn get_cursor_pos(&self) -> (u32, u32) {
+        (self.cursor_x, self.cursor_y)
+    }
+
+    fn cursor_hide(&mut self) {
+        self.hidden_cursor = true;
+        self.cursor_needs_redraw = true;
+    }
+
+    fn cursor_show(&mut self) {
+        self.hidden_cursor = false;
+        self.cursor_needs_redraw = true;
     }
 }

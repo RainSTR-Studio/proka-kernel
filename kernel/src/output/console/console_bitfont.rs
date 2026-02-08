@@ -283,3 +283,87 @@ impl Write for BitfontConsole {
         Ok(())
     }
 }
+
+// Implement the unified [`Console`] trait
+impl crate::output::console::Console for BitfontConsole {
+    fn clear(&mut self) {
+        self.position = (0, 0);
+        unsafe {
+            core::ptr::write_bytes(self.address, 0, (self.height * self.pitch) as usize);
+        }
+    }
+
+    fn set_fg_color(&mut self, color: Color) {
+        self.fg_color = color;
+    }
+
+    fn set_bg_color(&mut self, color: Color) {
+        self.bg_color = color;
+    }
+
+    fn get_fg_color(&self) -> Color {
+        self.fg_color
+    }
+
+    fn get_bg_color(&self) -> Color {
+        self.bg_color
+    }
+
+    fn put_char(&mut self, ch: char) {
+        // 将 char 转换为 u8，如果是 ASCII 范围内的字符
+        if ch.is_ascii() {
+            self.print_char(ch as u8);
+        } else {
+            // 对于非 ASCII 字符，打印替换字符 '?'
+            self.print_char(b'?');
+        }
+    }
+
+    fn cursor_up(&mut self, _lines: u32) {
+        // TODO: Implement cursor up
+        let y = self.position.1.saturating_sub(FONT_H * _lines as u64);
+        self.position.1 = y;
+    }
+
+    fn cursor_down(&mut self, _lines: u32) {
+        // TODO: Implement cursor down
+        let new_y = self.position.1 + FONT_H * _lines as u64;
+        if new_y + FONT_H <= self.height {
+            self.position.1 = new_y;
+        }
+    }
+
+    fn cursor_left(&mut self, _cols: u32) {
+        // TODO: Implement cursor left
+        let x = self.position.0.saturating_sub(FONT_W * _cols as u64);
+        self.position.0 = x;
+    }
+
+    fn cursor_right(&mut self, _cols: u32) {
+        // TODO: Implement cursor right
+        let new_x = self.position.0 + FONT_W * _cols as u64;
+        if new_x + FONT_W <= self.width {
+            self.position.0 = new_x;
+        }
+    }
+
+    fn set_cursor_pos(&mut self, x: u32, y: u32) {
+        self.position.0 = (x as u64 * FONT_W).min(self.width - FONT_W);
+        self.position.1 = (y as u64 * FONT_H).min(self.height - FONT_H);
+    }
+
+    fn get_cursor_pos(&self) -> (u32, u32) {
+        (
+            (self.position.0 / FONT_W) as u32,
+            (self.position.1 / FONT_H) as u32,
+        )
+    }
+
+    fn cursor_hide(&mut self) {
+        // TODO: Implement cursor hide
+    }
+
+    fn cursor_show(&mut self) {
+        // TODO: Implement cursor show
+    }
+}

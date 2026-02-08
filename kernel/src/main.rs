@@ -20,7 +20,7 @@
 #[macro_use]
 extern crate proka_kernel;
 extern crate alloc;
-use proka_kernel::BASE_REVISION;
+use proka_kernel::{output::console::CONSOLE, BASE_REVISION};
 /* The Kernel main code */
 // The normal one
 #[unsafe(no_mangle)]
@@ -71,6 +71,7 @@ pub extern "C" fn kernel_main() -> ! {
 
     let time = proka_kernel::libs::time::time_since_boot();
     println!("Time since boot: {time}");
+    CONSOLE.lock().cursor_show();
 
     loop {
         let mut buf = [0u8; 1];
