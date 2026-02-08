@@ -5,10 +5,11 @@
 
 use alloc::vec::Vec;
 use spin::Mutex;
+use x86_64::structures::paging::Translate;
 use x86_64::structures::paging::{
-    mapper::MapToError, FrameAllocator, Mapper, OffsetPageTable, Page, PageTableFlags, Translate,
+    mapper::MapToError, FrameAllocator, Mapper, OffsetPageTable, Page, PageTableFlags,
 };
-use x86_64::{PhysAddr, VirtAddr};
+use x86_64::{VirtAddr, PhysAddr};
 
 extern "C" {
     // 从链接脚本中获取
@@ -213,4 +214,46 @@ pub fn init(page_table: OffsetPageTable<'static>) {
 /// Translate virtual address to physical address using the kernel memory set
 pub fn translate_addr(addr: VirtAddr) -> Option<PhysAddr> {
     KERNEL_MEMORY_SET.lock().as_ref()?.translate_addr(addr)
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec::Vec;
+
+    #[test_case]
+    fn test_heap_growth() {
+        let mut v = Vec::new();
+        // Allocate 1MB of integers
+        for i in 0..100000 {
+            v.push(i);
+        }
+        assert_eq!(v.len(), 100000);
+        for i in 0..100000 {
+            assert_eq!(v[i], i);
+        }
+    }
+
+    #[test_case]
+    fn test_lazy_allocation() {
+        let addr = VirtAddr::new(0x_5555_5555_0000);
+        let end = addr + 4096u64;
+        {
+            let mut ms_lock = KERNEL_MEMORY_SET.lock();
+            let memory_set = ms_lock.as_mut().unwrap();
+            memory_set
+                .insert_area(VmArea::new(
+                    addr,
+                    end,
+                    PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+                    "test_lazy",
+                ))
+                .unwrap();
+        }
+
+        let ptr = addr.as_mut_ptr::<u64>();
+        unsafe {
+            *ptr = 0xDEADBEEF;
+            assert_eq!(*ptr, 0xDEADBEEF);
+        }
+    }
 }
