@@ -8,22 +8,8 @@ desc = "Serial Port for Logging"
 help = "The I/O port address for the serial port used for kernel logging (default 0x3F8 is COM1)."
 
 [[config]]
-name = "ENABLE_BITFONT_CONSOLE"
-type = "bool"
-default = true
-desc = "Enable Bitfont Console"
-
-[[config]]
-name = "ENABLE_TTF_CONSOLE"
-type = "bool"
-default = true
-desc = "Enable TTF Console"
-feature = ["ttf"]
-
-[[config]]
 name = "DEFAULT_CONSOLE_TYPE"
 type = "choice"
 default = "bitfont"
 desc = "Default Console Type"
 options = ["bitfont", "ttf"]
-depends_on = "ENABLE_BITFONT_CONSOLE || ENABLE_TTF_CONSOLE"

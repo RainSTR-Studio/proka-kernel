@@ -4,14 +4,10 @@ use spin::Mutex;
 
 use crate::graphics::Color;
 
-#[cfg(ENABLE_BITFONT_CONSOLE)]
 pub mod console_bitfont;
-#[cfg(ENABLE_TTF_CONSOLE)]
 pub mod console_ttf;
 
-#[cfg(ENABLE_BITFONT_CONSOLE)]
 pub use console_bitfont::BitfontConsole;
-#[cfg(ENABLE_TTF_CONSOLE)]
 pub use console_ttf::TtfConsole;
 
 /// General [`Console`] trait, which defined generic APIs.
@@ -64,20 +60,13 @@ pub type ConsoleImpl<'a> = alloc::boxed::Box<dyn Console + Send + 'a>;
 lazy_static! {
     pub static ref CONSOLE: Mutex<ConsoleImpl<'static>> = {
         let console_type = crate::config::DEFAULT_CONSOLE_TYPE;
-        #[cfg(ENABLE_TTF_CONSOLE)]
         if console_type == "ttf" {
             return Mutex::new(alloc::boxed::Box::new(TtfConsole::init()));
-        }
-        #[cfg(ENABLE_BITFONT_CONSOLE)]
-        if console_type == "bitfont" {
+        } else if console_type == "bitfont" {
+            return Mutex::new(alloc::boxed::Box::new(BitfontConsole::init()));
+        } else {
             return Mutex::new(alloc::boxed::Box::new(BitfontConsole::init()));
         }
-
-        // Fallback
-        #[cfg(ENABLE_BITFONT_CONSOLE)]
-        return Mutex::new(alloc::boxed::Box::new(BitfontConsole::init()));
-        #[cfg(all(not(ENABLE_BITFONT_CONSOLE), ENABLE_TTF_CONSOLE))]
-        return Mutex::new(alloc::boxed::Box::new(TtfConsole::init()));
     };
 }
 
@@ -90,21 +79,19 @@ pub fn _print(args: fmt::Arguments) {
 }
 
 pub enum ConsoleType {
-    #[cfg(ENABLE_BITFONT_CONSOLE)]
     Bitfont,
-    #[cfg(ENABLE_TTF_CONSOLE)]
     Ttf,
 }
 
+/// Set up the current using console
 pub fn select_console(t: ConsoleType) {
     let mut console = CONSOLE.lock();
+
+    // Must do clear before switching console, in order to 
+    // avoid 2 console displaying problem.
+    console.clear();
     *console = match t {
-        #[cfg(ENABLE_BITFONT_CONSOLE)]
         ConsoleType::Bitfont => alloc::boxed::Box::new(BitfontConsole::init()),
-        #[cfg(ENABLE_TTF_CONSOLE)]
         ConsoleType::Ttf => alloc::boxed::Box::new(TtfConsole::init()),
     };
 }
-
-#[cfg(not(any(ENABLE_BITFONT_CONSOLE, ENABLE_TTF_CONSOLE)))]
-compile_error!("At least one console implementation must be enabled");

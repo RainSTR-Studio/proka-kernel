@@ -73,6 +73,9 @@ pub extern "C" fn kernel_main() -> ! {
     println!("Time since boot: {time}");
     CONSOLE.lock().cursor_show();
 
+    proka_kernel::output::console::select_console(proka_kernel::output::console::ConsoleType::Ttf);
+    println!("Console after switch to Ttf");
+
     loop {
         let mut buf = [0u8; 1];
         let kbd_device = {
