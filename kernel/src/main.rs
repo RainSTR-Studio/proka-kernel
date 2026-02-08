@@ -73,25 +73,10 @@ pub extern "C" fn kernel_main() -> ! {
     println!("Time since boot: {time}");
     CONSOLE.lock().cursor_show();
 
-    proka_kernel::output::console::select_console(proka_kernel::output::console::ConsoleType::Ttf);
-    println!("Console after switch to Ttf");
+    let shell = proka_kernel::libs::shell::Shell::new();
+    shell.run("keyboard");
 
     loop {
-        let mut buf = [0u8; 1];
-        let kbd_device = {
-            let device_manager = proka_kernel::drivers::DEVICE_MANAGER.read();
-            device_manager.get_device("keyboard")
-        };
-
-        if let Some(kbd_device) = kbd_device {
-            if let Some(char_dev) = kbd_device.as_char_device() {
-                if let Ok(count) = char_dev.read(&mut buf) {
-                    if count > 0 {
-                        print!("{}", buf[0] as char);
-                    }
-                }
-            }
-        }
         x86_64::instructions::hlt();
     }
 }
