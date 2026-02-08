@@ -37,7 +37,7 @@ jobs:
 
       - name: Run cargo test
         working-directory: kernel
-        run: cargo test --lib
+        run: make test
         timeout-minutes: 10
 
       - name: Upload Test Report

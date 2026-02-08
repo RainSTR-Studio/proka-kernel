@@ -7,9 +7,9 @@ use alloc::{collections::BTreeMap, vec, vec::Vec};
 use core::fmt::{self, Write};
 use lazy_static::lazy_static;
 
-pub const DEFAULT_FONT_SIZE: f32 = 8.0;
+pub const DEFAULT_FONT_SIZE: f32 = 10.0;
 pub const TAB_SPACES: usize = 4;
-pub const GLYPH_CACHE_SIZE: usize = 512;
+pub const GLYPH_CACHE_SIZE: usize = 95; // ASCII printable characters
 pub const MAX_ANSI_PARAMS: usize = 8;
 
 // The default font writer

@@ -50,7 +50,7 @@ clippy:
 	$(Q)RUSTFLAGS="$(RUSTFLAGS)" cargo clippy --target $(RUST_TARGET) --all-features
 
 test:
-	$(Q)RUSTFLAGS="$(RUSTFLAGS)" cargo test --lib --target $(RUST_TARGET)
+	$(Q)RUSTFLAGS="$(RUSTFLAGS)" cargo anaxa test --lib --target $(RUST_TARGET)
 
 .FORCE:
 
