@@ -7,8 +7,10 @@
 //! - Bitmap-based frame allocator with deallocation support
 //! - Memory statistics and protection utilities
 
+pub mod vmm;
+
 extern crate alloc;
-use crate::memory::frame_allocator::{format_bytes, FrameStats, LockedFrameAllocator};
+use crate::memory::frame::{format_bytes, FrameStats, LockedFrameAllocator};
 use crate::println;
 use limine::response::MemoryMapResponse;
 use x86_64::{

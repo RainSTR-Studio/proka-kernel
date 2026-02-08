@@ -1,11 +1,11 @@
 title = "Memory Manager"
 
 [[config]]
-name = "KERNEL_DEFAULT_HEAP_SIZE"
+name = "KERNEL_INIT_HEAP_SIZE"
 type = "int"
 default = 8388608
-desc = "The size of the heap memory (Unit: Bytes)."
-help = "Default heap size for the kernel."
+desc = "The size of the init heap memory (Unit: Bytes)."
+help = "Default init heap size for the kernel."
 rust_type = "u64"
 
 [[config]]
@@ -15,3 +15,11 @@ default = 4096
 desc = "The Page Size (Unit: Bytes)."
 help = "The size of per page."
 rust_type = "usize"
+
+[[config]]
+name = "OOM_EXPAND_SIZE"
+type = "int"
+default = 4096
+desc = "The size of expand when OOM (Unit: Bytes)."
+help = "The size of expand when OOM. Maximum expansion is 4MB."
+rust_type = "u64"

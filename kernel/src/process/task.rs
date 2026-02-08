@@ -1,5 +1,5 @@
+use crate::libs::bitmap::BitMap;
 use alloc::vec::Vec;
-use bitmap_allocator::{BitAlloc, BitAlloc64K};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -65,14 +65,15 @@ pub struct TaskManager {
     pub tasks: Vec<Task>,
 
     /// The bitmap allocator for tracking allocated task IDs.
-    allocator: BitAlloc64K,
+    /// Supports up to 1024 * 64 = 65536 tasks (though u16 limit is 65535).
+    allocator: BitMap<1024>,
 }
 
 impl TaskManager {
     pub const fn new() -> Self {
         Self {
             tasks: Vec::new(),
-            allocator: BitAlloc64K::DEFAULT,
+            allocator: BitMap::new(),
         }
     }
 
@@ -101,7 +102,7 @@ impl TaskManager {
         }
 
         // Release the ID back to the allocator
-        self.allocator.dealloc(task_id as usize);
+        self.allocator.clear(task_id as usize);
         Ok(())
     }
 

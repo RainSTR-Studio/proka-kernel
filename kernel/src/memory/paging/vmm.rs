@@ -109,7 +109,7 @@ impl MemorySet {
         .unwrap();
 
         // Add initial heap area (mapped)
-        let heap_start = VirtAddr::new(crate::memory::allocator::HEAP_START as u64);
+        let heap_start = VirtAddr::new(crate::memory::heap::HEAP_START as u64);
         let heap_end = heap_start + 64 * 1024;
         set.insert_area(VmArea::new(
             heap_start,

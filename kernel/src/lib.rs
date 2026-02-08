@@ -29,7 +29,7 @@ pub mod config {
 }
 
 // Re-export common memory management types and functions
-pub use memory::frame_allocator::{format_bytes, FrameStats, LockedFrameAllocator};
+pub use memory::frame::{format_bytes, FrameStats, LockedFrameAllocator};
 pub use memory::paging::{
     get_hhdm_offset, get_memory_stats, init_frame_allocator, init_offset_page_table,
     print_memory_stats,

@@ -19,10 +19,7 @@ pub struct KernelOomHandler;
 
 impl talc::OomHandler for KernelOomHandler {
     fn handle_oom(talc: &mut Talc<Self>, _layout: core::alloc::Layout) -> Result<(), ()> {
-        // Expand by 1MB at least
-        let expand_size = 1024 * 1024;
-
-        let mut ms_lock = crate::memory::vmm::KERNEL_MEMORY_SET.lock();
+        let mut ms_lock = crate::memory::paging::vmm::KERNEL_MEMORY_SET.lock();
         let memory_set = ms_lock.as_mut().ok_or(())?;
 
         // Find heap area
@@ -33,7 +30,8 @@ impl talc::OomHandler for KernelOomHandler {
                 .find(|a| a.name == "heap")
                 .ok_or(())?;
             let old_end = heap_area.end;
-            let new_end = old_end + expand_size;
+            let expand_size = crate::config::OOM_EXPAND_SIZE.max(4 * 1024 * 1024);
+            let new_end = old_end + (expand_size as u64);
             heap_area.end = new_end;
             (old_end, new_end)
         };

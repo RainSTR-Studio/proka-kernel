@@ -81,7 +81,7 @@ pub extern "x86-interrupt" fn pagefault_handler(
     };
 
     {
-        let mut ms_lock = crate::memory::vmm::KERNEL_MEMORY_SET.lock();
+        let mut ms_lock = crate::memory::paging::vmm::KERNEL_MEMORY_SET.lock();
         if let Some(ms) = ms_lock.as_mut() {
             if ms.handle_page_fault(fault_address).is_ok() {
                 return;
