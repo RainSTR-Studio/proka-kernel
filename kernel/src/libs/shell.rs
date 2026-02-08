@@ -33,6 +33,10 @@ impl Shell {
             "clear" => {
                 print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
             }
+            "exit" => {
+                print!("goodbye!\n");
+                // TODO: implement exit functionality
+            }
             _ => {
                 // ignore empty input, but report unknown commands
                 if !command.trim().is_empty() {
@@ -59,12 +63,24 @@ impl Shell {
             }
             match device.read(&mut buf) {
                 Ok(count) if count > 0 => {
-                    print!("{}", buf[0] as char);
-                    command.push(buf[0] as char);
-                    if buf[0] == '\n' as u8 {
-                        self.handle_command(command.as_str().trim());
-                        command.clear();
-                        need_prompt = true;
+                    let c = buf[0] as char;
+                    match c {
+                        '\x08' | '\x7f' => {
+                            if !command.is_empty() {
+                                command.pop();
+                                print!("{}", '\x08');
+                            }
+                        }
+                        '\n' | '\r' => {
+                            print!("\n");
+                            self.handle_command(command.trim());
+                            command.clear();
+                            need_prompt = true;
+                        }
+                        _ => {
+                            print!("{}", c);
+                            command.push(c);
+                        }
                     }
                 }
                 Ok(_) => {

@@ -285,6 +285,9 @@ impl<'a> TtfConsole<'a> {
         self.cursor_needs_redraw = true;
 
         if actual_lines.abs() < self.height_chars as i32 {
+            if !self.hidden_cursor {
+                self.restore_cursor_bg();
+            }
             let pixel_offset = -(actual_lines * self.font_height as i32);
             self.renderer.scroll_y(pixel_offset as i64);
 
@@ -367,6 +370,9 @@ impl<'a> TtfConsole<'a> {
             self.cursor_y = self.height_chars - 1;
 
             if old_scroll_offset_y != self.scroll_offset_y {
+                if !self.hidden_cursor {
+                    self.restore_cursor_bg();
+                }
                 let pixel_offset = -(lines_to_scroll as i32 * self.font_height as i32);
                 self.renderer.scroll_y(pixel_offset as i64);
 
@@ -484,10 +490,7 @@ impl<'a> TtfConsole<'a> {
         }
     }
 
-    pub fn draw_cursor(&mut self) {
-        if !self.cursor_needs_redraw || self.hidden_cursor {
-            return;
-        }
+    fn restore_cursor_bg(&mut self) {
         if self.prev_cursor_y < self.height_chars {
             let prev_x = self.prev_cursor_x;
             let prev_y = self.prev_cursor_y;
@@ -514,6 +517,14 @@ impl<'a> TtfConsole<'a> {
                 );
             }
         }
+    }
+
+    pub fn draw_cursor(&mut self) {
+        if !self.cursor_needs_redraw || self.hidden_cursor {
+            return;
+        }
+        self.restore_cursor_bg();
+
         if self.cursor_y < self.height_chars {
             let cursor_x_px = self.cursor_x * self.font_width;
             let cursor_y_px = self.cursor_y * self.font_height;
@@ -626,6 +637,29 @@ impl<'a> TtfConsole<'a> {
                     }
                 }
             }
+            '\x08' => {
+                if self.cursor_x > 0 {
+                    self.cursor_x -= 1;
+                    // Clear the character in the buffer
+                    let buf_y = (self.cursor_y + self.scroll_offset_y as u32) as usize;
+                    let idx = buf_y * self.width_chars as usize + self.cursor_x as usize;
+
+                    if let Some(cell) = self.buffer.get_mut(idx) {
+                        *cell = None;
+                    }
+
+                    // Clear visually
+                    self.renderer.fill_rect(
+                        Pixel::new(
+                            (self.cursor_x * self.font_width) as u64,
+                            (self.cursor_y * self.font_height) as u64,
+                        ),
+                        self.font_width as u64,
+                        self.font_height as u64,
+                        self.current_bg_color,
+                    );
+                }
+            }
             _ => {
                 self.put_char_impl(c);
                 self.cursor_x += 1;
@@ -673,6 +707,15 @@ impl<'a> TtfConsole<'a> {
                     params[..count].copy_from_slice(&self.ansi_params[..count]);
 
                     self.apply_ansi_codes(&params[..count]);
+                    self.ansi_parse_state = AnsiParseState::Normal;
+                } else if c == 'J' {
+                    // Handle erase display command
+                    let param = if self.ansi_has_digit {
+                        self.ansi_params[0]
+                    } else {
+                        0
+                    };
+                    self.handle_erase_display(param);
                     self.ansi_parse_state = AnsiParseState::Normal;
                 } else {
                     self.ansi_parse_state = AnsiParseState::Normal;
@@ -773,6 +816,50 @@ impl<'a> TtfConsole<'a> {
             self.redraw();
         }
     }
+
+    /// Handle erase display ANSI command (ESC [ n J)
+    /// n=0: clear from cursor to end of screen
+    /// n=1: clear from beginning to cursor
+    /// n=2: clear entire screen and move cursor to top-left
+    fn handle_erase_display(&mut self, n: u32) {
+        match n {
+            2 => {
+                // Clear entire screen and reset cursor
+                self.buffer.clear();
+                self.buffer
+                    .resize((self.width_chars * self.height_chars) as usize, None);
+                self.cursor_x = 0;
+                self.cursor_y = 0;
+                self.scroll_offset_y = 0;
+                self.cursor_needs_redraw = true;
+                self.redraw();
+            }
+            0 => {
+                // Clear from cursor to end of screen
+                let start_buf_y = (self.cursor_y + self.scroll_offset_y as u32) as usize;
+                let start_idx = start_buf_y * self.width_chars as usize + self.cursor_x as usize;
+                for i in start_idx..self.buffer.len() {
+                    if let Some(cell) = self.buffer.get_mut(i) {
+                        *cell = None;
+                    }
+                }
+                // Clear visually from cursor to end
+                self.redraw();
+            }
+            1 => {
+                // Clear from beginning to cursor
+                let end_buf_y = (self.cursor_y + self.scroll_offset_y as u32) as usize;
+                let end_idx = end_buf_y * self.width_chars as usize + self.cursor_x as usize;
+                for i in 0..=end_idx.min(self.buffer.len() - 1) {
+                    if let Some(cell) = self.buffer.get_mut(i) {
+                        *cell = None;
+                    }
+                }
+                self.redraw();
+            }
+            _ => {}
+        }
+    }
 }
 
 impl Write for TtfConsole<'_> {
@@ -843,6 +930,29 @@ impl<'a> crate::output::console::Console for TtfConsole<'a> {
                         self.ensure_buffer_capacity();
                         break;
                     }
+                }
+            }
+            '\x08' => {
+                if self.cursor_x > 0 {
+                    self.cursor_x -= 1;
+                    // Clear the character in the buffer
+                    let buf_y = (self.cursor_y + self.scroll_offset_y as u32) as usize;
+                    let idx = buf_y * self.width_chars as usize + self.cursor_x as usize;
+
+                    if let Some(cell) = self.buffer.get_mut(idx) {
+                        *cell = None;
+                    }
+
+                    // Clear visually
+                    self.renderer.fill_rect(
+                        Pixel::new(
+                            (self.cursor_x * self.font_width) as u64,
+                            (self.cursor_y * self.font_height) as u64,
+                        ),
+                        self.font_width as u64,
+                        self.font_height as u64,
+                        self.current_bg_color,
+                    );
                 }
             }
             _ => {

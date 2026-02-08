@@ -138,6 +138,35 @@ impl BitfontConsole {
             self.position.1 = self.height - FONT_H;
         }
 
+        // Backspace
+        if c == 0x08 {
+            if self.position.0 >= FONT_W {
+                self.position.0 -= FONT_W;
+
+                // Clear the character (draw background rect)
+                let start_x = self.position.0;
+                let start_y = self.position.1;
+
+                // We use the same loop logic as print_normal_char but writing bg_color everywhere
+                for line in 0..FONT_H {
+                    for i in 0..FONT_W {
+                        let x = start_x + i;
+                        let y = start_y + line;
+                        if x < self.width && y < self.height {
+                            let pixel_offset = y * self.pitch + x * 4;
+                            unsafe {
+                                self.address
+                                    .add(pixel_offset as usize)
+                                    .cast::<u32>()
+                                    .write(self.bg_color.to_u32(true));
+                            }
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
         // If character is "\n", just switch to next line.
         if c == ('\n' as usize) {
             self.position.0 = 0;
@@ -193,6 +222,7 @@ impl BitfontConsole {
     fn parse_ansi_command(&mut self, cmd: u8) {
         match cmd {
             b'm' => self.handle_sgr(),
+            b'J' => self.handle_erase_display(),
             b'A' => self.handle_cursor_up(),
             b'B' => self.handle_cursor_down(),
             b'C' => self.handle_cursor_right(),
@@ -235,6 +265,49 @@ impl BitfontConsole {
                 47 => self.bg_color = color::WHITE,
                 _ => {}
             }
+        }
+        self.ansi_params.clear();
+        self.current_param = 0;
+    }
+
+    // Handle erase display ANSI command (ESC [ n J)
+    // n=0: clear from cursor to end of screen
+    // n=1: clear from beginning to cursor
+    // n=2: clear entire screen and move cursor to top-left
+    fn handle_erase_display(&mut self) {
+        let param = if self.ansi_params.is_empty() {
+            0
+        } else {
+            self.ansi_params[0]
+        };
+
+        match param {
+            2 => {
+                // Clear entire screen and reset cursor
+                unsafe {
+                    core::ptr::write_bytes(self.address, 0, (self.height * self.pitch) as usize);
+                }
+                self.position = (0, 0);
+            }
+            0 => {
+                // Clear from cursor to end of screen
+                let start_x = self.position.0;
+                let start_y = self.position.1;
+                let start_offset = start_y * self.pitch + start_x * 4;
+                let total_bytes = (self.height * self.pitch) as usize;
+                let clear_bytes = total_bytes - start_offset as usize;
+                unsafe {
+                    core::ptr::write_bytes(self.address.add(start_offset as usize), 0, clear_bytes);
+                }
+            }
+            1 => {
+                // Clear from beginning to cursor
+                let end_offset = self.position.1 * self.pitch + self.position.0 * 4 + 4 * FONT_W;
+                unsafe {
+                    core::ptr::write_bytes(self.address, 0, end_offset as usize);
+                }
+            }
+            _ => {}
         }
         self.ansi_params.clear();
         self.current_param = 0;
