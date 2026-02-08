@@ -14,3 +14,10 @@ type = "string"
 default = ""
 desc = "Additional Version String"
 help = "Additional version string to append to the kernel version."
+
+[[config]]
+name = "INITRD_PATH"
+type = "cstr"
+default = "/initrd.cpio"
+desc = "Initrd Path"
+help = "Path to the initrd file."

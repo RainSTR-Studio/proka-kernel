@@ -64,7 +64,7 @@ pub static HHDM_REQUEST: limine::request::HhdmRequest = limine::request::HhdmReq
 #[unsafe(link_section = ".requests")]
 #[used]
 pub static MODULE_REQUEST: ModuleRequest = ModuleRequest::new()
-    .with_internal_modules(&[&InternalModule::new().with_path(c"/initrd.cpio")]);
+    .with_internal_modules(&[&InternalModule::new().with_path(config::INITRD_PATH)]);
 
 /// This will extern the C function and make it to safe.
 ///

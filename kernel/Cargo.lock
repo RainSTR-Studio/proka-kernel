@@ -33,7 +33,7 @@ dependencies = [
  "byteorder",
  "log",
  "pci_types",
- "spinning_top 0.3.0",
+ "spinning_top",
 ]
 
 [[package]]
@@ -47,9 +47,9 @@ dependencies = [
 
 [[package]]
 name = "anaxa-builder"
-version = "0.4.6"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f3a4a06087ba6012af155edfae89dc5c7965c5d09a2e541cdccf25fa56e0df3"
+checksum = "a98ad0bcfc9711839ddcfe28ac4ea9d0a2914454b06f88ac6647cc1d19af074b"
 dependencies = [
  "anyhow",
  "evalexpr",
@@ -84,15 +84,6 @@ name = "bitflags"
 version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "812e12b5285cc515a9c72a5c1d3b6d46a19dac5acfef5265968c166106e31dd3"
-
-[[package]]
-name = "bitmap-allocator"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e11e01b72b2a40aab84454fb6b71090c2a6873e1b5ba22a8e3d74e83086a2304"
-dependencies = [
- "bit_field",
-]
 
 [[package]]
 name = "byteorder"
@@ -195,15 +186,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "linked_list_allocator"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9afa463f5405ee81cdb9cc2baf37e08ec7e4c8209442b5d72c04cfb2cd6e6286"
-dependencies = [
- "spinning_top 0.2.5",
-]
-
-[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -292,12 +274,10 @@ dependencies = [
  "ab_glyph",
  "acpi",
  "anaxa-builder",
- "bitmap-allocator",
  "glob",
  "lazy_static",
  "libm",
  "limine",
- "linked_list_allocator",
  "log",
  "paste",
  "pc-keyboard",
@@ -436,15 +416,6 @@ name = "spin"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5fe4ccb98d9c292d56fec89a5e07da7fc4cf0dc11e156b41793132775d3e591"
-dependencies = [
- "lock_api",
-]
-
-[[package]]
-name = "spinning_top"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b9eb1a2f4c41445a3a0ff9abc5221c5fcd28e1f13cd7c0397706f9ac938ddb0"
 dependencies = [
  "lock_api",
 ]

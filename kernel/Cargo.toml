@@ -4,16 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [build-dependencies]
-anaxa-builder = "0.4.6"
+anaxa-builder = "0.5.0"
 glob = "0.3.0"
 
 [dependencies]
-ab_glyph = { version = "0.2.31", default-features = false, features = ["libm"], optional = true }
+ab_glyph = { version = "0.2.31", default-features = false, features = [
+    "libm",
+], optional = true }
 libm = { version = "0.2.15", optional = true }
-bitmap-allocator = "0.2.0"
 lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
 limine = "0.5.0"
-linked_list_allocator = "0.10.5"
 log = "0.4.27"
 paste = "1.0.15"
 pic8259 = "0.11.0"
@@ -27,4 +27,3 @@ acpi = "6.0.1"
 
 [features]
 ttf = ["dep:ab_glyph", "dep:libm"]
-
