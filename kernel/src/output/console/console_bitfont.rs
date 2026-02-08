@@ -1,20 +1,14 @@
 extern crate alloc;
+
 use crate::graphics::{color, Color};
 use crate::output::font8x16::FONT8X16;
 use crate::FRAMEBUFFER_REQUEST;
 use alloc::{vec, vec::Vec};
 use core::fmt::{self, Write};
-use lazy_static::lazy_static;
-use spin::Mutex;
 
 // Constants
 const FONT_W: u64 = 8;
 const FONT_H: u64 = 16;
-
-// Some statics which is global
-lazy_static! {
-    pub static ref CONSOLE: Mutex<Console> = Mutex::new(Console::init());
-}
 
 /// The ANSI parse status
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,7 +20,7 @@ enum ParseState {
 }
 
 /// The object of console.
-pub struct Console {
+pub struct BitfontConsole {
     address: *mut u8,
     width: u64,
     height: u64,
@@ -40,10 +34,10 @@ pub struct Console {
 }
 
 // We have to do it, so that it can be contained by Mutex.
-unsafe impl Send for Console {}
-unsafe impl Sync for Console {}
+unsafe impl Send for BitfontConsole {}
+unsafe impl Sync for BitfontConsole {}
 
-impl Console {
+impl BitfontConsole {
     pub fn init() -> Self {
         let framebuffer_response = FRAMEBUFFER_REQUEST.get_response().unwrap();
         let framebuffer = framebuffer_response.framebuffers().next().unwrap();
@@ -283,29 +277,9 @@ impl Console {
 }
 
 // Implement the [`Write`] trait to support formatting
-impl Write for Console {
+impl Write for BitfontConsole {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.print_string(s);
         Ok(())
     }
-}
-
-#[macro_export]
-macro_rules! console_print {
-    ($($arg:tt)*) => ($crate::output::console::_print(format_args!($($arg)*)));
-}
-
-#[macro_export]
-macro_rules! console_println {
-    () => ($crate::print!("\n"));
-    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
-}
-
-#[doc(hidden)]
-pub fn _print(args: fmt::Arguments) {
-    use core::fmt::Write;
-    CONSOLE
-        .lock()
-        .write_fmt(args)
-        .expect("Failed to write to console");
 }
