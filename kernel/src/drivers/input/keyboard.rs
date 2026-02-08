@@ -2,17 +2,151 @@ extern crate alloc;
 use crate::drivers::{CharDevice, Device, DeviceError, DeviceInner, DeviceType, SharedDeviceOps};
 use alloc::string::String;
 use alloc::sync::Arc;
-use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard as PcKeyboard, ScancodeSet1};
+use alloc::vec::Vec;
+use pc_keyboard::{
+    layouts, DecodedKey, HandleControl, KeyCode, KeyState, Keyboard as PcKeyboard, ScancodeSet1,
+};
 use spin::Mutex;
 
-const BUFFER_SIZE: usize = 128;
+// 缓冲区大小（增加到256字节）
+const BUFFER_SIZE: usize = 256;
 
+// 键盘控制器端口
+const KEYBOARD_DATA_PORT: u16 = 0x60;
+const KEYBOARD_STATUS_PORT: u16 = 0x64;
+const KEYBOARD_COMMAND_PORT: u16 = 0x64;
+
+// LED 控制位
+const LED_SCROLL_LOCK: u8 = 0x01;
+const LED_NUM_LOCK: u8 = 0x02;
+const LED_CAPS_LOCK: u8 = 0x04;
+
+// ioctl 命令定义
+pub const KDGETLED: u64 = 0x4B31;
+pub const KDSETLED: u64 = 0x4B32;
+pub const KDGKBLED: u64 = 0x4B64;
+pub const KDSKBLED: u64 = 0x4B65;
+pub const KDGKBMODE: u64 = 0x4B44;
+pub const KDSKBMODE: u64 = 0x4B45;
+pub const KB_ENABLE: u64 = 0x4B36;
+pub const KB_DISABLE: u64 = 0x4B37;
+pub const KB_CLEAR_BUFFER: u64 = 0x4B38;
+
+// 键盘模式
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyboardMode {
+    Raw = 0,
+    MediumRaw = 1,
+    Unicode = 2,
+}
+
+// 键盘布局类型（预留用于未来扩展）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyboardLayout {
+    Us104,
+}
+
+// 修饰键状态
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ModifierState {
+    pub left_shift: bool,
+    pub right_shift: bool,
+    pub left_ctrl: bool,
+    pub right_ctrl: bool,
+    pub left_alt: bool,
+    pub right_alt: bool,
+    pub left_gui: bool,
+    pub right_gui: bool,
+    pub caps_lock: bool,
+    pub num_lock: bool,
+    pub scroll_lock: bool,
+}
+
+impl ModifierState {
+    pub fn shift(&self) -> bool {
+        self.left_shift || self.right_shift
+    }
+
+    pub fn ctrl(&self) -> bool {
+        self.left_ctrl || self.right_ctrl
+    }
+
+    pub fn alt(&self) -> bool {
+        self.left_alt || self.right_alt
+    }
+
+    pub fn gui(&self) -> bool {
+        self.left_gui || self.right_gui
+    }
+}
+
+// 键盘LED状态
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LedState {
+    pub scroll_lock: bool,
+    pub num_lock: bool,
+    pub caps_lock: bool,
+}
+
+impl LedState {
+    pub fn to_bits(&self) -> u8 {
+        let mut bits = 0u8;
+        if self.scroll_lock {
+            bits |= LED_SCROLL_LOCK;
+        }
+        if self.num_lock {
+            bits |= LED_NUM_LOCK;
+        }
+        if self.caps_lock {
+            bits |= LED_CAPS_LOCK;
+        }
+        bits
+    }
+
+    pub fn from_bits(bits: u8) -> Self {
+        Self {
+            scroll_lock: (bits & LED_SCROLL_LOCK) != 0,
+            num_lock: (bits & LED_NUM_LOCK) != 0,
+            caps_lock: (bits & LED_CAPS_LOCK) != 0,
+        }
+    }
+}
+
+// 键盘内部状态
 pub struct KeyboardInner {
     pc_keyboard: PcKeyboard<layouts::Us104Key, ScancodeSet1>,
     enabled: bool,
-    buffer: [char; BUFFER_SIZE],
-    head: usize,
-    tail: usize,
+    nonblocking: bool,
+    buffer: Vec<char>,
+    modifiers: ModifierState,
+    leds: LedState,
+    mode: KeyboardMode,
+}
+
+/// 发送命令到键盘控制器
+fn send_keyboard_command(command: u8, data: u8) {
+    use x86_64::instructions::port::Port;
+
+    unsafe {
+        // 等待键盘控制器就绪
+        let mut status_port = Port::<u8>::new(KEYBOARD_STATUS_PORT);
+        while (status_port.read() & 0x02) != 0 {
+            core::hint::spin_loop();
+        }
+
+        // 发送命令
+        let mut command_port = Port::<u8>::new(KEYBOARD_COMMAND_PORT);
+        command_port.write(command);
+
+        // 等待键盘控制器就绪
+        while (status_port.read() & 0x02) != 0 {
+            core::hint::spin_loop();
+        }
+
+        // 发送数据
+        let mut data_port = Port::<u8>::new(KEYBOARD_DATA_PORT);
+        data_port.write(data);
+    }
 }
 
 pub struct Keyboard {
@@ -20,20 +154,82 @@ pub struct Keyboard {
     name: String,
 }
 
+impl KeyboardInner {
+    fn new() -> Self {
+        Self {
+            pc_keyboard: PcKeyboard::new(
+                ScancodeSet1::new(),
+                layouts::Us104Key,
+                HandleControl::Ignore,
+            ),
+            enabled: true,
+            nonblocking: false,
+            buffer: Vec::with_capacity(BUFFER_SIZE),
+            modifiers: ModifierState::default(),
+            leds: LedState::default(),
+            mode: KeyboardMode::Unicode,
+        }
+    }
+
+    /// 更新LED状态并发送到键盘控制器
+    fn update_leds(&mut self) {
+        self.leds.caps_lock = self.modifiers.caps_lock;
+        self.leds.num_lock = self.modifiers.num_lock;
+        self.leds.scroll_lock = self.modifiers.scroll_lock;
+
+        // 发送LED设置命令
+        let led_bits = self.leds.to_bits();
+        send_keyboard_command(0xED, led_bits);
+    }
+
+    /// 处理修饰键
+    fn update_modifier(&mut self, key_code: KeyCode, state: KeyState) {
+        let pressed = state == KeyState::Down;
+
+        match key_code {
+            KeyCode::LShift => self.modifiers.left_shift = pressed,
+            KeyCode::RShift => self.modifiers.right_shift = pressed,
+            KeyCode::LControl => self.modifiers.left_ctrl = pressed,
+            KeyCode::RControl => self.modifiers.right_ctrl = pressed,
+            KeyCode::LAlt => self.modifiers.left_alt = pressed,
+            KeyCode::RAltGr => self.modifiers.right_alt = pressed,
+            KeyCode::LWin => self.modifiers.left_gui = pressed,
+            KeyCode::RWin => self.modifiers.right_gui = pressed,
+            KeyCode::CapsLock if pressed => {
+                self.modifiers.caps_lock = !self.modifiers.caps_lock;
+                self.update_leds();
+            }
+            KeyCode::NumpadLock if pressed => {
+                self.modifiers.num_lock = !self.modifiers.num_lock;
+                self.update_leds();
+            }
+            KeyCode::ScrollLock if pressed => {
+                self.modifiers.scroll_lock = !self.modifiers.scroll_lock;
+                self.update_leds();
+            }
+            _ => {}
+        }
+    }
+
+    /// 添加字符到缓冲区（使用滑动窗口策略）
+    fn push_char(&mut self, c: char) {
+        if self.buffer.len() >= BUFFER_SIZE {
+            // 缓冲区满时，丢弃最旧的数据
+            self.buffer.remove(0);
+        }
+        self.buffer.push(c);
+    }
+
+    /// 清空缓冲区
+    fn clear_buffer(&mut self) {
+        self.buffer.clear();
+    }
+}
+
 impl Default for Keyboard {
     fn default() -> Self {
         Self {
-            inner: Mutex::new(KeyboardInner {
-                pc_keyboard: PcKeyboard::new(
-                    ScancodeSet1::new(),
-                    layouts::Us104Key,
-                    HandleControl::Ignore,
-                ),
-                enabled: true,
-                buffer: ['\0'; BUFFER_SIZE],
-                head: 0,
-                tail: 0,
-            }),
+            inner: Mutex::new(KeyboardInner::new()),
             name: String::from("keyboard"),
         }
     }
@@ -54,6 +250,16 @@ impl Keyboard {
         x86_64::instructions::interrupts::without_interrupts(|| self.inner.lock().enabled)
     }
 
+    pub fn set_nonblocking(&self, nonblocking: bool) {
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            self.inner.lock().nonblocking = nonblocking;
+        });
+    }
+
+    pub fn is_nonblocking(&self) -> bool {
+        x86_64::instructions::interrupts::without_interrupts(|| self.inner.lock().nonblocking)
+    }
+
     pub fn handle_scancode(&self, scancode: u8) {
         let mut inner = self.inner.lock();
         if !inner.enabled {
@@ -61,20 +267,66 @@ impl Keyboard {
         }
 
         if let Ok(Some(key_event)) = inner.pc_keyboard.add_byte(scancode) {
+            // 更新修饰键状态
+            inner.update_modifier(key_event.code, key_event.state);
+
             if let Some(key) = inner.pc_keyboard.process_keyevent(key_event) {
-                match key {
-                    DecodedKey::Unicode(character) => {
-                        let tail = inner.tail;
-                        let next_tail = (tail + 1) % BUFFER_SIZE;
-                        if next_tail != inner.head {
-                            inner.buffer[tail] = character;
-                            inner.tail = next_tail;
+                match inner.mode {
+                    KeyboardMode::Unicode => {
+                        if let DecodedKey::Unicode(character) = key {
+                            inner.push_char(character);
                         }
                     }
-                    DecodedKey::RawKey(_) => {}
+                    KeyboardMode::Raw => {
+                        // 原始模式：将扫描码直接放入缓冲区
+                        let raw_char = scancode as char;
+                        inner.push_char(raw_char);
+                    }
+                    KeyboardMode::MediumRaw => {
+                        // 中等原始模式：处理后的键码
+                        if let DecodedKey::RawKey(key_code) = key {
+                            let code_char = (key_code as u8) as char;
+                            inner.push_char(code_char);
+                        }
+                    }
                 }
             }
         }
+    }
+
+    pub fn get_modifier_state(&self) -> ModifierState {
+        x86_64::instructions::interrupts::without_interrupts(|| self.inner.lock().modifiers)
+    }
+
+    pub fn set_led_state(&self, leds: LedState) {
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            let mut inner = self.inner.lock();
+            inner.leds = leds;
+            inner.modifiers.scroll_lock = leds.scroll_lock;
+            inner.modifiers.num_lock = leds.num_lock;
+            inner.modifiers.caps_lock = leds.caps_lock;
+            inner.update_leds();
+        });
+    }
+
+    pub fn get_led_state(&self) -> LedState {
+        x86_64::instructions::interrupts::without_interrupts(|| self.inner.lock().leds)
+    }
+
+    pub fn clear_buffer(&self) {
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            self.inner.lock().clear_buffer();
+        });
+    }
+
+    pub fn set_mode(&self, mode: KeyboardMode) {
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            self.inner.lock().mode = mode;
+        });
+    }
+
+    pub fn get_mode(&self) -> KeyboardMode {
+        x86_64::instructions::interrupts::without_interrupts(|| self.inner.lock().mode)
     }
 
     pub fn create_device() -> Device {
@@ -99,8 +351,54 @@ impl SharedDeviceOps for Keyboard {
         Ok(())
     }
 
-    fn ioctl(&self, _cmd: u64, _arg: u64) -> Result<u64, DeviceError> {
-        Err(DeviceError::NotSupported)
+    fn ioctl(&self, cmd: u64, arg: u64) -> Result<u64, DeviceError> {
+        match cmd {
+            KDGETLED => {
+                let leds = self.get_led_state();
+                Ok(leds.to_bits() as u64)
+            }
+            KDSETLED => {
+                let leds = LedState::from_bits(arg as u8);
+                self.set_led_state(leds);
+                Ok(0)
+            }
+            KDGKBLED => {
+                let leds = self.get_led_state();
+                Ok(leds.to_bits() as u64)
+            }
+            KDSKBLED => {
+                let leds = LedState::from_bits(arg as u8);
+                self.set_led_state(leds);
+                Ok(0)
+            }
+            KDGKBMODE => {
+                let mode = self.get_mode();
+                Ok(mode as u64)
+            }
+            KDSKBMODE => {
+                let mode = match arg {
+                    0 => KeyboardMode::Raw,
+                    1 => KeyboardMode::MediumRaw,
+                    2 => KeyboardMode::Unicode,
+                    _ => return Err(DeviceError::InvalidParam),
+                };
+                self.set_mode(mode);
+                Ok(0)
+            }
+            KB_ENABLE => {
+                self.set_enabled(true);
+                Ok(0)
+            }
+            KB_DISABLE => {
+                self.set_enabled(false);
+                Ok(0)
+            }
+            KB_CLEAR_BUFFER => {
+                self.clear_buffer();
+                Ok(0)
+            }
+            _ => Err(DeviceError::NotSupported),
+        }
     }
 }
 
@@ -108,11 +406,16 @@ impl CharDevice for Keyboard {
     fn read(&self, buf: &mut [u8]) -> Result<usize, DeviceError> {
         x86_64::instructions::interrupts::without_interrupts(|| {
             let mut inner = self.inner.lock();
+
+            // 非阻塞模式检查
+            if inner.nonblocking && inner.buffer.is_empty() {
+                return Err(DeviceError::WouldBlock);
+            }
+
             let mut read_count = 0;
 
-            while read_count < buf.len() && inner.head != inner.tail {
-                let c = inner.buffer[inner.head];
-                inner.head = (inner.head + 1) % BUFFER_SIZE;
+            while read_count < buf.len() && !inner.buffer.is_empty() {
+                let c = inner.buffer.remove(0);
 
                 let mut char_buf = [0u8; 4];
                 let char_str = c.encode_utf8(&mut char_buf);
@@ -122,7 +425,8 @@ impl CharDevice for Keyboard {
                     buf[read_count..read_count + bytes.len()].copy_from_slice(bytes);
                     read_count += bytes.len();
                 } else {
-                    inner.head = (inner.head + BUFFER_SIZE - 1) % BUFFER_SIZE;
+                    // 缓冲区空间不足，将字符重新放回
+                    inner.buffer.insert(0, c);
                     break;
                 }
             }
@@ -139,11 +443,44 @@ impl CharDevice for Keyboard {
         Err(DeviceError::NotSupported)
     }
 
+    fn peek(&self, buf: &mut [u8]) -> Result<usize, DeviceError> {
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            let inner = self.inner.lock();
+
+            if inner.buffer.is_empty() {
+                return Err(DeviceError::WouldBlock);
+            }
+
+            let mut read_count = 0;
+            let buffer_copy = inner.buffer.clone();
+
+            for c in buffer_copy.iter().take(buf.len()) {
+                let mut char_buf = [0u8; 4];
+                let char_str = c.encode_utf8(&mut char_buf);
+                let bytes = char_str.as_bytes();
+
+                if read_count + bytes.len() <= buf.len() {
+                    buf[read_count..read_count + bytes.len()].copy_from_slice(bytes);
+                    read_count += bytes.len();
+                } else {
+                    break;
+                }
+            }
+
+            Ok(read_count)
+        })
+    }
+
     fn has_data(&self) -> bool {
         x86_64::instructions::interrupts::without_interrupts(|| {
             let inner = self.inner.lock();
-            inner.head != inner.tail
+            !inner.buffer.is_empty()
         })
+    }
+
+    fn set_nonblocking(&self, nonblocking: bool) -> Result<(), DeviceError> {
+        self.set_nonblocking(nonblocking);
+        Ok(())
     }
 }
 
