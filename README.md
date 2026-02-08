@@ -78,13 +78,13 @@ From the project root:
     ```bash
     make
     ```
-    Kernel file at `kernel/kernel`.
+    The kernel file will be put at `output/kernel`.
 
 3.  **Build ISO Image**:
     ```bash
     make iso
     ```
-    ISO file `proka-kernel.iso` in project root.
+    The ISO file will be put at `output/proka-kernel.iso` in project root.
 
 4.  **Run in QEMU**:
     ```bash
