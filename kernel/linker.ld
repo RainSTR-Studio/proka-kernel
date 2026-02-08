@@ -18,7 +18,9 @@ SECTIONS {
 
     /* Code (text) sections */
     .text : {
+        __text_start = .;
         *(.text .text.*)
+        __text_end = .;
     } :text
 
     /* Move to the next memory page */
@@ -26,7 +28,9 @@ SECTIONS {
 
     /* Read-only data (rodata) sections */
     .rodata : {
+        __rodata_start = .;
         *(.rodata .rodata.*)
+        __rodata_end = .;
     } :rodata
 
     /* Move to the next memory page */
@@ -34,12 +38,14 @@ SECTIONS {
 
     /* Data sections */
     .data : {
+        __data_start = .;
         *(.data .data.*)
 
         /* Place the sections that contains the limine request */
         KEEP(*(.requests_start_marker))
         KEEP(*(.requests))
         KEEP(*(.requests_end_marker))
+        __data_end = .;
     } :data
 
     /* Move to the next memory page */
@@ -47,8 +53,10 @@ SECTIONS {
 
     /* BSS sections */
     .bss : {
+        __bss_start = .;
         *(.bss .bss.*)
         *(COMMON)
+        __bss_end = .;
     } :bss
 
     /* Something we want to discard */

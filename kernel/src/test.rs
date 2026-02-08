@@ -164,14 +164,14 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
 #[cfg(test)]
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main() -> ! {
+    crate::interrupts::gdt::init(); // Initialize GDT
+    crate::interrupts::idt::init_idt(); // Initialize IDT
+    crate::interrupts::pic::init(); // Initialize PI
     crate::memory::init(); // Initialize memory management
     crate::drivers::init_devices(); // Initialize devices
     crate::libs::time::init(); // Init time system
     crate::libs::logger::init_logger(); // Init log system
     crate::libs::initrd::load_initrd(); // Load initrd
-    crate::interrupts::gdt::init(); // Initialize GDT
-    crate::interrupts::idt::init_idt(); // Initialize IDT
-    crate::interrupts::pic::init(); // Initialize PI
     x86_64::instructions::interrupts::enable(); // Enable interrupts
     crate::test_main();
     loop {

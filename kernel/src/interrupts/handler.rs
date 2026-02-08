@@ -80,10 +80,17 @@ pub extern "x86-interrupt" fn pagefault_handler(
         Err(_) => VirtAddr::zero(),
     };
 
+    {
+        let mut ms_lock = crate::memory::vmm::KERNEL_MEMORY_SET.lock();
+        if let Some(ms) = ms_lock.as_mut() {
+            if ms.handle_page_fault(fault_address).is_ok() {
+                return;
+            }
+        }
+    }
+
     serial_println!(
-        "EXCEPTION: PAGE FAULT at {:#x}\n \
-         Cause: {:?}\n \
-         Frame: {:#?}",
+        "EXCEPTION: PAGE FAULT at {:#x}\n          Cause: {:?}\n          Frame: {:#?}",
         fault_address,
         error_code,
         stack_frame

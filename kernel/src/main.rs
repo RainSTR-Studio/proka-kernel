@@ -28,15 +28,17 @@ pub extern "C" fn kernel_main() -> ! {
     // Check is limine version supported
     assert!(BASE_REVISION.is_supported(), "Limine version not supported");
 
-    // Init
+    // Init interrupts early for Page Fault handling during memory init
+    proka_kernel::interrupts::gdt::init(); // Initialize GDT
+    proka_kernel::interrupts::idt::init_idt(); // Initialize IDT
+    proka_kernel::interrupts::pic::init(); // Initialize PIC
+
+    // Init memory management
     proka_kernel::memory::init(); // Initialize memory management
     proka_kernel::drivers::init_devices(); // Initialize devices
     proka_kernel::libs::time::init(); // Init time system
     proka_kernel::libs::logger::init_logger(); // Init log system
     proka_kernel::libs::initrd::load_initrd(); // Load initrd
-    proka_kernel::interrupts::gdt::init(); // Initialize GDT
-    proka_kernel::interrupts::idt::init_idt(); // Initialize IDT
-    proka_kernel::interrupts::pic::init(); // Initialize PIC
     x86_64::instructions::interrupts::enable(); // Enable interrupts
 
     #[allow(unused_parens)]

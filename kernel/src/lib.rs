@@ -10,6 +10,9 @@
 #![feature(abi_x86_interrupt)]
 #![test_runner(crate::test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
+
+extern crate alloc;
+
 pub mod drivers;
 pub mod fs;
 pub mod graphics;
