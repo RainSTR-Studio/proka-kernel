@@ -4,6 +4,9 @@ pub mod paging;
 pub mod protection;
 pub mod vmm;
 
+pub use paging::{phys_to_virt, virt_to_phys_direct};
+pub use vmm::translate_addr;
+
 pub fn init() {
     let memory_map_response = crate::MEMORY_MAP_REQUEST
         .get_response()

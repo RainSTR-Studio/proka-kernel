@@ -64,7 +64,7 @@ impl Console {
     #[inline(always)]
     fn scroll_up(&mut self) {
         unsafe {
-            let base_ptr = self.address as *mut u8;
+            let base_ptr = self.address;
             let scroll_bytes = (FONT_H as usize) * self.pitch as usize;
             let total_bytes = (self.height as usize) * self.pitch as usize;
 
@@ -104,7 +104,7 @@ impl Console {
                 } else {
                     // Invalid symbol, fall back
                     self.parse_state = ParseState::Normal;
-                    self.print_normal_char(0x1B as usize);
+                    self.print_normal_char(0x1B_usize);
                     self.print_normal_char(c as usize);
                 }
             }

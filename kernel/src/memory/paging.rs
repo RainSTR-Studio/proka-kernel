@@ -14,7 +14,7 @@ use limine::response::MemoryMapResponse;
 use x86_64::{
     registers::control::Cr3,
     structures::paging::{OffsetPageTable, PageTable},
-    VirtAddr,
+    PhysAddr, VirtAddr,
 };
 
 /// Retrieve the HHDM (Higher Half Direct Map) offset from Limine
@@ -27,6 +27,19 @@ pub fn get_hhdm_offset() -> VirtAddr {
             .expect("Failed to get HHDM response")
             .offset(),
     )
+}
+
+/// Convert physical address to virtual address using HHDM
+pub fn phys_to_virt(phys: PhysAddr) -> VirtAddr {
+    VirtAddr::new(phys.as_u64() + get_hhdm_offset().as_u64())
+}
+
+/// Convert virtual address to physical address (only for HHDM)
+///
+/// # Safety
+/// The caller must ensure the virtual address is within the HHDM region.
+pub unsafe fn virt_to_phys_direct(virt: VirtAddr) -> PhysAddr {
+    PhysAddr::new(virt.as_u64() - get_hhdm_offset().as_u64())
 }
 
 /// Initialize an OffsetPageTable for accessing page tables

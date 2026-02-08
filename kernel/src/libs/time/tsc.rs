@@ -57,11 +57,7 @@ pub fn init() {
         // time = pit_delta / PIT_FREQ
         // freq = tsc_delta * PIT_FREQ / pit_delta
 
-        if pit_delta == 0 {
-            0 // Failed
-        } else {
-            (tsc_delta * PIT_FREQ) / pit_delta
-        }
+        (tsc_delta * PIT_FREQ).checked_div(pit_delta).unwrap_or(0)
     });
 
     TSC_FREQUENCY.store(freq, Ordering::Relaxed);

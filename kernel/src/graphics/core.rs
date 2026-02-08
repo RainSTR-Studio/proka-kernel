@@ -59,7 +59,7 @@ impl<'a> Renderer<'a> {
         // Init BF, color = black (0)
         let back_buffer = vec![0; buffer_size];
         Self {
-            framebuffer: framebuffer,
+            framebuffer,
             back_buffer,
             pixel_size,
             clear_color: color::BLACK,
@@ -87,7 +87,7 @@ impl<'a> Renderer<'a> {
             let value: u32 = ((color.r as u32) << self.framebuffer.red_mask_shift())
                 | ((color.g as u32) << self.framebuffer.green_mask_shift())
                 | ((color.b as u32) << self.framebuffer.blue_mask_shift());
-            return value;
+            value
         } else if self.bpp == 24 {
             color.to_u32(false)
         } else {
@@ -96,6 +96,11 @@ impl<'a> Renderer<'a> {
     }
 
     /// Draw pixel to BF
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because it does not check if the coordinates are within the
+    /// framebuffer boundaries. The caller must ensure that `x` and `y` are valid.
     #[inline(always)]
     pub unsafe fn set_pixel_raw_unchecked(&mut self, x: u64, y: u64, color: &color::Color) {
         let offset = self.get_buffer_offset(x, y);
@@ -177,7 +182,7 @@ impl<'a> Renderer<'a> {
     pub fn clear(&mut self) {
         let width = self.framebuffer.width();
         let height = self.framebuffer.height();
-        let color = self.clear_color.clone();
+        let color = self.clear_color;
         // Optimize clear operation
         let masked_clear_color = self.mask_color(&color);
         let pixel_bytes = masked_clear_color.to_le_bytes(); // To byte array
@@ -185,9 +190,7 @@ impl<'a> Renderer<'a> {
         for y in 0..height {
             for x in 0..width {
                 let offset = self.get_buffer_offset(x, y);
-                for i in 0..self.pixel_size {
-                    self.back_buffer[offset + i] = bytes_to_fill[i];
-                }
+                self.back_buffer[offset..offset + self.pixel_size].copy_from_slice(bytes_to_fill);
             }
         }
 
@@ -200,8 +203,8 @@ impl<'a> Renderer<'a> {
     /* ======== Drawing Example functions ======== */
     /// Draw a line
     pub fn draw_line(&mut self, p1: Pixel, p2: Pixel, color: color::Color) {
-        let dx_abs = ((p2.x as i64 - p1.x as i64).abs()) as u64;
-        let dy_abs = ((p2.y as i64 - p1.y as i64).abs()) as u64;
+        let dx_abs = (p2.x as i64 - p1.x as i64).unsigned_abs();
+        let dy_abs = (p2.y as i64 - p1.y as i64).unsigned_abs();
         let steep = dy_abs > dx_abs;
         let (mut x1, mut y1) = p1.to_coord();
         let (mut x2, mut y2) = p2.to_coord();
@@ -214,7 +217,7 @@ impl<'a> Renderer<'a> {
             core::mem::swap(&mut y1, &mut y2);
         }
         let dx = x2 - x1;
-        let dy = (y2 as i64 - y1 as i64).abs() as u64;
+        let dy = (y2 as i64 - y1 as i64).unsigned_abs();
         let mut error = (dx / 2) as i64;
         let y_step = if y1 < y2 { 1 } else { -1 };
         let mut y = y1 as i64;
@@ -348,7 +351,7 @@ impl<'a> Renderer<'a> {
     }
 
     /// Draw a rectangle
-    pub fn draw_rect(&mut self, pixel: Pixel, width: u64, height: u64, color: color::Color) -> () {
+    pub fn draw_rect(&mut self, pixel: Pixel, width: u64, height: u64, color: color::Color) {
         let (x, y) = pixel.to_coord();
         let x2 = x + width;
         let y2 = y + height;
@@ -364,9 +367,9 @@ impl<'a> Renderer<'a> {
         let (x_min, y_min) = pixel.to_coord();
         let x_max = x_min + width;
         let y_max = y_min + height;
-        let x_start = x_min.max(0);
+        let x_start = x_min;
         let x_end = x_max.min(self.width() - 1);
-        let y_start = y_min.max(0);
+        let y_start = y_min;
         let y_end = y_max.min(self.height() - 1);
         for y in y_start..=y_end {
             for x in x_start..=x_end {

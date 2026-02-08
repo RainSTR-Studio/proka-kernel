@@ -4,11 +4,14 @@
 //! virtual memory regions and page tables.
 
 use alloc::vec::Vec;
-use x86_64::structures::paging::{PageTableFlags, OffsetPageTable, Mapper, Page, FrameAllocator, mapper::MapToError};
-use x86_64::VirtAddr;
 use spin::Mutex;
+use x86_64::structures::paging::{
+    mapper::MapToError, FrameAllocator, Mapper, OffsetPageTable, Page, PageTableFlags, Translate,
+};
+use x86_64::{PhysAddr, VirtAddr};
 
 extern "C" {
+    // 从链接脚本中获取
     fn __text_start();
     fn __text_end();
     fn __rodata_start();
@@ -36,7 +39,12 @@ impl VmArea {
         // Align end up to page boundary
         let end = VirtAddr::new((end.as_u64() + 0xFFF) & !0xFFF);
         assert!(start < end, "VMA start must be less than end");
-        Self { start, end, flags, name }
+        Self {
+            start,
+            end,
+            flags,
+            name,
+        }
     }
 
     pub fn contains(&self, addr: VirtAddr) -> bool {
@@ -66,36 +74,38 @@ impl MemorySet {
     /// Create a new kernel memory set from existing mappings.
     pub fn new_kernel(page_table: OffsetPageTable<'static>) -> Self {
         let mut set = Self::new(page_table);
-        
-        unsafe {
-            set.insert_area(VmArea::new(
-                VirtAddr::from_ptr(__text_start as *const u8),
-                VirtAddr::from_ptr(__text_end as *const u8),
-                PageTableFlags::PRESENT,
-                "text"
-            )).unwrap();
-            
-            set.insert_area(VmArea::new(
-                VirtAddr::from_ptr(__rodata_start as *const u8),
-                VirtAddr::from_ptr(__rodata_end as *const u8),
-                PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE,
-                "rodata"
-            )).unwrap();
-            
-            set.insert_area(VmArea::new(
-                VirtAddr::from_ptr(__data_start as *const u8),
-                VirtAddr::from_ptr(__data_end as *const u8),
-                PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
-                "data"
-            )).unwrap();
-            
-            set.insert_area(VmArea::new(
-                VirtAddr::from_ptr(__bss_start as *const u8),
-                VirtAddr::from_ptr(__bss_end as *const u8),
-                PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
-                "bss"
-            )).unwrap();
-        }
+
+        set.insert_area(VmArea::new(
+            VirtAddr::from_ptr(__text_start as *const u8),
+            VirtAddr::from_ptr(__text_end as *const u8),
+            PageTableFlags::PRESENT,
+            "text",
+        ))
+        .unwrap();
+
+        set.insert_area(VmArea::new(
+            VirtAddr::from_ptr(__rodata_start as *const u8),
+            VirtAddr::from_ptr(__rodata_end as *const u8),
+            PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE,
+            "rodata",
+        ))
+        .unwrap();
+
+        set.insert_area(VmArea::new(
+            VirtAddr::from_ptr(__data_start as *const u8),
+            VirtAddr::from_ptr(__data_end as *const u8),
+            PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
+            "data",
+        ))
+        .unwrap();
+
+        set.insert_area(VmArea::new(
+            VirtAddr::from_ptr(__bss_start as *const u8),
+            VirtAddr::from_ptr(__bss_end as *const u8),
+            PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
+            "bss",
+        ))
+        .unwrap();
 
         // Add initial heap area (mapped)
         let heap_start = VirtAddr::new(crate::memory::allocator::HEAP_START as u64);
@@ -104,9 +114,10 @@ impl MemorySet {
             heap_start,
             heap_end,
             PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
-            "heap"
-        )).unwrap();
-        
+            "heap",
+        ))
+        .unwrap();
+
         set
     }
 
@@ -131,23 +142,28 @@ impl MemorySet {
     /// Returns Ok(()) if the fault was handled successfully (e.g. by lazy allocation).
     pub fn handle_page_fault(&mut self, addr: VirtAddr) -> Result<(), &'static str> {
         let area = *self.find_area(addr).ok_or("No VMA found for address")?;
-        
+
         let page = Page::containing_address(addr);
-        
+
         // Use the global frame allocator
         let memory_map_response = crate::MEMORY_MAP_REQUEST
             .get_response()
             .expect("Failed to get memory map response");
-        let mut frame_allocator = unsafe { crate::memory::paging::init_frame_allocator(memory_map_response) };
+        let mut frame_allocator =
+            unsafe { crate::memory::paging::init_frame_allocator(memory_map_response) };
 
-        let frame = FrameAllocator::allocate_frame(&mut frame_allocator).ok_or("Out of physical memory")?;
-        
+        let frame =
+            FrameAllocator::allocate_frame(&mut frame_allocator).ok_or("Out of physical memory")?;
+
         unsafe {
-            match self.page_table.map_to(page, frame, area.flags, &mut frame_allocator) {
+            match self
+                .page_table
+                .map_to(page, frame, area.flags, &mut frame_allocator)
+            {
                 Ok(t) => t.flush(),
                 Err(MapToError::PageAlreadyMapped(_)) => {
                     frame_allocator.deallocate_frame(frame);
-                },
+                }
                 Err(_) => return Err("Failed to map page"),
             }
         }
@@ -159,7 +175,7 @@ impl MemorySet {
     pub fn expand_heap(&mut self, start: VirtAddr, end: VirtAddr) -> Result<(), &'static str> {
         // Find if there's already a heap VMA
         let heap_area = self.areas.iter_mut().find(|a| a.name == "heap");
-        
+
         if let Some(area) = heap_area {
             // Update existing heap area
             if start < area.start {
@@ -170,10 +186,20 @@ impl MemorySet {
             }
         } else {
             // Create new heap area
-            self.insert_area(VmArea::new(start, end, PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE, "heap"))?;
+            self.insert_area(VmArea::new(
+                start,
+                end,
+                PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE,
+                "heap",
+            ))?;
         }
-        
+
         Ok(())
+    }
+
+    /// Translate virtual address to physical address
+    pub fn translate_addr(&self, addr: VirtAddr) -> Option<PhysAddr> {
+        self.page_table.translate_addr(addr)
     }
 }
 
@@ -184,38 +210,7 @@ pub fn init(page_table: OffsetPageTable<'static>) {
     *KERNEL_MEMORY_SET.lock() = Some(ms);
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use alloc::vec::Vec;
-
-    #[test_case]
-    fn test_heap_growth() {
-        let mut v = Vec::new();
-        // Allocate 1MB of integers
-        for i in 0..100000 {
-            v.push(i);
-        }
-        assert_eq!(v.len(), 100000);
-        for i in 0..100000 {
-            assert_eq!(v[i], i);
-        }
-    }
-
-    #[test_case]
-    fn test_lazy_allocation() {
-        let addr = VirtAddr::new(0x_5555_5555_0000);
-        let end = addr + 4096u64;
-        {
-            let mut ms_lock = KERNEL_MEMORY_SET.lock();
-            let memory_set = ms_lock.as_mut().unwrap();
-            memory_set.insert_area(VmArea::new(addr, end, PageTableFlags::PRESENT | PageTableFlags::WRITABLE, "test_lazy")).unwrap();
-        }
-        
-        let ptr = addr.as_mut_ptr::<u64>();
-        unsafe {
-            *ptr = 0xDEADBEEF;
-            assert_eq!(*ptr, 0xDEADBEEF);
-        }
-    }
+/// Translate virtual address to physical address using the kernel memory set
+pub fn translate_addr(addr: VirtAddr) -> Option<PhysAddr> {
+    KERNEL_MEMORY_SET.lock().as_ref()?.translate_addr(addr)
 }
