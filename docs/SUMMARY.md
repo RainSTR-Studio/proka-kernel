@@ -1,22 +1,21 @@
 # Summary
 
 - [序言](README.md)
-- [愿景与基本理念](introduction/vision.md)
+- [愿景与基本理念](introduction/index.md)
     - [项目愿景](introduction/vision.md)
     - [技术目标](introduction/goals.md)
 
-- [快速上手](getting-started/setup.md)
+- [快速上手](getting-started/index.md)
     - [环境搭建](getting-started/setup.md)
     - [编译与运行](getting-started/build-and-run.md)
     - [调试技巧 (GDB/QEMU)](getting-started/debugging.md)
 
 - [核心架构设计](architecture/index.md)
-    - [架构概览](architecture/index.md)
-    - [引导流程](architecture/boot/protocol.md)
+    - [引导流程](architecture/boot/index.md)
         - [Limine 协议集成](architecture/boot/protocol.md)
         - [内核入口点](architecture/boot/kernel-entry.md)
         - [ACPI 探测与解析](architecture/boot/acpi.md)
-    - [内存管理架构](architecture/memory/physical.md)
+    - [内存管理架构]
         - [物理内存 (Buddy Allocator)](architecture/memory/physical.md)
         - [虚拟内存 (Paging/VMM/HHDM)](architecture/memory/virtual.md)
         - [内核堆分配 (Talc)](architecture/memory/heap.md)
