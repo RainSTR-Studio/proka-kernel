@@ -40,6 +40,7 @@ all: $(OUTPUT)
 
 $(OUTPUT): $(BIN_PATH)
 	$(Q)cp $< $@
+	rm -f $(BIN_PATH)
 	@echo "Kernel binary ready: $@"
 
 $(BIN_PATH): .FORCE

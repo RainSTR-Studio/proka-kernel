@@ -12,6 +12,19 @@ use crate::FRAMEBUFFER_REQUEST;
 use core::fmt::Write;
 use core::panic::PanicInfo;
 
+/// Information about a fatal CPU exception or kernel error
+pub struct ExceptionInfo {
+    pub name: &'static str,
+    pub rip: u64,
+    pub cs: u64,
+    pub rflags: u64,
+    pub rsp: u64,
+    pub ss: u64,
+    pub error_code: Option<u64>,
+}
+
+pub static EXCEPTION_INFO: spin::Mutex<Option<ExceptionInfo>> = spin::Mutex::new(None);
+
 static BG_COLOR: Color = color!(0, 117, 210);
 
 struct PanicConsole<'a> {
@@ -97,6 +110,64 @@ impl<'a> Write for PanicConsole<'a> {
 #[cfg(not(test))]
 #[panic_handler]
 pub fn panic(info: &PanicInfo) -> ! {
+    let boot_time = crate::libs::time::time_since_boot();
+
+    let mut rax: u64;
+    let mut rbx: u64;
+    let mut rcx: u64;
+    let mut rdx: u64;
+    let mut rsi: u64;
+    let mut rdi: u64;
+    let mut rbp: u64;
+    let mut rsp: u64;
+    let mut r8: u64;
+    let mut r9: u64;
+    let mut r10: u64;
+    let mut r11: u64;
+    let mut r12: u64;
+    let mut r13: u64;
+    let mut r14: u64;
+    let mut r15: u64;
+    let mut rip: u64;
+
+    unsafe {
+        core::arch::asm!("mov {}, rax", out(reg) rax);
+        core::arch::asm!("mov {}, rbx", out(reg) rbx);
+        core::arch::asm!("mov {}, rcx", out(reg) rcx);
+        core::arch::asm!("mov {}, rdx", out(reg) rdx);
+        core::arch::asm!("mov {}, rsi", out(reg) rsi);
+        core::arch::asm!("mov {}, rdi", out(reg) rdi);
+        core::arch::asm!("mov {}, rbp", out(reg) rbp);
+        core::arch::asm!("mov {}, rsp", out(reg) rsp);
+        core::arch::asm!("mov {}, r8", out(reg) r8);
+        core::arch::asm!("mov {}, r9", out(reg) r9);
+        core::arch::asm!("mov {}, r10", out(reg) r10);
+        core::arch::asm!("mov {}, r11", out(reg) r11);
+        core::arch::asm!("mov {}, r12", out(reg) r12);
+        core::arch::asm!("mov {}, r13", out(reg) r13);
+        core::arch::asm!("mov {}, r14", out(reg) r14);
+        core::arch::asm!("mov {}, r15", out(reg) r15);
+        core::arch::asm!("lea {}, [rip]", out(reg) rip);
+    }
+
+    let rflags_gathered = x86_64::registers::rflags::read_raw();
+
+    let mut rflags = rflags_gathered;
+    let mut is_exception = false;
+    let mut exc_name = "";
+    let mut exc_error = None;
+
+    if let Some(info) = EXCEPTION_INFO.try_lock() {
+        if let Some(exc) = info.as_ref() {
+            rip = exc.rip;
+            rflags = exc.rflags;
+            rsp = exc.rsp;
+            is_exception = true;
+            exc_name = exc.name;
+            exc_error = exc.error_code;
+        }
+    }
+
     serial_println!("{}", info);
 
     if let Some(response) = FRAMEBUFFER_REQUEST.get_response() {
@@ -109,9 +180,7 @@ pub fn panic(info: &PanicInfo) -> ! {
             console.clear(bg);
 
             let _ = write!(console, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-            let _ = write!(console, "!!                                                                            !!\n");
             let _ = write!(console, "!!                            PROKA KERNEL PANIC                              !!\n");
-            let _ = write!(console, "!!                                                                            !!\n");
             let _ = write!(console, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
             let _ = write!(console, "\n");
             let _ = write!(
@@ -119,8 +188,14 @@ pub fn panic(info: &PanicInfo) -> ! {
                 "A problem has been detected and the system has been halted to prevent damage.\n"
             );
             let _ = write!(console, "\n");
-            let _ = write!(console, "Reason: \n{}\n", info.message());
-            let _ = write!(console, "\n");
+            let _ = write!(console, "--- ERROR INFO ---\n");
+            let _ = write!(console, "Reason:   {}\n", info.message());
+            if is_exception {
+                let _ = write!(console, "Exception: {}\n", exc_name);
+                if let Some(err) = exc_error {
+                    let _ = write!(console, "Error Code: {:#x}\n", err);
+                }
+            }
             if let Some(location) = info.location() {
                 let _ = write!(
                     console,
@@ -129,7 +204,22 @@ pub fn panic(info: &PanicInfo) -> ! {
                     location.line()
                 );
             }
-            let _ = write!(console, "\n\n");
+            let _ = write!(console, "\n");
+            let _ = write!(console, "--- SYSTEM STATE ---\n");
+            let _ = write!(console, "Boot Time: {:.4}s\n", boot_time);
+            let _ = write!(console, "RIP:       {:#018x}\n", rip);
+            let _ = write!(console, "RFLAGS:    {:#018x}\n", rflags);
+            let _ = write!(console, "\n");
+            let _ = write!(console, "--- REGISTERS ---\n");
+            let _ = write!(console, "RAX: {:#018x}  RBX: {:#018x}\n", rax, rbx);
+            let _ = write!(console, "RCX: {:#018x}  RDX: {:#018x}\n", rcx, rdx);
+            let _ = write!(console, "RSI: {:#018x}  RDI: {:#018x}\n", rsi, rdi);
+            let _ = write!(console, "RBP: {:#018x}  RSP: {:#018x}\n", rbp, rsp);
+            let _ = write!(console, "R8:  {:#018x}  R9:  {:#018x}\n", r8, r9);
+            let _ = write!(console, "R10: {:#018x}  R11: {:#018x}\n", r10, r11);
+            let _ = write!(console, "R12: {:#018x}  R13: {:#018x}\n", r12, r13);
+            let _ = write!(console, "R14: {:#018x}  R15: {:#018x}\n", r14, r15);
+            let _ = write!(console, "\n");
             let _ = write!(console, "Please restart your computer.\n");
         }
     }

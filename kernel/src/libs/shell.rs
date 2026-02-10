@@ -23,9 +23,12 @@ impl Shell {
         match command {
             "help" => {
                 println!("Available commands:");
-                println!("  help - Show this help message");
+                println!("  help  - Show this help message");
                 println!("  clear - Clear the screen");
-                println!("  exit - Exit the shell");
+                println!("  panic - Trigger a kernel panic");
+                println!("  fault - Trigger a CPU exception (Page Fault)");
+                println!("  div0  - Trigger a Divide By Zero exception");
+                println!("  exit  - Exit the shell");
             }
             "clear" => {
                 print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
@@ -36,6 +39,19 @@ impl Shell {
             }
             "panic" => {
                 panic!("Panic test");
+            }
+            "fault" => {
+                println!("Triggering Page Fault...");
+                let ptr = core::ptr::null_mut::<u64>();
+                unsafe {
+                    *ptr = 0xDEADBEEF;
+                }
+            }
+            "div0" => {
+                println!("Triggering Divide By Zero...");
+                unsafe {
+                    core::arch::asm!("xor rdx, rdx", "mov rax, 0x1234", "xor rcx, rcx", "div rcx",);
+                }
             }
             _ => {
                 // ignore empty input, but report unknown commands

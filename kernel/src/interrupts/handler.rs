@@ -1,5 +1,6 @@
 #[allow(unused)]
 use crate::interrupts::pic::{PICS, PIC_1_OFFSET};
+use crate::panic::{ExceptionInfo, EXCEPTION_INFO};
 use crate::serial_println;
 use x86_64::{
     registers::control::Cr2,
@@ -10,8 +11,19 @@ use x86_64::{
 macro_rules! exception_handler {
     ($name:ident, $msg:expr) => {
         pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame) {
-            serial_println!("EXCEPTION: {}\n{:#?}", $msg, stack_frame);
-            hlt_loop() // TODO: Replace it to recovor logic
+            {
+                let mut info = EXCEPTION_INFO.lock();
+                *info = Some(ExceptionInfo {
+                    name: $msg,
+                    rip: stack_frame.instruction_pointer.as_u64(),
+                    cs: stack_frame.code_segment.0 as u64,
+                    rflags: stack_frame.cpu_flags.bits(),
+                    rsp: stack_frame.stack_pointer.as_u64(),
+                    ss: stack_frame.stack_segment.0 as u64,
+                    error_code: None,
+                });
+            }
+            panic!("EXCEPTION: {}", $msg);
         }
     };
 }
@@ -22,13 +34,19 @@ macro_rules! exception_handler_with_error_code {
             stack_frame: InterruptStackFrame,
             error_code: u64, // Uses u64 as error code
         ) {
-            serial_println!(
-                "EXCEPTION: {} [ERR: {:#x}]\n{:#?}",
-                $msg,
-                error_code,
-                stack_frame
-            );
-            hlt_loop()
+            {
+                let mut info = EXCEPTION_INFO.lock();
+                *info = Some(ExceptionInfo {
+                    name: $msg,
+                    rip: stack_frame.instruction_pointer.as_u64(),
+                    cs: stack_frame.code_segment.0 as u64,
+                    rflags: stack_frame.cpu_flags.bits(),
+                    rsp: stack_frame.stack_pointer.as_u64(),
+                    ss: stack_frame.stack_segment.0 as u64,
+                    error_code: Some(error_code),
+                });
+            }
+            panic!("EXCEPTION: {} [ERR: {:#x}]", $msg, error_code);
         }
     };
 }
@@ -54,21 +72,25 @@ exception_handler_with_error_code!(control_protection_handler, "CONTROL PROTECTI
 // Special handler -------------------------------------------------
 pub extern "x86-interrupt" fn spurious_interrupt_handler(_stack_frame: InterruptStackFrame) {
     // Fake interrupt doesn't need to send EIO
-    // Can print log in debug mode
-    // serial_println!("SPURIOUS INTERRUPT");
 }
 
 pub extern "x86-interrupt" fn double_fault_handler(
     stack_frame: InterruptStackFrame,
     error_code: u64,
 ) -> ! {
-    // Must mark as never return
-    serial_println!(
-        "CRITICAL: DOUBLE FAULT [ERR: {:#x}]\n{:#?}",
-        error_code,
-        stack_frame
-    );
-    panic!("SYSTEM HALT"); // Stop system safely
+    {
+        let mut info = EXCEPTION_INFO.lock();
+        *info = Some(ExceptionInfo {
+            name: "DOUBLE FAULT",
+            rip: stack_frame.instruction_pointer.as_u64(),
+            cs: stack_frame.code_segment.0 as u64,
+            rflags: stack_frame.cpu_flags.bits(),
+            rsp: stack_frame.stack_pointer.as_u64(),
+            ss: stack_frame.stack_segment.0 as u64,
+            error_code: Some(error_code),
+        });
+    }
+    panic!("CRITICAL: DOUBLE FAULT [ERR: {:#x}]", error_code);
 }
 
 pub extern "x86-interrupt" fn pagefault_handler(
@@ -89,14 +111,23 @@ pub extern "x86-interrupt" fn pagefault_handler(
         }
     }
 
-    serial_println!(
-        "EXCEPTION: PAGE FAULT at {:#x}\n          Cause: {:?}\n          Frame: {:#?}",
-        fault_address,
-        error_code,
-        stack_frame
+    {
+        let mut info = EXCEPTION_INFO.lock();
+        *info = Some(ExceptionInfo {
+            name: "PAGE FAULT",
+            rip: stack_frame.instruction_pointer.as_u64(),
+            cs: stack_frame.code_segment.0 as u64,
+            rflags: stack_frame.cpu_flags.bits(),
+            rsp: stack_frame.stack_pointer.as_u64(),
+            ss: stack_frame.stack_segment.0 as u64,
+            error_code: Some(error_code.bits()),
+        });
+    }
+
+    panic!(
+        "EXCEPTION: PAGE FAULT at {:#x}\nCause: {:?}",
+        fault_address, error_code
     );
-    // TODO: Exception recovery logic
-    hlt_loop()
 }
 
 pub extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
@@ -104,15 +135,19 @@ pub extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFram
 }
 
 pub extern "x86-interrupt" fn machine_check_handler(stack_frame: InterruptStackFrame) -> ! {
-    serial_println!("CRITICAL: MACHINE CHECK\n{:#?}", stack_frame);
-    panic!("SYSTEM HALT: MACHINE CHECK");
-}
-
-#[inline(always)]
-fn hlt_loop() -> ! {
-    loop {
-        x86_64::instructions::hlt();
+    {
+        let mut info = EXCEPTION_INFO.lock();
+        *info = Some(ExceptionInfo {
+            name: "MACHINE CHECK",
+            rip: stack_frame.instruction_pointer.as_u64(),
+            cs: stack_frame.code_segment.0 as u64,
+            rflags: stack_frame.cpu_flags.bits(),
+            rsp: stack_frame.stack_pointer.as_u64(),
+            ss: stack_frame.stack_segment.0 as u64,
+            error_code: None,
+        });
     }
+    panic!("CRITICAL: MACHINE CHECK");
 }
 
 macro_rules! pic_interrupt_handler {
