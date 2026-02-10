@@ -29,7 +29,7 @@ endef
 
 # Core variables
 OUTPUT		 ?= output
-BUILD_DIRS   ?= kernel
+BUILD_DIRS   ?= kernel fs
 TARGET_DIR   ?= $(CURDIR)/target
 OBJ_DIR      ?= $(TARGET_DIR)/obj
 ISO_DIR      ?= $(TARGET_DIR)/iso
