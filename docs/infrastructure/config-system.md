@@ -75,4 +75,4 @@ a = "./a"
 
 配置界面使用`make menuconfig`启动，会启动一个TUI界面，用户可以通过键盘输入来配置内核。
 
-配置界面的详细使用方法请参考[略]()。
+配置界面的详细使用方法请参考[Anaxa Builder README](https://github.com/RainSTR-Studio/anaxa-builder/blob/main/README.md)。

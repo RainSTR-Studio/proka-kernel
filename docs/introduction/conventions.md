@@ -51,35 +51,37 @@ kernel/src/
 
 ### 注释与文档
 
+对于注释，我们建议使用英文编写，以确保项目的国际化，使全世界的开发者都能够理解和维护代码。
+
 **单行注释**：
 ```rust
-// 使用简单的注释解释复杂逻辑
-let frame = allocator.allocate()?; // 如果分配失败则返回错误
+// Use the simple comment to explain the complex logic
+let frame = allocator.allocate()?; // If allocation fails, return an error
 ```
 
 **多行注释**：
 ```rust
 /*
- * 复杂的算法说明
- * 第二行说明
+ * Complex algorithm description
+ * Second line description
  */
 ```
 
 **文档注释**：
 ```rust
-/// 分配一个物理帧
+/// Allocate a physical frame
 ///
-/// # 参数
-/// - `allocator`: 帧分配器实例
-/// - `count`: 需要分配的帧数
+/// # Arguments
+/// - `allocator`: The frame allocator instance
+/// - `count`: The number of frames to allocate
 ///
-/// # 返回值
-/// 返回分配的帧地址，或错误
+/// # Returns
+/// Returns the address of the allocated frame, or an error
 ///
-/// # 安全要求
-/// 调用者必须确保帧分配器已初始化
+/// # Safety Requirements
+/// The caller must ensure that the frame allocator is initialized
 ///
-/// # 示例
+/// # Examples
 /// ```
 /// let frame = allocate_frames(&mut allocator, 1)?;
 /// ```
@@ -90,7 +92,7 @@ pub fn allocate_frames(allocator: &mut FrameAllocator, count: usize) -> Result<F
 
 **内联汇编注释**：
 ```rust
-// SAFETY: 必须确保内存对齐和权限正确
+// SAFETY: Must ensure that the page table address is valid and properly aligned
 unsafe {
     asm!("mov cr3, {}", in(reg) page_table_addr);
 }
@@ -109,15 +111,18 @@ unsafe {
 
 **示例**：
 ```rust
-/// 设置当前页表
+/// Set the current page table
 ///
-/// # 安全要求
-/// - `page_table_addr` 必须指向有效的页表
-/// - 页表必须正确设置权限位
-/// - 调用者必须确保在此函数后不会访问无效内存
+/// # Arguments
+/// - `page_table_addr`: The address of the page table to set as the current page table
+///
+/// # Safety Requirements
+/// - `page_table_addr` must point to a valid page table
+/// - The page table must have the correct permission bits set
+/// - The caller must ensure that no invalid memory will be accessed after this function returns
 pub unsafe fn set_page_table(page_table_addr: usize) {
-    // SAFETY: 调用者必须确保 page_table_addr 指向有效的页表结构，
-    // 并且在切换页表后不会立即访问可能无效的内存地址
+    // SAFETY: The caller must ensure that `page_table_addr` points to a valid page table structure,
+    // and that no invalid memory will be accessed after this function returns.
     asm!("mov cr3, {}", in(reg) page_table_addr);
 }
 ```
@@ -153,10 +158,55 @@ pub unsafe fn set_page_table(page_table_addr: usize) {
 ### 测试要求
 
 **单元测试**：
-- Rust: 使用 `#[test]` 属性
+- Rust: 使用 `#[test_case]` 属性，即在测试函数前添加 `#[test_case]` 宏（**不是 `#[test]`!!!**）
 
 **测试文件位置**：
 - Rust 测试与源码在同一文件（使用 `#[cfg(test)]`）
+
+**示例**：
+```rust
+// 这里假定你是在proka-kernel(lib/main)下写的代码，即kernel/src/lib.rs已经
+// mod了你的module。
+//
+// 此时你便可以直接使用`#[test_case]`宏来编写测试用例。
+
+// 这里定义一个功能
+pub struct MyStruct {
+    pub field: u32,
+}
+
+impl MyStruct {
+    /// Initilaize a new `MyStruct` with the given field value.
+    pub fn new(field: u32) -> Self {
+        Self { field }
+    }
+
+    /// Return the value of the `field` field.
+    pub fn some_method(&self) -> u32 {
+        self.field
+    }
+}
+
+// 这里编写测试用例
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test the `new` method.
+    #[test_case]
+    fn test_new() {
+        let my_struct = MyStruct::new(114514);
+        assert_eq!(my_struct.field, 114514);
+    }
+
+    /// Test the `some_method` method.
+    #[test_case]
+    fn test_some_method() {
+        let my_struct = MyStruct::new(114514);
+        assert_eq!(my_struct.some_method(), 114514);
+    }
+}
+```
 
 ---
 

@@ -4,9 +4,9 @@
 
 ---
 
-Documentation: [https://prokadoc.pages.dev/](https://prokadoc.pages.dev/)
+For more documentation, please visit: [https://prokadoc.pages.dev/](https://prokadoc.pages.dev/).
 
-Welcome to Proka Kernel, an operating system kernel developed by young talents at RainSTR Studio.
+Welcome to use Proka Kernel, an operating system kernel developed by young talents at RainSTR Studio.
 Primarily for learning and practice, our goal is to evolve it into a stable and reliable system.
 
 ## Project Highlights
@@ -48,10 +48,10 @@ We recommend `rustup` for Rust management.
 
 ```bash
 # Install Rust (via rustup)
-# curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-# source $HOME/.cargo/env
-# rustup default nightly
-# rustup target add x86_64-unknown-none
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+rustup default nightly
+rustup target add x86_64-unknown-none
 
 # Install core build tools
 sudo apt-get update
@@ -72,13 +72,13 @@ From the project root:
     ```bash
     make menuconfig
     ```
-    Please follow its instructions to config.
+    Please follow its instructions to configure the kernel's settings.
 
 2.  **Compile Kernel**:
     ```bash
     make
     ```
-    The kernel file will be put at `output/kernel`.
+    The kernel file will be put at `output/kernel` in project root.
 
 3.  **Build ISO Image**:
     ```bash
@@ -100,6 +100,7 @@ Thank you to all contributors!
 *   **moyan** <me@moyanjdc.top>
 *   **xiaokuai** <rainyhowcool@outlook.com>
 *   **TMX** <273761857@qq.com>
+*   **LKBaka** <linkervb@outlook.com>
 
 ### How to Contribute
 

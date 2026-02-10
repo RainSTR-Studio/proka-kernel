@@ -4,6 +4,7 @@
 - **Rust Toolchain**: `nightly` 版本，目标平台 `x86_64-unknown-none`。
 - **GCC**: 用于编译 C 代码。
 - **Make**: 构建自动化。
+- **Anaxa Builder**: 用于解析相关配置，并编译内核。
 
 ## 模拟与镜像工具
 - **QEMU**: 内核模拟运行。
