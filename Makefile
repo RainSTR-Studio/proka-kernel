@@ -38,7 +38,16 @@ INITRD       ?= assets/initrd.cpio
 
 # Build tools & flags
 XORRISO      ?= xorriso
-XORRISOFLAGS ?= -as mkisofs --efi-boot limine/limine-uefi-cd.bin -quiet
+XORRISOFLAGS ?= -as mkisofs \
+    --efi-boot limine/limine-uefi-cd.bin \
+    -efi-boot-part \
+    --efi-boot-image \
+    -isohybrid-gpt-basdat \
+    -partition_offset 16 \
+    -iso-level 3 \
+    -J -R \
+    -volid "PROKA_KERNEL" \
+    -quiet
 QEMU         ?= qemu-system-x86_64
 
 # Accelerator selection
@@ -176,3 +185,6 @@ distclean: clean
 mkdir:
 	$(call log_info,Building guide (mdBook)...)
 	$(Q)mkdir -p $(OUTPUT)
+
+install: iso
+	$(Q)sudo bash scripts/install.sh $(DEVICE)
