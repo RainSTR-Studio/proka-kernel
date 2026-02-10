@@ -21,15 +21,15 @@ make fmt
 
 遵循 Rust 社区标准：
 
-| 项目 | 约定 | 示例 |
-|------|------|------|
-| **模块** | 蛇形命名法（snake_case） | `interrupts`, `memory_management` |
-| **结构体** | 大驼峰命名法（PascalCase） | `FrameAllocator`, `InterruptDescriptorTable` |
-| **枚举** | 大驼峰命名法（PascalCase） | `MemoryError`, `DriverType` |
-| **函数** | 蛇形命名法（snake_case） | `allocate_frame`, `handle_interrupt` |
-| **变量** | 蛇形命名法（snake_case） | `frame_count`, `current_process` |
-| **常量** | 全大写蛇形命名法（SCREAMING_SNAKE_CASE） | `BASE_REVISION`, `PAGE_SIZE` |
-| **类型参数** | 大驼峰命名法（PascalCase） | `T`, `E`, `P`, `Buf` |
+| 项目         | 约定                                     | 示例                                         |
+| ------------ | ---------------------------------------- | -------------------------------------------- |
+| **模块**     | 蛇形命名法（snake_case）                 | `interrupts`, `memory_management`            |
+| **结构体**   | 大驼峰命名法（PascalCase）               | `FrameAllocator`, `InterruptDescriptorTable` |
+| **枚举**     | 大驼峰命名法（PascalCase）               | `MemoryError`, `DriverType`                  |
+| **函数**     | 蛇形命名法（snake_case）                 | `allocate_frame`, `handle_interrupt`         |
+| **变量**     | 蛇形命名法（snake_case）                 | `frame_count`, `current_process`             |
+| **常量**     | 全大写蛇形命名法（SCREAMING_SNAKE_CASE） | `BASE_REVISION`, `PAGE_SIZE`                 |
+| **类型参数** | 大驼峰命名法（PascalCase）               | `T`, `E`, `P`, `Buf`                         |
 
 ### 模块组织
 
