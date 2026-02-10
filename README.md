@@ -1,5 +1,13 @@
 # Proka Kernel - A kernel for ProkaOS
 
+[![Kernel Tests](https://github.com/RainSTR-Studio/proka-kernel/actions/workflows/test.yml/badge.svg)](https://github.com/RainSTR-Studio/proka-kernel/actions/workflows/test.yml)
+[![Rust Nightly](https://img.shields.io/badge/rust-nightly-orange?style=flat-square&logo=rust)](https://www.rust-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![GitHub Stars](https://img.shields.io/github/stars/RainSTR-Studio/proka-kernel?style=flat-square)](https://github.com/RainSTR-Studio/proka-kernel/stargazers)
+[![GitHub Issues](https://img.shields.io/github/issues/RainSTR-Studio/proka-kernel?style=flat-square)](https://github.com/RainSTR-Studio/proka-kernel/issues)
+[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/RainSTR-Studio/proka-kernel?style=flat-square)](https://github.com/RainSTR-Studio/proka-kernel/pulls)
+[![Documentation](https://img.shields.io/badge/docs-prokadoc-brightgreen?style=flat-square)](https://prokadoc.pages.dev/)
+
 **Copyright (C) 2026 RainSTR Studio. All rights reserved.**
 
 ---
