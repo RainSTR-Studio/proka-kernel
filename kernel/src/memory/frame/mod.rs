@@ -39,7 +39,10 @@ pub struct FrameStats {
 
 /// Global frame allocator with spinlock protection
 /// Wrapper around a static mutex
+#[derive(Clone, Copy)]
 pub struct LockedFrameAllocator(&'static Mutex<BuddyAllocator>);
+
+pub static FRAME_ALLOCATOR: LockedFrameAllocator = LockedFrameAllocator(&FRAME_ALLOCATOR_INNER);
 
 impl LockedFrameAllocator {
     /// Initialize the global allocator from the memory map
@@ -50,8 +53,8 @@ impl LockedFrameAllocator {
     /// - All frames marked as `USABLE` in it are really unused
     /// - This is called only once during initialization
     /// - The HHDM is initialized and accessible
-    pub unsafe fn init(memory_map: &'static MemoryMapResponse) -> Self {
-        let mut allocator = FRAME_ALLOCATOR_INNER.lock();
+    pub unsafe fn init(&self, memory_map: &'static MemoryMapResponse) {
+        let mut allocator = self.0.lock();
         if allocator.total_frames() == 0 {
             // 1. Calculate max physical address to determine bitmap size
             let mut max_phys_addr = 0;
@@ -126,7 +129,6 @@ impl LockedFrameAllocator {
                 }
             }
         }
-        LockedFrameAllocator(&FRAME_ALLOCATOR_INNER)
     }
 
     /// Allocate a contiguous block of frames

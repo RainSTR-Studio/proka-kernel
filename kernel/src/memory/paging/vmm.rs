@@ -7,7 +7,7 @@ use alloc::vec::Vec;
 use spin::Mutex;
 use x86_64::structures::paging::Translate;
 use x86_64::structures::paging::{
-    mapper::MapToError, FrameAllocator, Mapper, OffsetPageTable, Page, PageTableFlags,
+    mapper::MapToError, FrameAllocator, Mapper, OffsetPageTable, Page, PageTableFlags, Size4KiB,
 };
 use x86_64::{PhysAddr, VirtAddr};
 
@@ -147,11 +147,7 @@ impl MemorySet {
         let page = Page::containing_address(addr);
 
         // Use the global frame allocator
-        let memory_map_response = crate::MEMORY_MAP_REQUEST
-            .get_response()
-            .expect("Failed to get memory map response");
-        let mut frame_allocator =
-            unsafe { crate::memory::paging::init_frame_allocator(memory_map_response) };
+        let mut frame_allocator = crate::memory::FRAME_ALLOCATOR;
 
         let frame =
             FrameAllocator::allocate_frame(&mut frame_allocator).ok_or("Out of physical memory")?;
@@ -201,6 +197,38 @@ impl MemorySet {
     /// Translate virtual address to physical address
     pub fn translate_addr(&self, addr: VirtAddr) -> Option<PhysAddr> {
         self.page_table.translate_addr(addr)
+    }
+
+    /// Map a physical region to a virtual address for MMIO or similar purposes.
+    pub fn map_region(
+        &mut self,
+        virt: VirtAddr,
+        phys: PhysAddr,
+        size: usize,
+        flags: PageTableFlags,
+    ) -> Result<(), &'static str> {
+        let start_page = Page::<Size4KiB>::containing_address(virt);
+        let end_page = Page::<Size4KiB>::containing_address(virt + (size as u64) - 1u64);
+
+        let mut frame_allocator = crate::memory::FRAME_ALLOCATOR;
+
+        for page in Page::range_inclusive(start_page, end_page) {
+            let offset = page.start_address().as_u64() - virt.as_u64();
+            let phys_frame =
+                x86_64::structures::paging::PhysFrame::containing_address(phys + offset);
+
+            unsafe {
+                match self
+                    .page_table
+                    .map_to(page, phys_frame, flags, &mut frame_allocator)
+                {
+                    Ok(t) => t.flush(),
+                    Err(MapToError::PageAlreadyMapped(_)) => continue,
+                    Err(_) => return Err("Failed to map page"),
+                }
+            }
+        }
+        Ok(())
     }
 }
 

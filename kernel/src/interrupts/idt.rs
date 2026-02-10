@@ -1,18 +1,21 @@
 use crate::interrupts::gdt;
 use crate::interrupts::handler;
-use crate::interrupts::pic::{PIC_1_OFFSET, PIC_2_OFFSET}; // Import PIC consts and global PICS
 use lazy_static::lazy_static;
 use x86_64::structures::idt::InterruptDescriptorTable;
 // Define the count of PIC interrupt vectors
 #[allow(dead_code)]
 pub const PICS_EVT_COUNT: u8 = 16; // IRQ0 to IRQ15, total 16 interrupts
 pub const SPURIOUS_APIC_VECTOR: u8 = 0xFF; // APIC spurious interrupt vector
+pub const IRQ_BASE: u8 = 0x20;
 
 lazy_static! {
     pub static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
         // Spurious Interrupt Handler
         idt[SPURIOUS_APIC_VECTOR].set_handler_fn(handler::spurious_interrupt_handler);
+
+        // APIC Timer Handler
+        idt[crate::interrupts::apic::TIMER_VECTOR].set_handler_fn(handler::timer_interrupt_handler);
 
         // Non-error-code exception handlers
         idt.divide_error.set_handler_fn(handler::divide_error_handler);
@@ -39,24 +42,24 @@ lazy_static! {
                 .set_handler_fn(handler::double_fault_handler)
                 .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
         }
-        // PIC interrupt handlers
+        // IOAPIC interrupt handlers
         // IRQ0 - Clock Interrupt, IRQ1 - Keyboard Interrupt
-        idt[PIC_1_OFFSET].set_handler_fn(handler::pic_interrupt_handler_0); // IRQ0
-        idt[PIC_1_OFFSET + 1].set_handler_fn(handler::pic_interrupt_handler_1); // IRQ1
-        idt[PIC_1_OFFSET + 2].set_handler_fn(handler::pic_interrupt_handler_2); // IRQ2
-        idt[PIC_1_OFFSET + 3].set_handler_fn(handler::pic_interrupt_handler_3); // IRQ3
-        idt[PIC_1_OFFSET + 4].set_handler_fn(handler::pic_interrupt_handler_4); // IRQ4
-        idt[PIC_1_OFFSET + 5].set_handler_fn(handler::pic_interrupt_handler_5); // IRQ5
-        idt[PIC_1_OFFSET + 6].set_handler_fn(handler::pic_interrupt_handler_6); // IRQ6
-        idt[PIC_1_OFFSET + 7].set_handler_fn(handler::pic_interrupt_handler_7); // IRQ7
-        idt[PIC_2_OFFSET].set_handler_fn(handler::pic_interrupt_handler_8);   // IRQ8
-        idt[PIC_2_OFFSET + 1].set_handler_fn(handler::pic_interrupt_handler_9);   // IRQ9
-        idt[PIC_2_OFFSET + 2].set_handler_fn(handler::pic_interrupt_handler_10);  // IRQ10
-        idt[PIC_2_OFFSET + 3].set_handler_fn(handler::pic_interrupt_handler_11);  // IRQ11
-        idt[PIC_2_OFFSET + 4].set_handler_fn(handler::pic_interrupt_handler_12);  // IRQ12
-        idt[PIC_2_OFFSET + 5].set_handler_fn(handler::pic_interrupt_handler_13);  // IRQ13
-        idt[PIC_2_OFFSET + 6].set_handler_fn(handler::pic_interrupt_handler_14);  // IRQ14
-        idt[PIC_2_OFFSET + 7].set_handler_fn(handler::pic_interrupt_handler_15);  // IRQ15
+        idt[IRQ_BASE].set_handler_fn(handler::pic_interrupt_handler_0); // IRQ0
+        idt[IRQ_BASE + 1].set_handler_fn(handler::pic_interrupt_handler_1); // IRQ1
+        idt[IRQ_BASE + 2].set_handler_fn(handler::pic_interrupt_handler_2); // IRQ2
+        idt[IRQ_BASE + 3].set_handler_fn(handler::pic_interrupt_handler_3); // IRQ3
+        idt[IRQ_BASE + 4].set_handler_fn(handler::pic_interrupt_handler_4); // IRQ4
+        idt[IRQ_BASE + 5].set_handler_fn(handler::pic_interrupt_handler_5); // IRQ5
+        idt[IRQ_BASE + 6].set_handler_fn(handler::pic_interrupt_handler_6); // IRQ6
+        idt[IRQ_BASE + 7].set_handler_fn(handler::pic_interrupt_handler_7); // IRQ7
+        idt[IRQ_BASE + 8].set_handler_fn(handler::pic_interrupt_handler_8);   // IRQ8
+        idt[IRQ_BASE + 9].set_handler_fn(handler::pic_interrupt_handler_9);   // IRQ9
+        idt[IRQ_BASE + 10].set_handler_fn(handler::pic_interrupt_handler_10);  // IRQ10
+        idt[IRQ_BASE + 11].set_handler_fn(handler::pic_interrupt_handler_11);  // IRQ11
+        idt[IRQ_BASE + 12].set_handler_fn(handler::pic_interrupt_handler_12);  // IRQ12
+        idt[IRQ_BASE + 13].set_handler_fn(handler::pic_interrupt_handler_13);  // IRQ13
+        idt[IRQ_BASE + 14].set_handler_fn(handler::pic_interrupt_handler_14);  // IRQ14
+        idt[IRQ_BASE + 15].set_handler_fn(handler::pic_interrupt_handler_15);  // IRQ15
         idt
     };
 }

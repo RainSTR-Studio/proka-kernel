@@ -43,11 +43,7 @@ impl talc::OomHandler for KernelOomHandler {
             Page::range_inclusive(start_page, end_page)
         };
 
-        let memory_map_response = crate::MEMORY_MAP_REQUEST
-            .get_response()
-            .expect("Failed to get memory map response");
-        let mut frame_allocator =
-            unsafe { crate::memory::paging::init_frame_allocator(memory_map_response) };
+        let mut frame_allocator = crate::memory::FRAME_ALLOCATOR;
 
         for page in page_range {
             let frame = frame_allocator.allocate_frame().ok_or(())?;

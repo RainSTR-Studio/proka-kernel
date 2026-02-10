@@ -5,3 +5,4 @@ pub mod logger;
 pub mod msr;
 pub mod shell;
 pub mod time;
+pub mod acpi;

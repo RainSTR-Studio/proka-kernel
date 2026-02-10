@@ -3,6 +3,7 @@ pub mod heap;
 pub mod paging;
 pub mod protection;
 
+pub use frame::FRAME_ALLOCATOR;
 pub use paging::vmm::translate_addr;
 pub use paging::{phys_to_virt, virt_to_phys_direct};
 
@@ -12,7 +13,10 @@ pub fn init() {
         .expect("Failed to get memory map response");
     let hhdm_offset = paging::get_hhdm_offset();
     let mut mapper = unsafe { paging::init_offset_page_table(hhdm_offset) };
-    let mut frame_allocator = unsafe { paging::init_frame_allocator(memory_map_response) };
+    unsafe {
+        paging::init_frame_allocator(memory_map_response);
+    }
+    let mut frame_allocator = FRAME_ALLOCATOR;
 
     // 1. Initialize heap with a small pre-mapped area for bootstrapping
     heap::init_heap(&mut mapper, &mut frame_allocator).expect("Failed to init heap");
@@ -35,8 +39,11 @@ pub fn test_allocator_sanity() {
 
     // We get the allocator instance safely
     // Since init_frame_allocator is idempotent (checks total_frames == 0),
-    // calling it again is safe and returns the SAME LockedFrameAllocator wrapping the SAME static mutex.
-    let mut allocator = unsafe { paging::init_frame_allocator(memory_map_response) };
+    // calling it again is safe.
+    unsafe {
+        paging::init_frame_allocator(memory_map_response);
+    }
+    let mut allocator = FRAME_ALLOCATOR;
 
     println!("=== Testing Buddy Allocator ===");
 

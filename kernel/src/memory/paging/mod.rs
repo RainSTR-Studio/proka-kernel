@@ -85,8 +85,8 @@ unsafe fn active_level_4_table(physical_memory_offset: VirtAddr) -> &'static mut
 /// This function is unsafe because the caller must guarantee that:
 /// - The passed memory map is valid
 /// - All frames marked as `USABLE` in it are really unused
-pub unsafe fn init_frame_allocator(memory_map: &'static MemoryMapResponse) -> LockedFrameAllocator {
-    LockedFrameAllocator::init(memory_map)
+pub unsafe fn init_frame_allocator(memory_map: &'static MemoryMapResponse) {
+    crate::memory::frame::FRAME_ALLOCATOR.init(memory_map);
 }
 
 /// Print memory statistics

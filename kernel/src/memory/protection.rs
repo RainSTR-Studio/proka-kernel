@@ -124,6 +124,11 @@ pub fn executable_flags() -> PageTableFlags {
     PageTableFlags::PRESENT
 }
 
+/// Create IOAPIC page flags
+pub fn ioapic_flags() -> PageTableFlags {
+    writable_flags() | PageTableFlags::NO_CACHE
+}
+
 /// Create read-write-executable page flags
 pub fn read_write_execute_flags() -> PageTableFlags {
     PageTableFlags::PRESENT | PageTableFlags::WRITABLE

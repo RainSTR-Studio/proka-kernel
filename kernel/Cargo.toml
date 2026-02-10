@@ -23,7 +23,7 @@ talc = "4.4.3"
 uart_16550 = "0.4.0"
 x86_64 = "0.15.2"
 pc-keyboard = "0.7.0"
-acpi = "6.0.1"
+acpi = { version = "6.0.1", features = ["alloc", "aml"] }
 
 [features]
 ttf = ["dep:ab_glyph", "dep:libm"]

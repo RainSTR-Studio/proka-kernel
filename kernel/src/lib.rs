@@ -38,7 +38,7 @@ pub use memory::protection::{kernel_flags, user_flags, Protection};
 
 use limine::{
     modules::InternalModule,
-    request::{FramebufferRequest, MemoryMapRequest, ModuleRequest},
+    request::{FramebufferRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, RsdpRequest},
     BaseRevision,
 };
 
@@ -59,7 +59,11 @@ pub static MEMORY_MAP_REQUEST: MemoryMapRequest = MemoryMapRequest::new();
 
 #[unsafe(link_section = ".requests")]
 #[used]
-pub static HHDM_REQUEST: limine::request::HhdmRequest = limine::request::HhdmRequest::new();
+pub static HHDM_REQUEST: HhdmRequest = HhdmRequest::new();
+
+#[unsafe(link_section = ".requests")]
+#[used]
+pub static RSDP_REQUEST: RsdpRequest = RsdpRequest::new();
 
 #[unsafe(link_section = ".requests")]
 #[used]

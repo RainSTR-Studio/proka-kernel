@@ -32,13 +32,22 @@ pub extern "C" fn kernel_main() -> ! {
     // Init interrupts early for Page Fault handling during memory init
     proka_kernel::interrupts::gdt::init(); // Initialize GDT
     proka_kernel::interrupts::idt::init_idt(); // Initialize IDT
-    proka_kernel::interrupts::pic::init(); // Initialize PIC
 
-    // Init memory management
+    // Initialize memory management
     proka_kernel::memory::init(); // Initialize memory management
+    proka_kernel::libs::logger::init_logger(); // Init log system
+
+    // Initialize ACPI and APIC
+    proka_kernel::libs::acpi::init();
+    proka_kernel::interrupts::apic::init();
+    proka_kernel::interrupts::ioapic::init();
+
+    // Route Keyboard IRQ
+    proka_kernel::interrupts::ioapic::route_irq(1, proka_kernel::interrupts::idt::IRQ_BASE + 1, 0);
+
     proka_kernel::drivers::init_devices(); // Initialize devices
     proka_kernel::libs::time::init(); // Init time system
-    proka_kernel::libs::logger::init_logger(); // Init log system
+
     proka_kernel::libs::initrd::load_initrd(); // Load initrd
     x86_64::instructions::interrupts::enable(); // Enable interrupts
 

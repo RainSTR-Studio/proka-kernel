@@ -1,5 +1,5 @@
 #[allow(unused)]
-use crate::interrupts::pic::{PICS, PIC_1_OFFSET};
+use crate::interrupts::apic;
 use crate::panic::{ExceptionInfo, EXCEPTION_INFO};
 use crate::serial_println;
 use x86_64::{
@@ -150,6 +150,12 @@ pub extern "x86-interrupt" fn machine_check_handler(stack_frame: InterruptStackF
     panic!("CRITICAL: MACHINE CHECK");
 }
 
+pub extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    // APIC Timer interrupt
+    // For now just EOI
+    apic::end_of_interrupt();
+}
+
 macro_rules! pic_interrupt_handler {
     ($name:ident, $irq_number:expr) => {
         #[allow(unused_variables)]
@@ -162,10 +168,7 @@ macro_rules! pic_interrupt_handler {
                 serial_println!("IRQ {} received!", $irq_number);
             }
 
-            unsafe {
-                PICS.lock()
-                    .notify_end_of_interrupt(PIC_1_OFFSET + $irq_number);
-            }
+            apic::end_of_interrupt();
         }
     };
 }
