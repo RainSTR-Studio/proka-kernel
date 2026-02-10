@@ -20,6 +20,7 @@
 #[macro_use]
 extern crate proka_kernel;
 extern crate alloc;
+
 use proka_kernel::{output::console::CONSOLE, BASE_REVISION};
 /* The Kernel main code */
 // The normal one

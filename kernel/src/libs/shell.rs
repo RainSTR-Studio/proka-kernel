@@ -1,9 +1,6 @@
 use alloc::{string::String, sync::Arc};
 
-use crate::{
-    drivers::device,
-    print, println,
-};
+use crate::{drivers::device, print, println};
 
 pub struct Shell {}
 impl Shell {
@@ -36,6 +33,9 @@ impl Shell {
             "exit" => {
                 print!("goodbye!\n");
                 // TODO: implement exit functionality
+            }
+            "panic" => {
+                panic!("Panic test");
             }
             _ => {
                 // ignore empty input, but report unknown commands
