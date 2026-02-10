@@ -1,8 +1,14 @@
 name: Kernel Tests
 
 on:
-  - push
-  - pull_request
+  push:
+    paths:
+      - "kernel/**"
+      - "**/Makefile"
+  pull_request:
+    paths:
+      - "kernel/**"
+      - "**/Makefile"
 
 jobs:
   test:
