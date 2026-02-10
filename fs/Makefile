@@ -13,4 +13,4 @@ all:
 
 clean:
 	$(Q)echo "[INFO] Cleaning proka-fs..."
-	$(Q)cargo anaxa clean
+	$(Q)cargo clean
