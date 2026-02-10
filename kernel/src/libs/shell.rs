@@ -1,7 +1,7 @@
 use alloc::{string::String, sync::Arc};
 
 use crate::{
-    drivers::{device, Device},
+    drivers::device,
     print, println,
 };
 
@@ -84,11 +84,11 @@ impl Shell {
                     }
                 }
                 Ok(_) => {
-                    // 没有数据，暂停 CPU 等待中断
+                    // No data, pause CPU until interrupt
                     x86_64::instructions::hlt();
                 }
                 Err(_) => {
-                    // 读取错误，暂停 CPU
+                    // Read error, pause CPU
                     x86_64::instructions::hlt();
                 }
             }
