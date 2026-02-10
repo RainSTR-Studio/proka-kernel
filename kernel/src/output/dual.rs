@@ -1,4 +1,3 @@
-#[cfg(ENABLE_GRAPHICS)]
 use crate::output::console::_print as console_print;
 use crate::output::serial::_print as serial_print;
 
@@ -29,7 +28,6 @@ macro_rules! println {
 #[doc(hidden)]
 #[allow(unused_variables)]
 pub fn _dual_print_console(args: core::fmt::Arguments) {
-    #[cfg(ENABLE_GRAPHICS)]
     console_print(args);
 }
 

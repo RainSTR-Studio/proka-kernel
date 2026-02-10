@@ -3,10 +3,12 @@ use crate::interrupts::pic;
 use crate::libs::msr;
 use crate::memory::protection;
 use crate::{get_hhdm_offset, libs::acpi::ACPI_INFO};
-use log::{debug, error, info};
+use log::{debug, info};
 use raw_cpuid::CpuId;
 use spin::Mutex;
 use x86_64::registers::model_specific::Msr;
+
+pub mod ioapic;
 
 const APIC_SIVR_ENABLE: u32 = 0x100;
 const APIC_BASE_ENABLE: u64 = 1 << 11;

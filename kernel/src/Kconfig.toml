@@ -2,13 +2,6 @@ title = "Core"
 desc = "Core Kernel Configuration"
 
 [[config]]
-name = "ENABLE_GRAPHICS"
-type = "bool"
-default = true
-desc = "Enable Graphics Output"
-help = "If enabled, the kernel will attempt to initialize the framebuffer and display graphics."
-
-[[config]]
 name = "ADDITIONAL_VERSION"
 type = "string"
 default = ""

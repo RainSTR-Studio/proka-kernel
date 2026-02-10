@@ -40,10 +40,14 @@ pub extern "C" fn kernel_main() -> ! {
     // Initialize ACPI and APIC
     proka_kernel::libs::acpi::init();
     proka_kernel::interrupts::apic::init();
-    proka_kernel::interrupts::ioapic::init();
+    proka_kernel::interrupts::apic::ioapic::init();
 
     // Route Keyboard IRQ
-    proka_kernel::interrupts::ioapic::route_irq(1, proka_kernel::interrupts::idt::IRQ_BASE + 1, 0);
+    proka_kernel::interrupts::apic::ioapic::route_irq(
+        1,
+        proka_kernel::interrupts::idt::IRQ_BASE + 1,
+        0,
+    );
 
     proka_kernel::drivers::init_devices(); // Initialize devices
     proka_kernel::libs::time::init(); // Init time system

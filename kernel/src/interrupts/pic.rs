@@ -1,3 +1,7 @@
+//! PIC initialization
+//!
+//! Will be deprecated in the future.
+
 use pic8259::ChainedPics;
 use spin;
 
