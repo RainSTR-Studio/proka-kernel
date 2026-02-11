@@ -7,3 +7,11 @@ default = "Info"
 desc = "Kernel Log Level"
 options = ["Trace", "Debug", "Info", "Warn", "Error"]
 help = "Sets the maximum log level for the kernel logger."
+
+[[config]]
+name = "TIMEZONE"
+type = "int"
+default = +8
+desc = "Timezone"
+help = "Timezone offset from UTC (in hours)."
+rust_type = "i8"

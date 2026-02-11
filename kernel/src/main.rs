@@ -21,7 +21,7 @@
 extern crate proka_kernel;
 extern crate alloc;
 
-use proka_kernel::{BASE_REVISION, output::console::CONSOLE};
+use proka_kernel::{libs::time::rtc, output::console::CONSOLE, BASE_REVISION};
 /* The Kernel main code */
 // The normal one
 #[unsafe(no_mangle)]
@@ -41,6 +41,7 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::libs::acpi::init();
     proka_kernel::interrupts::apic::init();
     proka_kernel::interrupts::apic::ioapic::init();
+    println!("Start time: {:?}", rtc::now_local().to_iso8601());
 
     // Register Keyboard Handler (Simplified)
     proka_kernel::interrupts::request_irq(1, "Keyboard", |_context| {
@@ -57,8 +58,8 @@ pub extern "C" fn kernel_main() -> ! {
             proka_kernel::interrupts::apic::TIMER_VECTOR,
             "Timer",
             |_context| {
-                use proka_kernel::output::console::BITFONT_CURSOR_VISIBLE;
                 use core::sync::atomic::{AtomicU64, Ordering};
+                use proka_kernel::output::console::BITFONT_CURSOR_VISIBLE;
                 static TICKS: AtomicU64 = AtomicU64::new(0);
                 let t = TICKS.fetch_add(1, Ordering::Relaxed);
                 if t > 0 && t % 20 == 0 {
@@ -109,7 +110,7 @@ pub extern "C" fn kernel_main() -> ! {
 
     let time = proka_kernel::libs::time::time_since_boot();
     println!("Time since boot: {time}");
-    
+
     let shell = proka_kernel::libs::shell::Shell::new();
     shell.run("keyboard");
 
