@@ -71,13 +71,15 @@ impl<'a> PanicConsole<'a> {
             return;
         }
         let glyph = FONT8X16[c as usize & 0x7F];
-        for (row, col) in glyph.iter().enumerate() {
-            let color = if glyph[row] & (0x80 >> col) != 0 {
-                fg
-            } else {
-                bg
-            };
-            self.set_pixel(self.x + *col as u64, self.y + row as u64, color);
+        for row in 0..16 {
+            for col in 0..8 {
+                let color = if glyph[row] & (0x80 >> col) != 0 {
+                    fg
+                } else {
+                    bg
+                };
+                self.set_pixel(self.x + col as u64, self.y + row as u64, color);
+            }
         }
         self.x += 8;
         if self.x + 8 > self.framebuffer.width() - 20 {
@@ -90,16 +92,16 @@ impl<'a> PanicConsole<'a> {
 impl<'a> Write for PanicConsole<'a> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let fb = &self.framebuffer;
-        let fg = ((255_u32) << fb.red_mask_shift())
-            | ((255_u32) << fb.green_mask_shift())
-            | ((255_u32) << fb.blue_mask_shift());
+        let fg = ((255) << fb.red_mask_shift())
+            | ((255) << fb.green_mask_shift())
+            | ((255) << fb.blue_mask_shift());
         let bg = ((BG_COLOR.r as u32) << fb.red_mask_shift())
             | ((BG_COLOR.g as u32) << fb.green_mask_shift())
             | ((BG_COLOR.b as u32) << fb.blue_mask_shift());
-
         for c in s.chars() {
             self.write_char(c, fg, bg);
         }
+
         Ok(())
     }
 }
@@ -178,7 +180,7 @@ pub fn panic(info: &PanicInfo) -> ! {
             let mut console = PanicConsole::new(framebuffer);
             console.clear(bg);
 
-            let _ = writeln!(
+            let _ = write!(
                 console,
                 "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             );
