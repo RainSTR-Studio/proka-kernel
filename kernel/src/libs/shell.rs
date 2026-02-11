@@ -23,12 +23,14 @@ impl Shell {
         match command {
             "help" => {
                 println!("Available commands:");
-                println!("  help  - Show this help message");
-                println!("  clear - Clear the screen");
-                println!("  panic - Trigger a kernel panic");
-                println!("  fault - Trigger a CPU exception (Page Fault)");
-                println!("  div0  - Trigger a Divide By Zero exception");
-                println!("  exit  - Exit the shell");
+                println!("  help     - Show this help message");
+                println!("  clear    - Clear the screen");
+                println!("  panic    - Trigger a kernel panic");
+                println!("  fault    - Trigger a CPU exception (Page Fault)");
+                println!("  div0     - Trigger a Divide By Zero exception");
+                println!("  reboot   - Reboot the system");
+                println!("  shutdown - Shutdown the system");
+                println!("  exit     - Exit the shell");
             }
             "clear" => {
                 print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
@@ -52,6 +54,14 @@ impl Shell {
                 unsafe {
                     core::arch::asm!("xor rdx, rdx", "mov rax, 0x1234", "xor rcx, rcx", "div rcx",);
                 }
+            }
+            "reboot" => {
+                println!("Rebooting...");
+                crate::libs::system::reboot();
+            }
+            "shutdown" => {
+                println!("Shutting down...");
+                crate::libs::system::shutdown();
             }
             _ => {
                 // ignore empty input, but report unknown commands
