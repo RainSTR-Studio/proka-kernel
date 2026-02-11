@@ -3,7 +3,7 @@ use crate::interrupts::pic;
 use crate::libs::msr;
 use crate::memory::protection;
 use crate::{get_hhdm_offset, libs::acpi::ACPI_INFO};
-use log::{debug, info};
+use log::debug;
 use raw_cpuid::CpuId;
 use spin::Mutex;
 use x86_64::registers::model_specific::Msr;
@@ -18,10 +18,6 @@ const APIC_BASE_X2APIC_ENABLE: u64 = 1 << 10;
 // MMIO Offsets for xAPIC
 const XAPIC_EOI_OFFSET: u32 = 0x0B0;
 const XAPIC_SIVR_OFFSET: u32 = 0x0F0;
-const XAPIC_LVT_TIMER_OFFSET: u32 = 0x320;
-const XAPIC_TIMER_INIT_COUNT_OFFSET: u32 = 0x380;
-const XAPIC_TIMER_CUR_COUNT_OFFSET: u32 = 0x390;
-const XAPIC_TIMER_DIV_CONF_OFFSET: u32 = 0x3E0;
 
 pub const TIMER_VECTOR: u8 = 0x30; // APIC Timer interrupt vector
 
@@ -146,37 +142,12 @@ impl LocalApic {
         debug!("Local APIC initialized in {:?} mode", self.mode);
     }
 
-    // TODO: move to libs/time
     pub unsafe fn calibrate_timer(&self) {
-        // Stop timer
-        self.write_reg(XAPIC_TIMER_INIT_COUNT_OFFSET, 0);
-        // Set divider to 16
-        self.write_reg(XAPIC_TIMER_DIV_CONF_OFFSET, 0x3);
-
-        let mut pit = crate::libs::time::pit::PIT.lock();
-
-        // Start PIT one-shot for 10ms (10000 us)
-        // PIT freq is 1.193182 MHz. 10ms = 11932 ticks
-        let pit_ticks = 11932;
-        pit.start_one_shot(pit_ticks);
-
-        // Set APIC timer to max
-        self.write_reg(XAPIC_TIMER_INIT_COUNT_OFFSET, 0xFFFFFFFF);
-
-        // Wait for PIT
-        while (x86_64::instructions::port::Port::<u8>::new(0x61).read() & 0x20) == 0 {
-            core::hint::spin_loop();
-        }
-
-        // Stop APIC timer
-        let current_count = self.read_reg(XAPIC_TIMER_CUR_COUNT_OFFSET);
-        let ticks_per_10ms = 0xFFFFFFFF - current_count;
-
-        info!("APIC Timer calibrated: {} ticks per 10ms", ticks_per_10ms);
-
-        // Set timer for periodic interrupt at 100Hz (10ms)
-        self.write_reg(XAPIC_LVT_TIMER_OFFSET, 0x20000 | TIMER_VECTOR as u32); // Periodic mode
-        self.write_reg(XAPIC_TIMER_INIT_COUNT_OFFSET, ticks_per_10ms);
+        crate::libs::time::apic::calibrate_timer(
+            |reg| self.read_reg(reg),
+            |reg, val| self.write_reg(reg, val),
+            TIMER_VECTOR,
+        );
     }
 }
 
