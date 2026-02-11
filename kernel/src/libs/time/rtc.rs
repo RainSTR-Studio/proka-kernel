@@ -711,7 +711,7 @@ pub fn local_to_utc_timestamp(local_timestamp: u64) -> u64 {
 mod tests {
     use super::*;
 
-    #[test]
+    #[test_case]
     fn test_bcd_to_binary() {
         assert_eq!(Rtc::bcd_to_binary(0x00), 0);
         assert_eq!(Rtc::bcd_to_binary(0x01), 1);
@@ -721,7 +721,7 @@ mod tests {
         assert_eq!(Rtc::bcd_to_binary(0x23), 23);
     }
 
-    #[test]
+    #[test_case]
     fn test_is_leap_year() {
         assert!(is_leap_year(2000));
         assert!(is_leap_year(2024));
@@ -731,7 +731,7 @@ mod tests {
         assert!(!is_leap_year(2021));
     }
 
-    #[test]
+    #[test_case]
     fn test_datetime_to_unix_timestamp() {
         // Unix epoch: 1970-01-01 00:00:00
         let epoch = DateTime::new_utc(1970, 1, 1, 0, 0, 0, 4);
@@ -742,7 +742,7 @@ mod tests {
         assert_eq!(datetime_to_unix_timestamp(&y2k), 946684800);
     }
 
-    #[test]
+    #[test_case]
     fn test_datetime_to_iso8601() {
         let dt = DateTime::with_timezone(2024, 6, 15, 14, 30, 45, 6, 8);
         assert_eq!(dt.to_iso8601(), "2024-06-15 14:30:45+08:00");
@@ -754,7 +754,7 @@ mod tests {
         assert_eq!(dt_negative.to_iso8601(), "2024-06-15 14:30:45-05:00");
     }
 
-    #[test]
+    #[test_case]
     fn test_to_utc() {
         // Test +8 timezone to UTC conversion
         let local = DateTime::with_timezone(2024, 6, 15, 14, 30, 0, 6, 8);
@@ -774,7 +774,7 @@ mod tests {
         assert_eq!(utc.hour, 19); // 14 + 5 = 19
     }
 
-    #[test]
+    #[test_case]
     fn test_to_timezone() {
         let utc = DateTime::new_utc(2024, 6, 15, 14, 0, 0, 6);
 
@@ -787,7 +787,7 @@ mod tests {
         assert_eq!(eastern.hour, 9); // 14 - 5 = 9
     }
 
-    #[test]
+    #[test_case]
     fn test_add_days_to_date() {
         // Add days
         let (y, m, d, w) = add_days_to_date(2024, 6, 15, 6, 5);
