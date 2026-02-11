@@ -5,12 +5,16 @@ use crate::FRAMEBUFFER_REQUEST;
 use ab_glyph::{Font, FontRef, PxScale, ScaleFont};
 use alloc::{collections::BTreeMap, vec, vec::Vec};
 use core::fmt::{self, Write};
+use core::sync::atomic::AtomicBool;
 use lazy_static::lazy_static;
 
 pub const DEFAULT_FONT_SIZE: f32 = 10.0;
 pub const TAB_SPACES: usize = 4;
 pub const GLYPH_CACHE_SIZE: usize = 95; // ASCII printable characters
 pub const MAX_ANSI_PARAMS: usize = 8;
+
+pub const CURSOR_VISIBLE: AtomicBool = AtomicBool::new(true);
+
 
 // The default font writer
 lazy_static! {
@@ -997,13 +1001,7 @@ impl<'a> crate::output::console::Console for TtfConsole<'a> {
         (self.cursor_x, self.cursor_y)
     }
 
-    fn cursor_hide(&mut self) {
-        self.hidden_cursor = true;
-        self.cursor_needs_redraw = true;
-    }
-
-    fn cursor_show(&mut self) {
-        self.hidden_cursor = false;
-        self.cursor_needs_redraw = true;
+    fn show_cursor(&mut self, _is_visible: bool) {
+        self.draw_cursor();
     }
 }

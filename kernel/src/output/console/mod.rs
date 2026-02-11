@@ -14,6 +14,12 @@ pub use console_bitfont::BitfontConsole;
 #[cfg(ENABLE_TTF_CONSOLE)]
 pub use console_ttf::TtfConsole;
 
+#[cfg(ENABLE_BITFONT_CONSOLE)]
+pub use console_bitfont::CURSOR_VISIBLE as BITFONT_CURSOR_VISIBLE;
+
+#[cfg(ENABLE_TTF_CONSOLE)]
+pub use console_ttf::CURSOR_VISIBLE as TTF_CURSOR_VISIBLE;
+
 /// General [`Console`] trait, which defined generic APIs.
 pub trait Console: Write {
     /// Clean screen
@@ -52,11 +58,8 @@ pub trait Console: Write {
     /// Get current cursor posision
     fn get_cursor_pos(&self) -> (u32, u32);
 
-    /// Hide cursor
-    fn cursor_hide(&mut self);
-
-    /// Show cursor
-    fn cursor_show(&mut self);
+    /// Draw cursor at current position
+    fn show_cursor(&mut self, is_visible: bool);
 }
 
 pub type ConsoleImpl<'a> = alloc::boxed::Box<dyn Console + Send + 'a>;

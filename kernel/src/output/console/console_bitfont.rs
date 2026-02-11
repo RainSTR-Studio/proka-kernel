@@ -1,14 +1,17 @@
 extern crate alloc;
 
 use crate::graphics::{color, Color};
-use crate::output::font8x16::FONT8X16;
+use crate::output::font8x16::{CURSOR_UNDERLINE, FONT8X16};
 use crate::FRAMEBUFFER_REQUEST;
 use alloc::{vec, vec::Vec};
 use core::fmt::{self, Write};
+use core::sync::atomic::AtomicBool;
 
 // Constants
 const FONT_W: u64 = 8;
 const FONT_H: u64 = 16;
+
+pub static mut CURSOR_VISIBLE: AtomicBool = AtomicBool::new(false);
 
 /// The ANSI parse status
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -313,6 +316,42 @@ impl BitfontConsole {
         self.current_param = 0;
     }
 
+    /// draw a cursor at the current position.
+    pub fn draw_cursor(&mut self, is_visible: bool) {
+        let start_x = self.position.0;
+        let start_y = self.position.1;
+
+        for line in 0..FONT_H {
+            for i in 0..FONT_W {
+                let mask = 0x80 >> i;
+                let x = start_x + i;
+                let y = start_y + line;
+
+                if x < self.width && y < self.height {
+                    let pixel_offset = y * self.pitch + x * 4;
+
+                    if CURSOR_UNDERLINE[line as usize] & mask != 0 {
+                        if is_visible {
+                            unsafe {
+                                self.address
+                                    .add(pixel_offset as usize)
+                                    .cast::<u32>()
+                                    .write(self.fg_color.to_u32(true));
+                            }
+                        } else {
+                            unsafe {
+                                self.address
+                                    .add(pixel_offset as usize)
+                                    .cast::<u32>()
+                                    .write(self.bg_color.to_u32(true));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Print a string to console.
     pub fn print_string(&mut self, s: &str) {
         for c in s.bytes() {
@@ -431,11 +470,7 @@ impl crate::output::console::Console for BitfontConsole {
         )
     }
 
-    fn cursor_hide(&mut self) {
-        // TODO: Implement cursor hide
-    }
-
-    fn cursor_show(&mut self) {
-        // TODO: Implement cursor show
+    fn show_cursor(&mut self, is_visible: bool) {
+        self.draw_cursor(is_visible);
     }
 }
