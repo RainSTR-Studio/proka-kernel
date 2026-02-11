@@ -2,7 +2,7 @@ use crate::libs::acpi::ACPI_INFO;
 use crate::{get_hhdm_offset, memory::protection};
 use alloc::vec::Vec;
 use log::{debug, info};
-use spin::Mutex;
+use spin::Once;
 
 const IOREGSEL: u64 = 0x00;
 const IOWIN: u64 = 0x10;
@@ -16,9 +16,7 @@ pub struct IoApic {
     max_redirection_entries: u8,
 }
 
-lazy_static::lazy_static! {
-    pub static ref IOAPICS: Mutex<Vec<IoApic>> = Mutex::new(Vec::new());
-}
+pub static IOAPICS: Once<Vec<IoApic>> = Once::new();
 
 impl IoApic {
     pub unsafe fn new(_id: u8, phys_base: u64, gsi_base: u32) -> Self {
@@ -91,28 +89,30 @@ impl IoApic {
 }
 
 pub fn init() {
-    let acpi_info_lock = ACPI_INFO.get();
-    let Some(acpi_info) = acpi_info_lock.as_ref() else {
+    let Some(acpi_info) = ACPI_INFO.get() else {
         panic!("ACPI info not initialized before IOAPIC init");
     };
 
-    let mut ioapics = IOAPICS.lock();
-    for info in &acpi_info.io_apics {
-        unsafe {
-            let ioapic = IoApic::new(
-                info.id,
-                info.address as u64,
-                info.global_system_interrupt_base,
-            );
-            ioapics.push(ioapic);
+    let ioapics = IOAPICS.call_once(|| {
+        let mut ioapics = Vec::new();
+        for info in &acpi_info.io_apics {
+            unsafe {
+                let ioapic = IoApic::new(
+                    info.id,
+                    info.address as u64,
+                    info.global_system_interrupt_base,
+                );
+                ioapics.push(ioapic);
+            }
         }
-    }
+        ioapics
+    });
+
     info!("Initialized {} I/O APICs", ioapics.len());
 }
 
 pub fn route_irq(irq: u8, vector: u8, dest_id: u8) {
-    let acpi_info_lock = ACPI_INFO.get();
-    let Some(acpi_info) = acpi_info_lock.as_ref() else {
+    let Some(acpi_info) = ACPI_INFO.get() else {
         return;
     };
 
@@ -125,7 +125,10 @@ pub fn route_irq(irq: u8, vector: u8, dest_id: u8) {
         }
     }
 
-    let ioapics = IOAPICS.lock();
+    let Some(ioapics) = IOAPICS.get() else {
+        return;
+    };
+
     for ioapic in ioapics.iter() {
         if actual_gsi >= ioapic.gsi_base
             && actual_gsi <= ioapic.gsi_base + ioapic.max_redirection_entries as u32
