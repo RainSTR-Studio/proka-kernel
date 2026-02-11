@@ -23,7 +23,7 @@ pub struct ExceptionInfo {
     pub error_code: Option<u64>,
 }
 
-pub static EXCEPTION_INFO: spin::Mutex<Option<ExceptionInfo>> = spin::Mutex::new(None);
+pub static EXCEPTION_INFO: spin::RwLock<Option<ExceptionInfo>> = spin::RwLock::new(None);
 
 static BG_COLOR: Color = color!(0, 117, 210);
 
@@ -158,7 +158,7 @@ pub fn panic(info: &PanicInfo) -> ! {
     let mut exc_name = "";
     let mut exc_error = None;
 
-    if let Some(info) = EXCEPTION_INFO.try_lock() {
+    if let Some(info) = EXCEPTION_INFO.try_read() {
         if let Some(exc) = info.as_ref() {
             rip = exc.rip;
             rflags = exc.rflags;

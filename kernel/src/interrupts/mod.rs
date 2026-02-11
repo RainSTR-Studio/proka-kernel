@@ -17,7 +17,7 @@ pub fn request_irq(irq_num: u8, name: &'static str, handler: IrqHandler) {
 
     // 2. Register software handler
     IRQ_REGISTRY
-        .lock()
+        .write()
         .register(vector, name, handler)
         .expect("Failed to register IRQ handler");
 }

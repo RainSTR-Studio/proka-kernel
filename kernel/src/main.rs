@@ -52,7 +52,7 @@ pub extern "C" fn kernel_main() -> ! {
 
     // Register Timer Handler via Registry
     proka_kernel::interrupts::apic::registry::IRQ_REGISTRY
-        .lock()
+        .write()
         .register(
             proka_kernel::interrupts::apic::TIMER_VECTOR,
             "Timer",

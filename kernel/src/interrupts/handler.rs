@@ -14,7 +14,7 @@ macro_rules! exception_handler {
     ($name:ident, $msg:expr) => {
         pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame) {
             {
-                let mut info = EXCEPTION_INFO.lock();
+                let mut info = EXCEPTION_INFO.write();
                 *info = Some(ExceptionInfo {
                     name: $msg,
                     rip: stack_frame.instruction_pointer.as_u64(),
@@ -37,7 +37,7 @@ macro_rules! exception_handler_with_error_code {
             error_code: u64, // Uses u64 as error code
         ) {
             {
-                let mut info = EXCEPTION_INFO.lock();
+                let mut info = EXCEPTION_INFO.write();
                 *info = Some(ExceptionInfo {
                     name: $msg,
                     rip: stack_frame.instruction_pointer.as_u64(),
@@ -81,7 +81,7 @@ pub extern "x86-interrupt" fn double_fault_handler(
     error_code: u64,
 ) -> ! {
     {
-        let mut info = EXCEPTION_INFO.lock();
+        let mut info = EXCEPTION_INFO.write();
         *info = Some(ExceptionInfo {
             name: "DOUBLE FAULT",
             rip: stack_frame.instruction_pointer.as_u64(),
@@ -114,7 +114,7 @@ pub extern "x86-interrupt" fn pagefault_handler(
     }
 
     {
-        let mut info = EXCEPTION_INFO.lock();
+        let mut info = EXCEPTION_INFO.write();
         *info = Some(ExceptionInfo {
             name: "PAGE FAULT",
             rip: stack_frame.instruction_pointer.as_u64(),
@@ -138,7 +138,7 @@ pub extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFram
 
 pub extern "x86-interrupt" fn machine_check_handler(stack_frame: InterruptStackFrame) -> ! {
     {
-        let mut info = EXCEPTION_INFO.lock();
+        let mut info = EXCEPTION_INFO.write();
         *info = Some(ExceptionInfo {
             name: "MACHINE CHECK",
             rip: stack_frame.instruction_pointer.as_u64(),
@@ -160,7 +160,7 @@ pub extern "x86-interrupt" fn timer_interrupt_handler(stack_frame: InterruptStac
         error_code: None,
     };
 
-    if let Some(mut registry) = IRQ_REGISTRY.try_lock() {
+    if let Some(registry) = IRQ_REGISTRY.try_read() {
         registry.handle(context);
     }
 
@@ -180,7 +180,7 @@ macro_rules! ioapic_interrupt_handler {
             };
 
             let mut handled = false;
-            if let Some(mut registry) = IRQ_REGISTRY.try_lock() {
+            if let Some(registry) = IRQ_REGISTRY.try_read() {
                 if let crate::interrupts::apic::registry::IrqResult::Handled =
                     registry.handle(context)
                 {
