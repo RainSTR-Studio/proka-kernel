@@ -91,7 +91,7 @@ impl IoApic {
 }
 
 pub fn init() {
-    let acpi_info_lock = ACPI_INFO.lock();
+    let acpi_info_lock = ACPI_INFO.get();
     let Some(acpi_info) = acpi_info_lock.as_ref() else {
         panic!("ACPI info not initialized before IOAPIC init");
     };
@@ -111,7 +111,7 @@ pub fn init() {
 }
 
 pub fn route_irq(irq: u8, vector: u8, dest_id: u8) {
-    let acpi_info_lock = ACPI_INFO.lock();
+    let acpi_info_lock = ACPI_INFO.get();
     let Some(acpi_info) = acpi_info_lock.as_ref() else {
         return;
     };

@@ -54,7 +54,7 @@ impl LocalApic {
             ApicMode::X2Apic
         } else {
             let cpu_number = ACPI_INFO
-                .lock()
+                .get()
                 .as_ref()
                 .map(|info| info.cpus.len())
                 .unwrap_or(1);
@@ -65,7 +65,7 @@ impl LocalApic {
         };
 
         let base = {
-            let acpi_lapic_addr = ACPI_INFO.lock().as_ref().map(|info| info.lapic_address);
+            let acpi_lapic_addr = ACPI_INFO.get().as_ref().map(|info| info.lapic_address);
             let phys_base = acpi_lapic_addr.unwrap_or_else(|| {
                 let apic_base_msr = Msr::new(msr::IA32_APIC_BASE).read();
                 apic_base_msr & 0xFFFFF000

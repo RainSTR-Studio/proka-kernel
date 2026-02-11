@@ -3,9 +3,8 @@ use acpi::platform::ProcessorState;
 use acpi::AcpiTables;
 use alloc::vec::Vec;
 use core::panic;
-use lazy_static::lazy_static;
 use log::{info, warn};
-use spin::Mutex;
+use spin::Once;
 
 pub mod handler;
 
@@ -35,9 +34,7 @@ pub struct AcpiInfo {
     pub cpus: Vec<CpuInfo>,
 }
 
-lazy_static! {
-    pub static ref ACPI_INFO: Mutex<Option<AcpiInfo>> = Mutex::new(None);
-}
+pub static ACPI_INFO: Once<AcpiInfo> = Once::new();
 
 pub fn init() {
     let rsdp_addr = crate::RSDP_REQUEST.get_response().and_then(|r| {
@@ -116,8 +113,7 @@ pub fn init() {
         warn!("No processor info found in ACPI");
     }
 
-    let mut info_lock = ACPI_INFO.lock();
-    *info_lock = Some(AcpiInfo {
+    ACPI_INFO.call_once(|| AcpiInfo {
         lapic_address,
         io_apics,
         interrupt_overrides,
