@@ -180,7 +180,7 @@ pub fn panic(info: &PanicInfo) -> ! {
             let mut console = PanicConsole::new(framebuffer);
             console.clear(bg);
 
-            let _ = write!(
+            let _ = writeln!(
                 console,
                 "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             );
