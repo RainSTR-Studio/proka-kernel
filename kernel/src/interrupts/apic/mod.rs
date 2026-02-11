@@ -9,6 +9,7 @@ use spin::Mutex;
 use x86_64::registers::model_specific::Msr;
 
 pub mod ioapic;
+pub mod registry;
 
 const APIC_SIVR_ENABLE: u32 = 0x100;
 const APIC_BASE_ENABLE: u64 = 1 << 11;

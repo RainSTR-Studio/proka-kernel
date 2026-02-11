@@ -44,22 +44,22 @@ lazy_static! {
         }
         // IOAPIC interrupt handlers
         // IRQ0 - Clock Interrupt, IRQ1 - Keyboard Interrupt
-        idt[IRQ_BASE].set_handler_fn(handler::pic_interrupt_handler_0); // IRQ0
-        idt[IRQ_BASE + 1].set_handler_fn(handler::pic_interrupt_handler_1); // IRQ1
-        idt[IRQ_BASE + 2].set_handler_fn(handler::pic_interrupt_handler_2); // IRQ2
-        idt[IRQ_BASE + 3].set_handler_fn(handler::pic_interrupt_handler_3); // IRQ3
-        idt[IRQ_BASE + 4].set_handler_fn(handler::pic_interrupt_handler_4); // IRQ4
-        idt[IRQ_BASE + 5].set_handler_fn(handler::pic_interrupt_handler_5); // IRQ5
-        idt[IRQ_BASE + 6].set_handler_fn(handler::pic_interrupt_handler_6); // IRQ6
-        idt[IRQ_BASE + 7].set_handler_fn(handler::pic_interrupt_handler_7); // IRQ7
-        idt[IRQ_BASE + 8].set_handler_fn(handler::pic_interrupt_handler_8);   // IRQ8
-        idt[IRQ_BASE + 9].set_handler_fn(handler::pic_interrupt_handler_9);   // IRQ9
-        idt[IRQ_BASE + 10].set_handler_fn(handler::pic_interrupt_handler_10);  // IRQ10
-        idt[IRQ_BASE + 11].set_handler_fn(handler::pic_interrupt_handler_11);  // IRQ11
-        idt[IRQ_BASE + 12].set_handler_fn(handler::pic_interrupt_handler_12);  // IRQ12
-        idt[IRQ_BASE + 13].set_handler_fn(handler::pic_interrupt_handler_13);  // IRQ13
-        idt[IRQ_BASE + 14].set_handler_fn(handler::pic_interrupt_handler_14);  // IRQ14
-        idt[IRQ_BASE + 15].set_handler_fn(handler::pic_interrupt_handler_15);  // IRQ15
+        idt[IRQ_BASE].set_handler_fn(handler::ioapic_interrupt_handler_0); // IRQ0
+        idt[IRQ_BASE + 1].set_handler_fn(handler::ioapic_interrupt_handler_1); // IRQ1
+        idt[IRQ_BASE + 2].set_handler_fn(handler::ioapic_interrupt_handler_2); // IRQ2
+        idt[IRQ_BASE + 3].set_handler_fn(handler::ioapic_interrupt_handler_3); // IRQ3
+        idt[IRQ_BASE + 4].set_handler_fn(handler::ioapic_interrupt_handler_4); // IRQ4
+        idt[IRQ_BASE + 5].set_handler_fn(handler::ioapic_interrupt_handler_5); // IRQ5
+        idt[IRQ_BASE + 6].set_handler_fn(handler::ioapic_interrupt_handler_6); // IRQ6
+        idt[IRQ_BASE + 7].set_handler_fn(handler::ioapic_interrupt_handler_7); // IRQ7
+        idt[IRQ_BASE + 8].set_handler_fn(handler::ioapic_interrupt_handler_8);   // IRQ8
+        idt[IRQ_BASE + 9].set_handler_fn(handler::ioapic_interrupt_handler_9);   // IRQ9
+        idt[IRQ_BASE + 10].set_handler_fn(handler::ioapic_interrupt_handler_10);  // IRQ10
+        idt[IRQ_BASE + 11].set_handler_fn(handler::ioapic_interrupt_handler_11);  // IRQ11
+        idt[IRQ_BASE + 12].set_handler_fn(handler::ioapic_interrupt_handler_12);  // IRQ12
+        idt[IRQ_BASE + 13].set_handler_fn(handler::ioapic_interrupt_handler_13);  // IRQ13
+        idt[IRQ_BASE + 14].set_handler_fn(handler::ioapic_interrupt_handler_14);  // IRQ14
+        idt[IRQ_BASE + 15].set_handler_fn(handler::ioapic_interrupt_handler_15);  // IRQ15
         idt
     };
 }

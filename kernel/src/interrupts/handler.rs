@@ -1,5 +1,7 @@
 #[allow(unused)]
 use crate::interrupts::apic;
+use crate::interrupts::apic::registry::{IrqContext, IRQ_REGISTRY};
+use crate::interrupts::idt::IRQ_BASE;
 use crate::panic::{ExceptionInfo, EXCEPTION_INFO};
 use crate::serial_println;
 use x86_64::{
@@ -150,22 +152,50 @@ pub extern "x86-interrupt" fn machine_check_handler(stack_frame: InterruptStackF
     panic!("CRITICAL: MACHINE CHECK");
 }
 
-pub extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    // APIC Timer interrupt
-    // For now just EOI
+pub extern "x86-interrupt" fn timer_interrupt_handler(stack_frame: InterruptStackFrame) {
+    let context = IrqContext {
+        vector: crate::interrupts::apic::TIMER_VECTOR,
+        irq_number: None, // APIC timer is not a standard ISA IRQ
+        stack_frame: &stack_frame,
+        error_code: None,
+    };
+
+    if let Some(mut registry) = IRQ_REGISTRY.try_lock() {
+        registry.handle(context);
+    }
+
     apic::end_of_interrupt();
 }
 
-macro_rules! pic_interrupt_handler {
+macro_rules! ioapic_interrupt_handler {
     ($name:ident, $irq_number:expr) => {
         #[allow(unused_variables)]
         pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame) {
-            if $irq_number == 1 {
-                let mut port = x86_64::instructions::port::Port::<u8>::new(0x60);
-                let scancode = unsafe { port.read() };
-                crate::drivers::input::keyboard::KEYBOARD.handle_scancode(scancode);
-            } else {
-                serial_println!("IRQ {} received!", $irq_number);
+            let vector = IRQ_BASE + $irq_number;
+            let context = IrqContext {
+                vector,
+                irq_number: Some($irq_number),
+                stack_frame: &stack_frame,
+                error_code: None,
+            };
+
+            let mut handled = false;
+            if let Some(mut registry) = IRQ_REGISTRY.try_lock() {
+                if let crate::interrupts::apic::registry::IrqResult::Handled =
+                    registry.handle(context)
+                {
+                    handled = true;
+                }
+            }
+
+            if !handled {
+                if $irq_number == 1 {
+                    let mut port = x86_64::instructions::port::Port::<u8>::new(0x60);
+                    let scancode = unsafe { port.read() };
+                    crate::drivers::input::keyboard::KEYBOARD.handle_scancode(scancode);
+                } else {
+                    serial_println!("IRQ {} received!", $irq_number);
+                }
             }
 
             apic::end_of_interrupt();
@@ -173,19 +203,19 @@ macro_rules! pic_interrupt_handler {
     };
 }
 // 为所有 16 个 IRQ 定义处理函数
-pic_interrupt_handler!(pic_interrupt_handler_0, 0); // Timer Interrupt
-pic_interrupt_handler!(pic_interrupt_handler_1, 1); // Keyboard Interrupt
-pic_interrupt_handler!(pic_interrupt_handler_2, 2); // Cascade to PIC2
-pic_interrupt_handler!(pic_interrupt_handler_3, 3); // Serial COM2
-pic_interrupt_handler!(pic_interrupt_handler_4, 4); // Serial COM1
-pic_interrupt_handler!(pic_interrupt_handler_5, 5); // Parallel Port LPT2 / Sound Card
-pic_interrupt_handler!(pic_interrupt_handler_6, 6); // Floppy Disk Controller
-pic_interrupt_handler!(pic_interrupt_handler_7, 7); // Parallel Port LPT1 / Fake Interrupt
-pic_interrupt_handler!(pic_interrupt_handler_8, 8); // RTC Real Time Clock
-pic_interrupt_handler!(pic_interrupt_handler_9, 9); // Redirect IRQ2
-pic_interrupt_handler!(pic_interrupt_handler_10, 10); // Freed / SCSI / Netcard
-pic_interrupt_handler!(pic_interrupt_handler_11, 11); // Freed / SCSI / Netcard
-pic_interrupt_handler!(pic_interrupt_handler_12, 12); // PS/2 mouse
-pic_interrupt_handler!(pic_interrupt_handler_13, 13); // FPU / MPU
-pic_interrupt_handler!(pic_interrupt_handler_14, 14); // Primary IDE
-pic_interrupt_handler!(pic_interrupt_handler_15, 15); // Secondary IDE
+ioapic_interrupt_handler!(ioapic_interrupt_handler_0, 0); // Timer Interrupt
+ioapic_interrupt_handler!(ioapic_interrupt_handler_1, 1); // Keyboard Interrupt
+ioapic_interrupt_handler!(ioapic_interrupt_handler_2, 2); // Cascade to PIC2
+ioapic_interrupt_handler!(ioapic_interrupt_handler_3, 3); // Serial COM2
+ioapic_interrupt_handler!(ioapic_interrupt_handler_4, 4); // Serial COM1
+ioapic_interrupt_handler!(ioapic_interrupt_handler_5, 5); // Parallel Port LPT2 / Sound Card
+ioapic_interrupt_handler!(ioapic_interrupt_handler_6, 6); // Floppy Disk Controller
+ioapic_interrupt_handler!(ioapic_interrupt_handler_7, 7); // Parallel Port LPT1 / Fake Interrupt
+ioapic_interrupt_handler!(ioapic_interrupt_handler_8, 8); // RTC Real Time Clock
+ioapic_interrupt_handler!(ioapic_interrupt_handler_9, 9); // Redirect IRQ2
+ioapic_interrupt_handler!(ioapic_interrupt_handler_10, 10); // Freed / SCSI / Netcard
+ioapic_interrupt_handler!(ioapic_interrupt_handler_11, 11); // Freed / SCSI / Netcard
+ioapic_interrupt_handler!(ioapic_interrupt_handler_12, 12); // PS/2 mouse
+ioapic_interrupt_handler!(ioapic_interrupt_handler_13, 13); // FPU / MPU
+ioapic_interrupt_handler!(ioapic_interrupt_handler_14, 14); // Primary IDE
+ioapic_interrupt_handler!(ioapic_interrupt_handler_15, 15); // Secondary IDE
