@@ -5,7 +5,7 @@ use crate::memory::protection;
 use crate::{get_hhdm_offset, libs::acpi::ACPI_INFO};
 use log::debug;
 use raw_cpuid::CpuId;
-use spin::Mutex;
+use spin::Once;
 use x86_64::registers::model_specific::Msr;
 
 pub mod ioapic;
@@ -44,9 +44,7 @@ pub struct LocalApic {
     base: u64, // Virtual base address for xAPIC
 }
 
-lazy_static::lazy_static! {
-    pub static ref LAPIC: Mutex<Option<LocalApic>> = Mutex::new(None);
-}
+pub static LAPIC: Once<LocalApic> = Once::new();
 
 impl LocalApic {
     pub unsafe fn new() -> Self {
@@ -152,7 +150,7 @@ impl LocalApic {
 }
 
 pub fn end_of_interrupt() {
-    if let Some(lapic) = LAPIC.lock().as_ref() {
+    if let Some(lapic) = LAPIC.get() {
         unsafe { lapic.eoi() };
     }
 }
@@ -168,6 +166,6 @@ pub fn init() {
         let lapic = LocalApic::new();
         lapic.init();
         lapic.calibrate_timer();
-        *LAPIC.lock() = Some(lapic);
+        LAPIC.call_once(|| lapic);
     }
 }
