@@ -111,6 +111,8 @@ impl<'a> Write for PanicConsole<'a> {
 #[warn(unused_must_use)]
 #[panic_handler]
 pub fn panic(info: &PanicInfo) -> ! {
+    // 禁用中断
+    x86_64::instructions::interrupts::disable();
     let boot_time = crate::libs::time::time_since_boot();
 
     let mut rax: u64;
