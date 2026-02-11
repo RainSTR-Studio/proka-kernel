@@ -221,18 +221,13 @@ impl<'a> TtfConsole<'a> {
     }
 
     pub fn set_font(&mut self, new_font_data: &'static [u8], new_font_size: Option<f32>) {
-        match FontRef::try_from_slice(new_font_data) {
-            Ok(new_font) => {
-                self.font = new_font;
-                let size_to_use = new_font_size.unwrap_or(self.font_size);
-                self.init_font_metrics(size_to_use);
-                self.cursor_needs_redraw = true;
-                self.glyph_cache.clear();
-                self.redraw();
-            }
-            Err(_) => {
-                return;
-            }
+        if let Ok(new_font) = FontRef::try_from_slice(new_font_data) {
+            self.font = new_font;
+            let size_to_use = new_font_size.unwrap_or(self.font_size);
+            self.init_font_metrics(size_to_use);
+            self.cursor_needs_redraw = true;
+            self.glyph_cache.clear();
+            self.redraw();
         }
     }
 

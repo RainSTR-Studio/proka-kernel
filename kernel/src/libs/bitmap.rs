@@ -73,6 +73,12 @@ impl<const N: usize> BitMap<N> {
     }
 }
 
+impl<const N: usize> Default for BitMap<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct PreAllocBitMap<const N: usize> {
     bits: [u64; N],
 }
@@ -129,6 +135,12 @@ impl<const N: usize> PreAllocBitMap<N> {
     /// Get total capacity of the bitmap.
     pub const fn capacity(&self) -> usize {
         N * 64
+    }
+}
+
+impl<const N: usize> Default for PreAllocBitMap<N> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

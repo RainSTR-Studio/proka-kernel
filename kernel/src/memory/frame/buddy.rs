@@ -282,6 +282,8 @@ impl<const MAX_ORDER: usize> BuddyAllocator<MAX_ORDER> {
     }
 
     /// Deallocate a frame of the given order.
+    /// # Safety
+    /// This function is unsafe because it does not check if the frame is allocated.
     pub unsafe fn dealloc(&mut self, frame: PhysFrame<Size4KiB>, order: usize) {
         if self.used_frames >= (1 << order) {
             self.used_frames -= 1 << order;
@@ -295,6 +297,8 @@ impl<const MAX_ORDER: usize> BuddyAllocator<MAX_ORDER> {
 
     /// Deallocate a range of frames.
     /// This splits the range into power-of-two blocks and deallocates them.
+    /// # Safety
+    /// This function is unsafe because it does not check if the frames are allocated.
     pub unsafe fn dealloc_range(&mut self, start: PhysFrame<Size4KiB>, end: PhysFrame<Size4KiB>) {
         let mut current = start;
         while current < end {
@@ -306,10 +310,10 @@ impl<const MAX_ORDER: usize> BuddyAllocator<MAX_ORDER> {
             while order < MAX_ORDER - 1 {
                 let next_order = order + 1;
                 let size_frames = 1 << next_order;
-                let size_bytes = 4096 * (size_frames as u64);
+                let size_bytes = 4096 * size_frames;
 
                 // Check alignment
-                if current_addr % size_bytes != 0 {
+                if !current_addr.is_multiple_of(size_bytes) {
                     break;
                 }
                 // Check size
@@ -321,12 +325,11 @@ impl<const MAX_ORDER: usize> BuddyAllocator<MAX_ORDER> {
 
             self.dealloc(current, order);
             // PhysFrame + u64 is supported
-            current = current + (1 << order);
+            current += 1 << order;
         }
     }
 
     /// Get the total number of frames managed.
-
     pub fn total_frames(&self) -> usize {
         self.total_frames
     }
@@ -339,5 +342,11 @@ impl<const MAX_ORDER: usize> BuddyAllocator<MAX_ORDER> {
     /// Get the number of free frames.
     pub fn free_frames(&self) -> usize {
         self.total_frames - self.used_frames
+    }
+}
+
+impl<const MAX_ORDER: usize> Default for BuddyAllocator<MAX_ORDER> {
+    fn default() -> Self {
+        Self::new()
     }
 }

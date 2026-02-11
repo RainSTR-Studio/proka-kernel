@@ -71,15 +71,13 @@ impl<'a> PanicConsole<'a> {
             return;
         }
         let glyph = FONT8X16[c as usize & 0x7F];
-        for row in 0..16 {
-            for col in 0..8 {
-                let color = if glyph[row] & (0x80 >> col) != 0 {
-                    fg
-                } else {
-                    bg
-                };
-                self.set_pixel(self.x + col as u64, self.y + row as u64, color);
-            }
+        for (row, col) in glyph.iter().enumerate() {
+            let color = if glyph[row] & (0x80 >> col) != 0 {
+                fg
+            } else {
+                bg
+            };
+            self.set_pixel(self.x + *col as u64, self.y + row as u64, color);
         }
         self.x += 8;
         if self.x + 8 > self.framebuffer.width() - 20 {
@@ -92,9 +90,9 @@ impl<'a> PanicConsole<'a> {
 impl<'a> Write for PanicConsole<'a> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let fb = &self.framebuffer;
-        let fg = ((255 as u32) << fb.red_mask_shift())
-            | ((255 as u32) << fb.green_mask_shift())
-            | ((255 as u32) << fb.blue_mask_shift());
+        let fg = ((255_u32) << fb.red_mask_shift())
+            | ((255_u32) << fb.green_mask_shift())
+            | ((255_u32) << fb.blue_mask_shift());
         let bg = ((BG_COLOR.r as u32) << fb.red_mask_shift())
             | ((BG_COLOR.g as u32) << fb.green_mask_shift())
             | ((BG_COLOR.b as u32) << fb.blue_mask_shift());
@@ -108,6 +106,7 @@ impl<'a> Write for PanicConsole<'a> {
 
 // This is the default panic handler
 #[cfg(not(test))]
+#[warn(unused_must_use)]
 #[panic_handler]
 pub fn panic(info: &PanicInfo) -> ! {
     let boot_time = crate::libs::time::time_since_boot();
@@ -179,48 +178,57 @@ pub fn panic(info: &PanicInfo) -> ! {
             let mut console = PanicConsole::new(framebuffer);
             console.clear(bg);
 
-            let _ = write!(console, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-            let _ = write!(console, "!!                            PROKA KERNEL PANIC                              !!\n");
-            let _ = write!(console, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-            let _ = write!(console, "\n");
-            let _ = write!(
+            let _ = writeln!(
                 console,
-                "A problem has been detected and the system has been halted to prevent damage.\n"
+                "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             );
-            let _ = write!(console, "\n");
-            let _ = write!(console, "--- ERROR INFO ---\n");
-            let _ = write!(console, "Reason:   {}\n", info.message());
+            let _ = writeln!(
+                console,
+                "!!                            PROKA KERNEL PANIC                              !!"
+            );
+            let _ = writeln!(
+                console,
+                "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            );
+            let _ = writeln!(console);
+            let _ = writeln!(
+                console,
+                "A problem has been detected and the system has been halted to prevent damage."
+            );
+            let _ = writeln!(console);
+            let _ = writeln!(console, "--- ERROR INFO ---");
+            let _ = writeln!(console, "Reason:   {}", info.message());
             if is_exception {
-                let _ = write!(console, "Exception: {}\n", exc_name);
+                let _ = writeln!(console, "Exception: {}", exc_name);
                 if let Some(err) = exc_error {
-                    let _ = write!(console, "Error Code: {:#x}\n", err);
+                    let _ = writeln!(console, "Error Code: {:#x}", err);
                 }
             }
             if let Some(location) = info.location() {
-                let _ = write!(
+                let _ = writeln!(
                     console,
-                    "Location: {}, line {}\n",
+                    "Location: {}, line {}",
                     location.file(),
                     location.line()
                 );
             }
-            let _ = write!(console, "\n");
-            let _ = write!(console, "--- SYSTEM STATE ---\n");
-            let _ = write!(console, "Boot Time: {:.4}s\n", boot_time);
-            let _ = write!(console, "RIP:       {:#018x}\n", rip);
-            let _ = write!(console, "RFLAGS:    {:#018x}\n", rflags);
-            let _ = write!(console, "\n");
-            let _ = write!(console, "--- REGISTERS ---\n");
-            let _ = write!(console, "RAX: {:#018x}  RBX: {:#018x}\n", rax, rbx);
-            let _ = write!(console, "RCX: {:#018x}  RDX: {:#018x}\n", rcx, rdx);
-            let _ = write!(console, "RSI: {:#018x}  RDI: {:#018x}\n", rsi, rdi);
-            let _ = write!(console, "RBP: {:#018x}  RSP: {:#018x}\n", rbp, rsp);
-            let _ = write!(console, "R8:  {:#018x}  R9:  {:#018x}\n", r8, r9);
-            let _ = write!(console, "R10: {:#018x}  R11: {:#018x}\n", r10, r11);
-            let _ = write!(console, "R12: {:#018x}  R13: {:#018x}\n", r12, r13);
-            let _ = write!(console, "R14: {:#018x}  R15: {:#018x}\n", r14, r15);
-            let _ = write!(console, "\n");
-            let _ = write!(console, "Please restart your computer.\n");
+            let _ = writeln!(console);
+            let _ = writeln!(console, "--- SYSTEM STATE ---");
+            let _ = writeln!(console, "Boot Time: {:.4}s", boot_time);
+            let _ = writeln!(console, "RIP:       {:#018x}", rip);
+            let _ = writeln!(console, "RFLAGS:    {:#018x}", rflags);
+            let _ = writeln!(console);
+            let _ = writeln!(console, "--- REGISTERS ---");
+            let _ = writeln!(console, "RAX: {:#018x}  RBX: {:#018x}", rax, rbx);
+            let _ = writeln!(console, "RCX: {:#018x}  RDX: {:#018x}", rcx, rdx);
+            let _ = writeln!(console, "RSI: {:#018x}  RDI: {:#018x}", rsi, rdi);
+            let _ = writeln!(console, "RBP: {:#018x}  RSP: {:#018x}", rbp, rsp);
+            let _ = writeln!(console, "R8:  {:#018x}  R9:  {:#018x}", r8, r9);
+            let _ = writeln!(console, "R10: {:#018x}  R11: {:#018x}", r10, r11);
+            let _ = writeln!(console, "R12: {:#018x}  R13: {:#018x}", r12, r13);
+            let _ = writeln!(console, "R14: {:#018x}  R15: {:#018x}", r14, r15);
+            let _ = writeln!(console);
+            let _ = writeln!(console, "Please restart your computer.");
         }
     }
 
@@ -239,6 +247,6 @@ pub fn panic(info: &PanicInfo) -> ! {
 #[cfg(test)]
 pub fn panic_for_test(info: &PanicInfo) -> ! {
     serial_println!("[FAILED]");
-    serial_println!("Caused by:\n\t{}", info);
+    serial_println!("Caused by:\t{}", info);
     crate::test::long_jmp();
 }

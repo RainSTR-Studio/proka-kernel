@@ -31,7 +31,7 @@ impl talc::OomHandler for KernelOomHandler {
                 .ok_or(())?;
             let old_end = heap_area.end;
             let expand_size = crate::config::OOM_EXPAND_SIZE.max(4 * 1024 * 1024);
-            let new_end = old_end + (expand_size as u64);
+            let new_end = old_end + expand_size;
             heap_area.end = new_end;
             (old_end, new_end)
         };

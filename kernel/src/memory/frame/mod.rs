@@ -69,8 +69,8 @@ impl LockedFrameAllocator {
 
             // 2. Allocate bitmap
             // Bitmap needs 1 bit per page.
-            let total_pages = (max_phys_addr as usize + PAGE_SIZE - 1) / PAGE_SIZE;
-            let bitmap_size_u64 = (total_pages + 63) / 64;
+            let total_pages = (max_phys_addr as usize).div_ceil(PAGE_SIZE);
+            let bitmap_size_u64 = total_pages.div_ceil(64);
             let bitmap_size_bytes = bitmap_size_u64 * 8;
 
             let mut bitmap_slice: Option<&'static mut [u64]> = None;
