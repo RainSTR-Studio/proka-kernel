@@ -2,10 +2,10 @@ extern crate alloc;
 use crate::drivers::{CharDevice, Device, DeviceError, DeviceInner, DeviceType, SharedDeviceOps};
 use alloc::string::String;
 use alloc::sync::Arc;
-use alloc::vec::Vec;
 use pc_keyboard::{
     layouts, DecodedKey, HandleControl, KeyCode, KeyState, Keyboard as PcKeyboard, ScancodeSet1,
 };
+use ringbuf::{traits::*, HeapRb};
 use spin::Mutex;
 
 // 缓冲区大小（增加到256字节）
@@ -117,7 +117,6 @@ pub struct KeyboardInner {
     pc_keyboard: PcKeyboard<layouts::Us104Key, ScancodeSet1>,
     enabled: bool,
     nonblocking: bool,
-    buffer: Vec<char>,
     modifiers: ModifierState,
     leds: LedState,
     mode: KeyboardMode,
@@ -151,6 +150,8 @@ fn send_keyboard_command(command: u8, data: u8) {
 
 pub struct Keyboard {
     inner: Mutex<KeyboardInner>,
+    producer: Mutex<ringbuf::wrap::caching::Caching<Arc<HeapRb<char>>, true, false>>,
+    consumer: Mutex<ringbuf::wrap::caching::Caching<Arc<HeapRb<char>>, false, true>>,
     name: String,
 }
 
@@ -164,7 +165,6 @@ impl KeyboardInner {
             ),
             enabled: true,
             nonblocking: false,
-            buffer: Vec::with_capacity(BUFFER_SIZE),
             modifiers: ModifierState::default(),
             leds: LedState::default(),
             mode: KeyboardMode::Unicode,
@@ -210,26 +210,16 @@ impl KeyboardInner {
             _ => {}
         }
     }
-
-    /// 添加字符到缓冲区（使用滑动窗口策略）
-    fn push_char(&mut self, c: char) {
-        if self.buffer.len() >= BUFFER_SIZE {
-            // 缓冲区满时，丢弃最旧的数据
-            self.buffer.remove(0);
-        }
-        self.buffer.push(c);
-    }
-
-    /// 清空缓冲区
-    fn clear_buffer(&mut self) {
-        self.buffer.clear();
-    }
 }
 
 impl Default for Keyboard {
     fn default() -> Self {
+        let rb = HeapRb::<char>::new(BUFFER_SIZE);
+        let (prod, cons) = rb.split();
         Self {
             inner: Mutex::new(KeyboardInner::new()),
+            producer: Mutex::new(prod),
+            consumer: Mutex::new(cons),
             name: String::from("keyboard"),
         }
     }
@@ -260,37 +250,50 @@ impl Keyboard {
         x86_64::instructions::interrupts::without_interrupts(|| self.inner.lock().nonblocking)
     }
 
+    /// 添加字符到环形缓冲区
+    fn push_char(&self, c: char) {
+        let mut producer = self.producer.lock();
+        // 缓冲区满时，直接丢弃字符以避免在中断上下文中进行复杂的同步或死锁风险
+        // 256 字节对于键盘来说通常足够大
+        let _ = producer.try_push(c);
+    }
+
     pub fn handle_scancode(&self, scancode: u8) {
-        let mut inner = self.inner.lock();
-        if !inner.enabled {
-            return;
-        }
+        let mut key_to_push = None;
+        {
+            let mut inner = self.inner.lock();
+            if !inner.enabled {
+                return;
+            }
 
-        if let Ok(Some(key_event)) = inner.pc_keyboard.add_byte(scancode) {
-            // 更新修饰键状态
-            inner.update_modifier(key_event.code, key_event.state);
+            if let Ok(Some(key_event)) = inner.pc_keyboard.add_byte(scancode) {
+                // 更新修饰键状态
+                inner.update_modifier(key_event.code, key_event.state);
 
-            if let Some(key) = inner.pc_keyboard.process_keyevent(key_event) {
-                match inner.mode {
-                    KeyboardMode::Unicode => {
-                        if let DecodedKey::Unicode(character) = key {
-                            inner.push_char(character);
+                if let Some(key) = inner.pc_keyboard.process_keyevent(key_event) {
+                    match inner.mode {
+                        KeyboardMode::Unicode => {
+                            if let DecodedKey::Unicode(character) = key {
+                                key_to_push = Some(character);
+                            }
                         }
-                    }
-                    KeyboardMode::Raw => {
-                        // 原始模式：将扫描码直接放入缓冲区
-                        let raw_char = scancode as char;
-                        inner.push_char(raw_char);
-                    }
-                    KeyboardMode::MediumRaw => {
-                        // 中等原始模式：处理后的键码
-                        if let DecodedKey::RawKey(key_code) = key {
-                            let code_char = (key_code as u8) as char;
-                            inner.push_char(code_char);
+                        KeyboardMode::Raw => {
+                            // 原始模式：将扫描码直接放入缓冲区
+                            key_to_push = Some(scancode as char);
+                        }
+                        KeyboardMode::MediumRaw => {
+                            // 中等原始模式：处理后的键码
+                            if let DecodedKey::RawKey(key_code) = key {
+                                key_to_push = Some((key_code as u8) as char);
+                            }
                         }
                     }
                 }
             }
+        }
+
+        if let Some(c) = key_to_push {
+            self.push_char(c);
         }
     }
 
@@ -315,7 +318,8 @@ impl Keyboard {
 
     pub fn clear_buffer(&self) {
         x86_64::instructions::interrupts::without_interrupts(|| {
-            self.inner.lock().clear_buffer();
+            let mut consumer = self.consumer.lock();
+            while consumer.try_pop().is_some() {}
         });
     }
 
@@ -405,17 +409,24 @@ impl SharedDeviceOps for Keyboard {
 impl CharDevice for Keyboard {
     fn read(&self, buf: &mut [u8]) -> Result<usize, DeviceError> {
         x86_64::instructions::interrupts::without_interrupts(|| {
-            let mut inner = self.inner.lock();
+            let nonblocking = self.inner.lock().nonblocking;
+            let mut consumer = self.consumer.lock();
 
             // 非阻塞模式检查
-            if inner.nonblocking && inner.buffer.is_empty() {
+            if nonblocking && consumer.is_empty() {
                 return Err(DeviceError::WouldBlock);
             }
 
             let mut read_count = 0;
 
-            while read_count < buf.len() && !inner.buffer.is_empty() {
-                let c = inner.buffer.remove(0);
+            while read_count < buf.len() && !consumer.is_empty() {
+                // Peek the front character
+                let (s1, s2): (&[char], &[char]) = consumer.as_slices();
+                let c = if let Some(&c) = s1.first().or_else(|| s2.first()) {
+                    c
+                } else {
+                    break;
+                };
 
                 let mut char_buf = [0u8; 4];
                 let char_str = c.encode_utf8(&mut char_buf);
@@ -424,9 +435,10 @@ impl CharDevice for Keyboard {
                 if read_count + bytes.len() <= buf.len() {
                     buf[read_count..read_count + bytes.len()].copy_from_slice(bytes);
                     read_count += bytes.len();
+                    // Successfully read, pop it
+                    consumer.try_pop();
                 } else {
-                    // 缓冲区空间不足，将字符重新放回
-                    inner.buffer.insert(0, c);
+                    // 缓冲区空间不足
                     break;
                 }
             }
@@ -445,16 +457,17 @@ impl CharDevice for Keyboard {
 
     fn peek(&self, buf: &mut [u8]) -> Result<usize, DeviceError> {
         x86_64::instructions::interrupts::without_interrupts(|| {
-            let inner = self.inner.lock();
+            let consumer = self.consumer.lock();
 
-            if inner.buffer.is_empty() {
+            if consumer.is_empty() {
                 return Err(DeviceError::WouldBlock);
             }
 
             let mut read_count = 0;
-            let buffer_copy = inner.buffer.clone();
 
-            for c in buffer_copy.iter().take(buf.len()) {
+            // 使用 as_slices 遍历环形缓冲区
+            let (s1, s2): (&[char], &[char]) = consumer.as_slices();
+            for &c in s1.iter().chain(s2.iter()) {
                 let mut char_buf = [0u8; 4];
                 let char_str = c.encode_utf8(&mut char_buf);
                 let bytes = char_str.as_bytes();
@@ -472,10 +485,7 @@ impl CharDevice for Keyboard {
     }
 
     fn has_data(&self) -> bool {
-        x86_64::instructions::interrupts::without_interrupts(|| {
-            let inner = self.inner.lock();
-            !inner.buffer.is_empty()
-        })
+        x86_64::instructions::interrupts::without_interrupts(|| !self.consumer.lock().is_empty())
     }
 
     fn set_nonblocking(&self, nonblocking: bool) -> Result<(), DeviceError> {
