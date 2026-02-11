@@ -54,9 +54,12 @@ impl talc::OomHandler for KernelOomHandler {
                     .page_table
                     .map_to(page, frame, flags, &mut frame_allocator)
                     .map_err(|_| ())?
-                    .flush();
+                    .ignore();
             }
         }
+
+        // Flush TLB once after expanding heap
+        x86_64::instructions::tlb::flush_all();
 
         drop(ms_lock);
 
@@ -103,9 +106,12 @@ pub fn init_heap(
             .ok_or(MapToError::FrameAllocationFailed)?;
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
         unsafe {
-            mapper.map_to(page, frame, flags, frame_allocator)?.flush();
+            mapper.map_to(page, frame, flags, frame_allocator)?.ignore();
         }
     }
+
+    // Flush TLB once after initial heap mapping
+    x86_64::instructions::tlb::flush_all();
 
     unsafe {
         ALLOCATOR

@@ -69,9 +69,9 @@ impl<const MAX_ORDER: usize> BuddyAllocator<MAX_ORDER> {
     /// Set the bitmap for the allocator.
     pub fn set_bitmap(&mut self, bitmap: &'static mut [u64]) {
         self.bitmap = bitmap;
-        // Clear bitmap
-        for x in self.bitmap.iter_mut() {
-            *x = 0;
+        // Faster clear using write_bytes
+        unsafe {
+            core::ptr::write_bytes(self.bitmap.as_mut_ptr(), 0, self.bitmap.len());
         }
     }
 
@@ -245,8 +245,31 @@ impl<const MAX_ORDER: usize> BuddyAllocator<MAX_ORDER> {
     pub unsafe fn add_region(&mut self, start: PhysFrame<Size4KiB>, end: PhysFrame<Size4KiB>) {
         let mut current = start;
         while current < end {
-            self.add_frame(current);
-            current += 1;
+            let current_addr = current.start_address().as_u64();
+            let end_addr = end.start_address().as_u64();
+            let remaining_frames = (end_addr - current_addr) / 4096;
+
+            // Find the largest power-of-two block that fits and is aligned
+            let mut order = 0;
+            while order < MAX_ORDER - 1 {
+                let next_order = order + 1;
+                let size_frames = 1 << next_order;
+                let size_bytes = 4096 * size_frames;
+
+                // Check alignment
+                if !current_addr.is_multiple_of(size_bytes) {
+                    break;
+                }
+                // Check size
+                if size_frames > remaining_frames {
+                    break;
+                }
+                order = next_order;
+            }
+
+            self.total_frames += 1 << order;
+            self.merge_block(current, order);
+            current += 1 << order;
         }
     }
 

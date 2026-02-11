@@ -222,12 +222,15 @@ impl MemorySet {
                     .page_table
                     .map_to(page, phys_frame, flags, &mut frame_allocator)
                 {
-                    Ok(t) => t.flush(),
+                    Ok(t) => t.ignore(),
                     Err(MapToError::PageAlreadyMapped(_)) => continue,
                     Err(_) => return Err("Failed to map page"),
                 }
             }
         }
+
+        // Flush TLB once after all mappings are done
+        x86_64::instructions::tlb::flush_all();
         Ok(())
     }
 }
