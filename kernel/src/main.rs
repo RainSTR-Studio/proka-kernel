@@ -42,27 +42,32 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::interrupts::apic::init();
     proka_kernel::interrupts::apic::ioapic::init();
 
-    // Route Keyboard IRQ
-    proka_kernel::interrupts::apic::ioapic::route_irq(
-        1,
-        proka_kernel::interrupts::idt::IRQ_BASE + 1,
-        0,
-    );
+    // Register Keyboard Handler (Simplified)
+    proka_kernel::interrupts::request_irq(1, "Keyboard", |_context| {
+        let mut port = x86_64::instructions::port::Port::<u8>::new(0x60);
+        let scancode = unsafe { port.read() };
+        proka_kernel::drivers::input::keyboard::KEYBOARD.handle_scancode(scancode);
+        proka_kernel::interrupts::apic::registry::IrqResult::Handled
+    });
 
-    // Register Keyboard Handler via Registry
+    // Register Timer Handler via Registry
     proka_kernel::interrupts::apic::registry::IRQ_REGISTRY
         .lock()
         .register(
-            proka_kernel::interrupts::idt::IRQ_BASE + 1,
-            "Keyboard",
+            proka_kernel::interrupts::apic::TIMER_VECTOR,
+            "Timer",
             |_context| {
-                let mut port = x86_64::instructions::port::Port::<u8>::new(0x60);
-                let scancode = unsafe { port.read() };
-                proka_kernel::drivers::input::keyboard::KEYBOARD.handle_scancode(scancode);
+                use core::sync::atomic::{AtomicU64, Ordering};
+                static TICKS: AtomicU64 = AtomicU64::new(0);
+                let t = TICKS.fetch_add(1, Ordering::Relaxed);
+                if t > 0 && t % 100 == 0 {
+                    println!("System Tick: {}s", t / 100);
+                }
+
                 proka_kernel::interrupts::apic::registry::IrqResult::Handled
             },
         )
-        .expect("Failed to register keyboard handler");
+        .expect("Failed to register timer handler");
 
     proka_kernel::drivers::init_devices(); // Initialize devices
     proka_kernel::libs::time::init(); // Init time system
@@ -100,7 +105,9 @@ pub extern "C" fn kernel_main() -> ! {
 
     let time = proka_kernel::libs::time::time_since_boot();
     println!("Time since boot: {time}");
-    CONSOLE.lock().cursor_show();
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        CONSOLE.lock().cursor_show();
+    });
 
     let shell = proka_kernel::libs::shell::Shell::new();
     shell.run("keyboard");

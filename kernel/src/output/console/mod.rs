@@ -83,10 +83,12 @@ lazy_static! {
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
-    CONSOLE
-        .lock()
-        .write_fmt(args)
-        .expect("Failed to write to console");
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        CONSOLE
+            .lock()
+            .write_fmt(args)
+            .expect("Failed to write to console");
+    });
 }
 
 pub enum ConsoleType {

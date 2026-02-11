@@ -110,7 +110,6 @@ impl Shell {
                     }
                 }
                 Ok(_) => {
-                    // No data, pause CPU until interrupt
                     x86_64::instructions::hlt();
                 }
                 Err(_) => {
