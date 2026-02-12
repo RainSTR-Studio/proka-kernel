@@ -1,5 +1,5 @@
 extern crate alloc;
-use crate::drivers::Device;
+use crate::drivers::OldDevice;
 use crate::fs::vfs::{FileSystem, Inode, Metadata, VNodeType, VfsError};
 use alloc::{
     collections::BTreeMap,
@@ -44,7 +44,7 @@ pub enum MemNodeContent {
         target: String,
     },
     Device {
-        device: Arc<Device>,
+        device: Arc<OldDevice>,
     },
 }
 
@@ -281,7 +281,7 @@ impl Inode for MemVNode {
         }
     }
 
-    fn create_device(&self, name: &str, device: Arc<Device>) -> Result<Arc<dyn Inode>, VfsError> {
+    fn create_device(&self, name: &str, device: Arc<OldDevice>) -> Result<Arc<dyn Inode>, VfsError> {
         match &self.content {
             MemNodeContent::Dir { entries } => {
                 let mut entries = entries.write();
@@ -380,7 +380,7 @@ pub struct MemFs;
 impl FileSystem for MemFs {
     fn mount(
         &self,
-        _device: Option<Arc<Device>>,
+        _device: Option<Arc<OldDevice>>,
         _args: Option<&[&str]>,
     ) -> Result<Arc<dyn Inode>, VfsError> {
         let root_dir = MemVNode::new(

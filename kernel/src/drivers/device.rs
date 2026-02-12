@@ -12,7 +12,7 @@ lazy_static! {
     pub static ref DEVICE_MANAGER: RwLock<DeviceManager> = RwLock::new(DeviceManager::new());
 }
 
-pub struct Device {
+pub struct OldDevice {
     pub name: String,
     pub major: u16,
     pub minor: u16,
@@ -21,7 +21,7 @@ pub struct Device {
     is_registered: AtomicBool,
 }
 
-impl Device {
+impl OldDevice {
     pub fn new(name: String, major: u16, minor: u16, inner: DeviceInner) -> Self {
         Self {
             name,
@@ -129,7 +129,7 @@ impl Device {
     }
 }
 
-impl core::fmt::Debug for Device {
+impl core::fmt::Debug for OldDevice {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
@@ -143,7 +143,7 @@ impl core::fmt::Debug for Device {
     }
 }
 
-impl Clone for Device {
+impl Clone for OldDevice {
     fn clone(&self) -> Self {
         Self {
             name: self.name.clone(),
@@ -158,7 +158,7 @@ impl Clone for Device {
 
 #[derive(Default)]
 pub struct DeviceManager {
-    devices: Vec<Arc<Device>>,
+    devices: Vec<Arc<OldDevice>>,
     next_minor_counters: BTreeMap<u16, u16>,
     free_minors: BTreeMap<u16, Vec<u16>>,
 }
@@ -168,7 +168,10 @@ impl DeviceManager {
         Self::default()
     }
 
-    pub fn register_device(&mut self, mut device: Device) -> Result<Arc<Device>, DeviceError> {
+    pub fn register_device(
+        &mut self,
+        mut device: OldDevice,
+    ) -> Result<Arc<OldDevice>, DeviceError> {
         if self.devices.iter().any(|d| d.name == device.name) {
             return Err(DeviceError::DeviceAlreadyRegistered);
         }
@@ -258,18 +261,18 @@ impl DeviceManager {
         self.free_minors.entry(major).or_default().push(minor);
     }
 
-    pub fn get_device(&self, name: &str) -> Option<Arc<Device>> {
+    pub fn get_device(&self, name: &str) -> Option<Arc<OldDevice>> {
         self.devices.iter().find(|d| d.name == name).cloned()
     }
 
-    pub fn get_device_by_major_minor(&self, major: u16, minor: u16) -> Option<Arc<Device>> {
+    pub fn get_device_by_major_minor(&self, major: u16, minor: u16) -> Option<Arc<OldDevice>> {
         self.devices
             .iter()
             .find(|d| d.major == major && d.minor == minor)
             .cloned()
     }
 
-    pub fn get_devices_by_type(&self, device_type: DeviceType) -> Vec<Arc<Device>> {
+    pub fn get_devices_by_type(&self, device_type: DeviceType) -> Vec<Arc<OldDevice>> {
         self.devices
             .iter()
             .filter(|d| d.device_type() == device_type)
@@ -277,7 +280,7 @@ impl DeviceManager {
             .collect()
     }
 
-    pub fn list_devices(&self) -> Vec<Arc<Device>> {
+    pub fn list_devices(&self) -> Vec<Arc<OldDevice>> {
         self.devices.clone()
     }
 }

@@ -1,4 +1,4 @@
-use crate::drivers::{Device, DeviceError, DEVICE_MANAGER};
+use crate::drivers::{OldDevice, DeviceError, DEVICE_MANAGER};
 extern crate alloc;
 use super::fs_impl;
 use alloc::format;
@@ -88,7 +88,7 @@ pub struct Metadata {
 pub trait FileSystem: Send + Sync {
     fn mount(
         &self,
-        device: Option<Arc<Device>>,
+        device: Option<Arc<OldDevice>>,
         args: Option<&[&str]>,
     ) -> Result<Arc<dyn Inode>, VfsError>;
     fn fs_type(&self) -> &'static str;
@@ -110,7 +110,7 @@ pub trait Inode: Send + Sync + core::fmt::Debug {
         Err(VfsError::NotImplemented)
     }
 
-    fn create_device(&self, name: &str, device: Arc<Device>) -> Result<Arc<dyn Inode>, VfsError> {
+    fn create_device(&self, name: &str, device: Arc<OldDevice>) -> Result<Arc<dyn Inode>, VfsError> {
         let _ = (name, device);
         Err(VfsError::NotImplemented)
     }

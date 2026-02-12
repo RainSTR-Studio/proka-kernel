@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use super::super::{CharDevice, Device, DeviceError, DeviceInner, DeviceType, SharedDeviceOps};
+use super::super::{CharDevice, OldDevice, DeviceError, DeviceInner, DeviceType, SharedDeviceOps};
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
@@ -26,9 +26,9 @@ impl SerialDevice {
 
     /// Create a serial char device object and uses [`Device`] sturct.
     /// The user must specify major/minor number manually.
-    pub fn create_device(major: u16, minor: u16, port_address: u16) -> Device {
+    pub fn create_device(major: u16, minor: u16, port_address: u16) -> OldDevice {
         let serial = Arc::new(SerialDevice::new(port_address));
-        Device::new(
+        OldDevice::new(
             serial.name().to_string(),
             major,
             minor,
@@ -37,9 +37,9 @@ impl SerialDevice {
     }
 
     /// Create a serial char device object and let [`DeviceManager`] auto assign major/minor number.
-    pub fn create_device_auto_assign(port_address: u16) -> Device {
+    pub fn create_device_auto_assign(port_address: u16) -> OldDevice {
         let serial = Arc::new(SerialDevice::new(port_address));
-        Device::new_auto_assign(serial.name().to_string(), DeviceInner::Char(serial))
+        OldDevice::new_auto_assign(serial.name().to_string(), DeviceInner::Char(serial))
     }
 }
 

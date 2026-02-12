@@ -1,5 +1,7 @@
 extern crate alloc;
-use crate::drivers::{CharDevice, Device, DeviceError, DeviceInner, DeviceType, SharedDeviceOps};
+use crate::drivers::{
+    CharDevice, DeviceError, DeviceInner, DeviceType, OldDevice, SharedDeviceOps,
+};
 use alloc::string::String;
 use alloc::sync::Arc;
 use pc_keyboard::{
@@ -333,8 +335,8 @@ impl Keyboard {
         x86_64::instructions::interrupts::without_interrupts(|| self.inner.lock().mode)
     }
 
-    pub fn create_device() -> Device {
-        Device::new_auto_assign(KEYBOARD.name.clone(), DeviceInner::Char(KEYBOARD.clone()))
+    pub fn create_device() -> OldDevice {
+        OldDevice::new_auto_assign(KEYBOARD.name.clone(), DeviceInner::Char(KEYBOARD.clone()))
     }
 }
 

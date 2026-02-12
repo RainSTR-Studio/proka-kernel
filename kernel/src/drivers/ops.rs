@@ -6,6 +6,12 @@ pub enum DeviceType {
     Char,
 }
 
+#[derive(Clone)]
+pub enum DeviceOps {
+    Char(Arc<dyn CharDevice>),
+    Block(Arc<dyn BlockDevice>),
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum DeviceError {
     InvalidParam,

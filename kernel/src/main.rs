@@ -21,11 +21,7 @@
 extern crate proka_kernel;
 extern crate alloc;
 
-use core::alloc::Layout;
-
-use proka_kernel::{
-    libs::time::rtc, memory::FRAME_ALLOCATOR, output::console::CONSOLE, BASE_REVISION,
-};
+use proka_kernel::{libs::time::rtc, output::console::CONSOLE, BASE_REVISION};
 /* The Kernel main code */
 // The normal one
 #[unsafe(no_mangle)]

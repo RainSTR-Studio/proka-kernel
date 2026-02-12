@@ -1,5 +1,5 @@
 extern crate alloc;
-use crate::drivers::Device;
+use crate::drivers::OldDevice;
 use crate::fs::vfs::{FileSystem, Inode, Metadata, VNodeType, VfsError};
 use alloc::{
     boxed::Box,
@@ -24,7 +24,7 @@ pub enum KernNodeContent {
         size: u64,
     },
     /// Device mapping
-    Device { device: Arc<Device> },
+    Device { device: Arc<OldDevice> },
 }
 
 /// Kernel file system node
@@ -62,7 +62,7 @@ impl KernInode {
         })
     }
     /// Create device node
-    pub fn new_device(device: Arc<Device>) -> Arc<Self> {
+    pub fn new_device(device: Arc<OldDevice>) -> Arc<Self> {
         Arc::new(Self {
             node_type: VNodeType::Device,
             content: KernNodeContent::Device { device },
@@ -192,7 +192,7 @@ impl Inode for KernInode {
         }
     }
 
-    fn create_device(&self, name: &str, device: Arc<Device>) -> Result<Arc<dyn Inode>, VfsError> {
+    fn create_device(&self, name: &str, device: Arc<OldDevice>) -> Result<Arc<dyn Inode>, VfsError> {
         match &self.content {
             KernNodeContent::Dir(entries) => {
                 let mut map = entries.write();
@@ -289,7 +289,7 @@ impl KernFs {
 impl FileSystem for KernFs {
     fn mount(
         &self,
-        _device: Option<Arc<Device>>,
+        _device: Option<Arc<OldDevice>>,
         _args: Option<&[&str]>,
     ) -> Result<Arc<dyn Inode>, VfsError> {
         Ok(self.root.clone())
@@ -450,7 +450,7 @@ mod tests {
         );
         assert_eq!(
             file_inode
-                .create_device("child", Arc::new(Device::null()))
+                .create_device("child", Arc::new(OldDevice::null()))
                 .unwrap_err(),
             VfsError::NotADirectory
         );
@@ -626,7 +626,7 @@ mod tests {
     fn test_device_node_read_write() {
         let root = KernInode::new_dir();
         let mock_char_device = MockCharDevice::new("test_char_dev", b"device_data");
-        let char_device_arc = Arc::new(crate::drivers::Device::new_auto_assign(
+        let char_device_arc = Arc::new(crate::drivers::OldDevice::new_auto_assign(
             "test_char_dev".to_string(),
             crate::drivers::DeviceInner::Char(mock_char_device.clone()),
         ));
@@ -643,7 +643,7 @@ mod tests {
 
         // Write to char device
         let write_mock_device = MockCharDevice::new("write_char_dev", b"");
-        let write_device_arc = Arc::new(crate::drivers::Device::new_auto_assign(
+        let write_device_arc = Arc::new(crate::drivers::OldDevice::new_auto_assign(
             "write_char_dev".to_string(),
             crate::drivers::DeviceInner::Char(write_mock_device.clone()),
         ));
@@ -661,7 +661,7 @@ mod tests {
         // Test error when not a char device
         let mock_block_device =
             MockBlockDevice::new("test_block_dev", 512, 10, b"initial_block_data");
-        let block_device_arc = Arc::new(crate::drivers::Device::new_auto_assign(
+        let block_device_arc = Arc::new(crate::drivers::OldDevice::new_auto_assign(
             "test_block_dev".to_string(),
             crate::drivers::DeviceInner::Block(mock_block_device.clone()),
         ));
@@ -672,7 +672,7 @@ mod tests {
         );
 
         // Test null device
-        let null_device_arc = Arc::new(crate::drivers::Device::null());
+        let null_device_arc = Arc::new(crate::drivers::OldDevice::null());
         let null_inode = root
             .create_device("null_device_node", null_device_arc)
             .unwrap();
