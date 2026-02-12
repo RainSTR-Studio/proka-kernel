@@ -15,7 +15,6 @@ pub const MAX_ANSI_PARAMS: usize = 8;
 
 pub const CURSOR_VISIBLE: AtomicBool = AtomicBool::new(true);
 
-
 // The default font writer
 lazy_static! {
     pub static ref DEFAULT_FONT: FontRef<'static> = {

@@ -25,6 +25,7 @@ use proka_kernel::{libs::time::rtc, output::console::CONSOLE, BASE_REVISION};
 /* The Kernel main code */
 // The normal one
 #[unsafe(no_mangle)]
+
 pub extern "C" fn kernel_main() -> ! {
     // Check is limine version supported
     assert!(BASE_REVISION.is_supported(), "Limine version not supported");
@@ -52,11 +53,12 @@ pub extern "C" fn kernel_main() -> ! {
     });
 
     // Register Timer Handler via Registry
+    #[allow(static_mut_refs)]
     proka_kernel::interrupts::apic::registry::IRQ_REGISTRY
         .write()
         .register(
             proka_kernel::interrupts::apic::TIMER_VECTOR,
-            "Timer",
+            "Cursor Blinker",
             |_context| {
                 use core::sync::atomic::{AtomicU64, Ordering};
                 use proka_kernel::output::console::BITFONT_CURSOR_VISIBLE;
@@ -83,12 +85,12 @@ pub extern "C" fn kernel_main() -> ! {
     #[allow(unused_parens)]
     if (proka_kernel::config::ADDITIONAL_VERSION.is_empty()) {
         println!(
-            "Starting \x1b[36mProka Kernel v{}\x1b[0m",
+            "Starting \x1b[36mProka Kernel v{}\x1b[0m...",
             env!("CARGO_PKG_VERSION")
         );
     } else {
         println!(
-            "Starting \x1b[36mProka Kernel v{}-{}\x1b[0m",
+            "Starting \x1b[36mProka Kernel v{}-{}\x1b[0m...",
             env!("CARGO_PKG_VERSION"),
             proka_kernel::config::ADDITIONAL_VERSION
         );
@@ -110,6 +112,8 @@ pub extern "C" fn kernel_main() -> ! {
 
     let time = proka_kernel::libs::time::time_since_boot();
     println!("Time since boot: {time}");
+
+    proka_kernel::libs::pci::print_all_pci_devices();
 
     let shell = proka_kernel::libs::shell::Shell::new();
     shell.run("keyboard");

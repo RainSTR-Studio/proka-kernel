@@ -4,6 +4,7 @@ pub mod bmp;
 pub mod initrd;
 pub mod logger;
 pub mod msr;
+pub mod pci;
 pub mod shell;
 pub mod system;
 pub mod time;
