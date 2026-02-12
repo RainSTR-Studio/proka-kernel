@@ -26,7 +26,9 @@ pub fn get_hhdm_offset() -> VirtAddr {
     VirtAddr::new(
         crate::HHDM_REQUEST
             .get_response()
-            .expect("Failed to get HHDM response")
+            .expect(
+                "Memory subsystem critical failure: Could not retrieve HHDM offset from bootloader",
+            )
             .offset(),
     )
 }

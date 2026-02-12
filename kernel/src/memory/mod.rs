@@ -1,3 +1,4 @@
+pub mod error;
 pub mod frame;
 pub mod heap;
 pub mod paging;
@@ -10,7 +11,7 @@ pub use paging::{phys_to_virt, virt_to_phys_direct};
 pub fn init() {
     let memory_map_response = crate::MEMORY_MAP_REQUEST
         .get_response()
-        .expect("Failed to get memory map response");
+        .expect("Memory subsystem critical failure: Could not retrieve memory map from bootloader");
     let hhdm_offset = paging::get_hhdm_offset();
     let mut mapper = unsafe { paging::init_offset_page_table(hhdm_offset) };
     unsafe {
@@ -19,7 +20,8 @@ pub fn init() {
     let mut frame_allocator = FRAME_ALLOCATOR;
 
     // 1. Initialize heap with a small pre-mapped area for bootstrapping
-    heap::init_heap(&mut mapper, &mut frame_allocator).expect("Failed to init heap");
+    heap::init_heap(&mut mapper, &mut frame_allocator)
+        .expect("Memory subsystem critical failure: Failed to initialize kernel heap");
 
     // 2. Initialize VMM (uses heap for VMAs)
     paging::vmm::init(mapper);

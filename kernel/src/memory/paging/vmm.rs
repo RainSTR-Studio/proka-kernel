@@ -3,6 +3,7 @@
 //! This module provides the `VmArea` and `MemorySet` abstractions for managing
 //! virtual memory regions and page tables.
 
+use crate::memory::error::MemoryError;
 use alloc::vec::Vec;
 use spin::Mutex;
 use x86_64::structures::paging::Translate;
@@ -124,9 +125,9 @@ impl MemorySet {
 
     /// Insert a new VMA into the memory set.
     /// Returns error if the new VMA overlaps with existing ones.
-    pub fn insert_area(&mut self, area: VmArea) -> Result<(), &'static str> {
+    pub fn insert_area(&mut self, area: VmArea) -> Result<(), MemoryError> {
         if self.areas.iter().any(|a| a.overlaps(&area)) {
-            return Err("VMA overlaps with existing area");
+            return Err(MemoryError::AreaOverlap);
         }
         self.areas.push(area);
         // Sort by start address for faster lookup
@@ -141,16 +142,21 @@ impl MemorySet {
 
     /// Handle a page fault at the given address.
     /// Returns Ok(()) if the fault was handled successfully (e.g. by lazy allocation).
-    pub fn handle_page_fault(&mut self, addr: VirtAddr) -> Result<(), &'static str> {
-        let area = *self.find_area(addr).ok_or("No VMA found for address")?;
+    pub fn handle_page_fault(&mut self, addr: VirtAddr) -> Result<(), MemoryError> {
+        let area = *self.find_area(addr).ok_or_else(|| {
+            log::error!("Page fault at {:#x}: No VMA found", addr.as_u64());
+            MemoryError::AreaNotFound
+        })?;
 
         let page = Page::containing_address(addr);
 
         // Use the global frame allocator
         let mut frame_allocator = crate::memory::FRAME_ALLOCATOR;
 
-        let frame =
-            FrameAllocator::allocate_frame(&mut frame_allocator).ok_or("Out of physical memory")?;
+        let frame = FrameAllocator::allocate_frame(&mut frame_allocator).ok_or_else(|| {
+            log::error!("Page fault at {:#x}: Out of physical memory", addr.as_u64());
+            MemoryError::FrameAllocationFailed
+        })?;
 
         unsafe {
             match self
@@ -161,7 +167,14 @@ impl MemorySet {
                 Err(MapToError::PageAlreadyMapped(_)) => {
                     frame_allocator.deallocate_frame(frame);
                 }
-                Err(_) => return Err("Failed to map page"),
+                Err(e) => {
+                    log::error!(
+                        "Page fault at {:#x}: Mapping failed: {:?}",
+                        addr.as_u64(),
+                        e
+                    );
+                    return Err(MemoryError::MappingFailed(e));
+                }
             }
         }
 
@@ -169,7 +182,7 @@ impl MemorySet {
     }
 
     /// Expand the heap by mapping more pages.
-    pub fn expand_heap(&mut self, start: VirtAddr, end: VirtAddr) -> Result<(), &'static str> {
+    pub fn expand_heap(&mut self, start: VirtAddr, end: VirtAddr) -> Result<(), MemoryError> {
         // Find if there's already a heap VMA
         let heap_area = self.areas.iter_mut().find(|a| a.name == "heap");
 
@@ -206,7 +219,7 @@ impl MemorySet {
         phys: PhysAddr,
         size: usize,
         flags: PageTableFlags,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), MemoryError> {
         let start_page = Page::<Size4KiB>::containing_address(virt);
         let end_page = Page::<Size4KiB>::containing_address(virt + (size as u64) - 1u64);
 
@@ -224,7 +237,7 @@ impl MemorySet {
                 {
                     Ok(t) => t.ignore(),
                     Err(MapToError::PageAlreadyMapped(_)) => continue,
-                    Err(_) => return Err("Failed to map page"),
+                    Err(e) => return Err(MemoryError::MappingFailed(e)),
                 }
             }
         }

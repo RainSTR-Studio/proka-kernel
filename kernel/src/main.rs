@@ -101,9 +101,15 @@ pub extern "C" fn kernel_main() -> ! {
     unsafe {
         let layout = Layout::from_size_align(5 * 1024 * 1024, 8).unwrap();
         let ptr = alloc::alloc::alloc(layout);
-        println!("Allocated memory at {:p}, size: {}", ptr, layout.size());
-        alloc::alloc::dealloc(ptr, layout);
-        println!("Deallocated memory at {:p}, size: {}", ptr, layout.size());
+        if ptr.is_null() {
+            println!("\x1b[31m[FAIL] Failed to allocate 5MB of memory!\x1b[0m");
+        } else {
+            println!("Allocated memory at {:p}, size: {}", ptr, layout.size());
+            proka_kernel::memory::paging::print_memory_stats(&FRAME_ALLOCATOR);
+            alloc::alloc::dealloc(ptr, layout);
+            println!("Deallocated memory at {:p}, size: {}", ptr, layout.size());
+            proka_kernel::memory::paging::print_memory_stats(&FRAME_ALLOCATOR);
+        }
     }
 
     println!("Device list:");

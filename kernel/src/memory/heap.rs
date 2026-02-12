@@ -20,7 +20,10 @@ pub struct KernelOomHandler;
 impl talc::OomHandler for KernelOomHandler {
     fn handle_oom(talc: &mut Talc<Self>, layout: core::alloc::Layout) -> Result<(), ()> {
         let mut ms_lock = crate::memory::paging::vmm::KERNEL_MEMORY_SET.lock();
-        let memory_set = ms_lock.as_mut().ok_or(())?;
+        let memory_set = ms_lock.as_mut().ok_or_else(|| {
+            log::error!("Heap OOM: KERNEL_MEMORY_SET not initialized");
+            ()
+        })?;
 
         // Find heap area
         let (old_end, new_end) = {
@@ -28,7 +31,10 @@ impl talc::OomHandler for KernelOomHandler {
                 .areas
                 .iter_mut()
                 .find(|a| a.name == "heap")
-                .ok_or(())?;
+                .ok_or_else(|| {
+                    log::error!("Heap OOM: No heap area found in memory set");
+                    ()
+                })?;
             let old_end = heap_area.end;
             let expand_size =
                 (u64::max(layout.size() as u64 + 4096, 1024 * 1024)).next_multiple_of(4096);
@@ -36,6 +42,13 @@ impl talc::OomHandler for KernelOomHandler {
             heap_area.end = new_end;
             (old_end, new_end)
         };
+
+        log::debug!(
+            "Expanding heap: {:#x} -> {:#x} (requested size: {})",
+            old_end.as_u64(),
+            new_end.as_u64(),
+            layout.size()
+        );
 
         // Map the new pages MANUALLY to avoid deadlock via #PF
         let page_range = {
@@ -47,14 +60,20 @@ impl talc::OomHandler for KernelOomHandler {
         let mut frame_allocator = crate::memory::FRAME_ALLOCATOR;
 
         for page in page_range {
-            let frame = frame_allocator.allocate_frame().ok_or(())?;
+            let frame = frame_allocator.allocate_frame().ok_or_else(|| {
+                log::error!("Heap expansion failed: Out of physical memory");
+                ()
+            })?;
             let flags =
                 PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
             unsafe {
                 memory_set
                     .page_table
                     .map_to(page, frame, flags, &mut frame_allocator)
-                    .map_err(|_| ())?
+                    .map_err(|e| {
+                        log::error!("Heap expansion failed: Mapping error: {:?}", e);
+                        ()
+                    })?
                     .ignore();
             }
         }
