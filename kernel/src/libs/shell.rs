@@ -135,6 +135,9 @@ impl Shell {
                     println!("up {}.{:03} seconds", seconds, ms);
                 }
             }
+            "time" => {
+                println!("{}", crate::libs::time::rtc::now_local().to_iso8601());
+            }
             _ => {
                 // ignore empty input, but report unknown commands
                 if !command.trim().is_empty() {

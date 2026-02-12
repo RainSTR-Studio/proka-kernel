@@ -343,6 +343,19 @@ impl Inode for MemVNode {
         }
     }
 
+    fn move_to(
+        &self,
+        old_name: &str,
+        target_dir: &Arc<dyn Inode>,
+        new_name: &str,
+    ) -> Result<(), VfsError> {
+        if let Some(target_mem) = target_dir.as_any().downcast_ref::<MemVNode>() {
+            Self::move_node(self, target_mem, old_name, new_name)
+        } else {
+            Err(VfsError::NotImplemented)
+        }
+    }
+
     fn list(&self) -> Result<Vec<String>, VfsError> {
         match &self.content {
             MemNodeContent::Dir { entries } => Ok(entries.read().keys().cloned().collect()),

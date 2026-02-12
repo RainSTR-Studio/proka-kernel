@@ -122,6 +122,15 @@ pub trait Inode: Send + Sync + core::fmt::Debug {
         Err(VfsError::NotImplemented)
     }
 
+    fn move_to(
+        &self,
+        old_name: &str,
+        _target_dir: &Arc<dyn Inode>,
+        new_name: &str,
+    ) -> Result<(), VfsError> {
+        self.rename(old_name, new_name)
+    }
+
     fn list(&self) -> Result<Vec<String>, VfsError> {
         Ok(Vec::new())
     }
@@ -260,7 +269,7 @@ impl Vfs {
         let parent_path = if mount_point == "/" {
             None
         } else {
-            mount_point.rsplit_once('/').map(|(p, _)| p)
+            mount_point.rsplit_once("/").map(|(p, _)| p)
         };
         if let Some(parent_path_str) = parent_path {
             let parent_inode = self.lookup(parent_path_str)?;
@@ -271,6 +280,10 @@ impl Vfs {
 
         let normalized_mount_point = mount_point.trim_matches('/').to_string();
         if normalized_mount_point.is_empty() {
+            if mount_point == "/" {
+                self.init_root(root_inode);
+                return Ok(());
+            }
             return Err(VfsError::InvalidArgument);
         }
 
@@ -377,13 +390,9 @@ impl Vfs {
         let old_parent = self.lookup(old_parent_path)?;
 
         let (new_parent_path, new_name) = self.split_path(new_path)?;
-        let _new_parent = self.lookup(new_parent_path)?;
+        let new_parent = self.lookup(new_parent_path)?;
 
-        if old_parent_path == new_parent_path {
-            old_parent.rename(old_name, new_name)
-        } else {
-            Err(VfsError::NotImplemented)
-        }
+        old_parent.move_to(old_name, &new_parent, new_name)
     }
 
     const MAX_SYMLINK_DEPTH: u32 = 8;
@@ -394,28 +403,47 @@ impl Vfs {
         }
 
         let normalized_path = self.normalize_path(path);
-        let path = normalized_path.trim_matches('/');
+        let path_str = normalized_path.trim_matches('/');
 
-        if path.is_empty() {
+        if path_str.is_empty() {
             return self.root.read().as_ref().cloned().ok_or(VfsError::NotFound);
         }
 
         let mounts = self.mounts.lock();
         if let Some(mount) = mounts
             .iter()
-            .filter(|m| path.starts_with(&m.path))
+            .filter(|m| {
+                if path_str.starts_with(&m.path) {
+                    let next_char = path_str.as_bytes().get(m.mount_point_len);
+                    next_char.is_none() || next_char == Some(&b'/')
+                } else {
+                    false
+                }
+            })
             .max_by_key(|m| m.mount_point_len)
         {
-            let subpath = path[mount.mount_point_len..].trim_matches('/');
-            if subpath.is_empty() {
-                return self.resolve_symlink_if_needed(mount.root.clone(), depth);
-            }
+            let subpath = path_str[mount.mount_point_len..].trim_matches('/');
             let mut current = mount.root.clone();
+            let mut current_path = if mount.path.starts_with('/') {
+                mount.path.clone()
+            } else {
+                format!("/{}", mount.path)
+            };
+
+            if subpath.is_empty() {
+                return self.resolve_symlink_if_needed(current, &current_path, depth);
+            }
+
             for component in subpath.split('/') {
                 if component.is_empty() || component == "." {
                     continue;
                 }
-                current = self.resolve_symlink_if_needed(current.lookup(component)?, depth)?;
+                current_path = format!("{}/{}", current_path.trim_end_matches('/'), component);
+                current = self.resolve_symlink_if_needed(
+                    current.lookup(component)?,
+                    &current_path,
+                    depth,
+                )?;
             }
             return Ok(current);
         }
@@ -426,11 +454,14 @@ impl Vfs {
             .as_ref()
             .cloned()
             .ok_or(VfsError::NotFound)?;
-        for component in path.split('/') {
+        let mut current_path = String::from("/");
+        for component in path_str.split('/') {
             if component.is_empty() || component == "." {
                 continue;
             }
-            current = self.resolve_symlink_if_needed(current.lookup(component)?, depth)?;
+            current_path = format!("{}/{}", current_path.trim_end_matches('/'), component);
+            current =
+                self.resolve_symlink_if_needed(current.lookup(component)?, &current_path, depth)?;
         }
         Ok(current)
     }
@@ -438,11 +469,18 @@ impl Vfs {
     fn resolve_symlink_if_needed(
         &self,
         node: Arc<dyn Inode>,
+        current_path: &str,
         depth: u32,
     ) -> Result<Arc<dyn Inode>, VfsError> {
         if node.node_type() == VNodeType::SymLink {
             let target_path = node.read_symlink()?;
-            self.path_to_inode(&target_path, depth + 1)
+            let next_path = if target_path.starts_with('/') {
+                target_path
+            } else {
+                let (parent, _) = self.split_path(current_path)?;
+                format!("{}/{}", parent.trim_end_matches('/'), target_path)
+            };
+            self.path_to_inode(&next_path, depth + 1)
         } else {
             Ok(node)
         }
@@ -528,5 +566,77 @@ impl Vfs {
         } else {
             format!("/{}", cleaned_parts.join("/"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fs::fs_impl::memfs::MemFs;
+
+    #[test_case]
+    fn test_vfs_mount_root() {
+        let vfs = Vfs::new();
+        let memfs = Arc::new(MemFs);
+        vfs.register_fs(memfs);
+        vfs.mount(None, "/", "memfs", None).unwrap();
+        assert!(vfs.root.read().is_some());
+    }
+
+    #[test_case]
+    fn test_vfs_path_resolution() {
+        let vfs = Vfs::new();
+        let memfs = Arc::new(MemFs);
+        vfs.register_fs(memfs);
+        vfs.mount(None, "/", "memfs", None).unwrap();
+
+        vfs.create_dir("/a").unwrap();
+        vfs.create_dir("/a/b").unwrap();
+        vfs.create_file("/a/b/c").unwrap();
+
+        assert!(vfs.lookup("/a/b/c").is_ok());
+        assert!(vfs.lookup("/a/b/../b/c").is_ok());
+    }
+
+    #[test_case]
+    fn test_vfs_symlink_resolution() {
+        let vfs = Vfs::new();
+        let memfs = Arc::new(MemFs);
+        vfs.register_fs(memfs);
+        vfs.mount(None, "/", "memfs", None).unwrap();
+
+        vfs.create_dir("/a").unwrap();
+        vfs.create_file("/a/target").unwrap();
+        vfs.create_symlink("/a/target", "/a/link").unwrap();
+
+        let inode = vfs.lookup("/a/link").unwrap();
+        assert_eq!(inode.node_type(), VNodeType::File);
+
+        // Relative symlink
+        vfs.create_symlink("target", "/a/rel_link").unwrap();
+        let inode_rel = vfs.lookup("/a/rel_link").unwrap();
+        assert_eq!(inode_rel.node_type(), VNodeType::File);
+
+        // Symlink pointing to another symlink
+        vfs.create_symlink("/a/link", "/a/link2").unwrap();
+        let inode_link2 = vfs.lookup("/a/link2").unwrap();
+        assert_eq!(inode_link2.node_type(), VNodeType::File);
+    }
+
+    #[test_case]
+    fn test_vfs_cross_dir_rename() {
+        let vfs = Vfs::new();
+        let memfs = Arc::new(MemFs);
+        vfs.register_fs(memfs);
+        vfs.mount(None, "/", "memfs", None).unwrap();
+
+        vfs.create_dir("/a").unwrap();
+        vfs.create_dir("/b").unwrap();
+        vfs.create_file("/a/file").unwrap();
+
+        vfs.rename("/a/file", "/b/file_moved").unwrap();
+
+        assert!(vfs.lookup("/a/file").is_err());
+        assert!(vfs.lookup("/b/file_moved").is_ok());
     }
 }

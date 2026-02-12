@@ -222,6 +222,36 @@ impl Inode for KernInode {
         }
     }
 
+    fn move_to(
+        &self,
+        old_name: &str,
+        target_dir: &Arc<dyn Inode>,
+        new_name: &str,
+    ) -> Result<(), VfsError> {
+        if let Some(target_kern) = target_dir.as_any().downcast_ref::<KernInode>() {
+            match (&self.content, &target_kern.content) {
+                (KernNodeContent::Dir(src_entries), KernNodeContent::Dir(dst_entries)) => {
+                    let mut src_map = src_entries.write();
+                    let mut dst_map = dst_entries.write();
+
+                    if !src_map.contains_key(old_name) {
+                        return Err(VfsError::NotFound);
+                    }
+                    if dst_map.contains_key(new_name) {
+                        return Err(VfsError::AlreadyExists);
+                    }
+
+                    let node = src_map.remove(old_name).unwrap();
+                    dst_map.insert(new_name.to_string(), node);
+                    Ok(())
+                }
+                _ => Err(VfsError::NotADirectory),
+            }
+        } else {
+            Err(VfsError::NotImplemented)
+        }
+    }
+
     fn list(&self) -> Result<Vec<String>, VfsError> {
         match &self.content {
             KernNodeContent::Dir(entries) => Ok(entries.read().keys().cloned().collect()),
