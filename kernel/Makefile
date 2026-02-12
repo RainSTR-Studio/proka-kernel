@@ -29,7 +29,7 @@ else
 endif
 
 # Rust compilation flags
-RUSTFLAGS  ?= -C relocation-model=static
+RUSTFLAGS  := -C relocation-model=static -C force-frame-pointers=yes
 
 # Binary path relative to kernel directory
 BIN_PATH := ../target/$(RUST_TARGET)/$(PROFILE_DIR)/$(PKG_NAME)

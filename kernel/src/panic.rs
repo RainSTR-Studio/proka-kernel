@@ -232,6 +232,41 @@ pub fn panic(info: &PanicInfo) -> ! {
             let _ = writeln!(console, "R12: {:#018x}  R13: {:#018x}", r12, r13);
             let _ = writeln!(console, "R14: {:#018x}  R15: {:#018x}", r14, r15);
             let _ = writeln!(console);
+
+            let _ = writeln!(console, "--- BACKTRACE ---");
+            serial_println!("--- BACKTRACE ---");
+            let mut curr_rbp = rbp;
+            // Skip the first frame (the panic handler/core logic) as requested
+            if curr_rbp != 0 {
+                curr_rbp = unsafe { *(curr_rbp as *const u64) };
+            }
+
+            let mut count = 0;
+            while curr_rbp != 0 && count < 16 {
+                // In x86_64 with frame pointers:
+                // [rbp] is the previous rbp
+                // [rbp + 8] is the return address
+
+                // Safety check: canonical high-half address in x86_64 starts with 0xFFFF
+                if curr_rbp < 0xFFFF_0000_0000_0000 {
+                    break;
+                }
+
+                let ret_addr = unsafe { *((curr_rbp + 8) as *const u64) };
+                let _ = writeln!(console, "  [{:02}] {:#018x}", count, ret_addr);
+                serial_println!("  [{:02}] {:#018x}", count, ret_addr);
+
+                let next_rbp = unsafe { *(curr_rbp as *const u64) };
+                // Frame pointer must increase (stack grows down) and be aligned
+                if next_rbp <= curr_rbp || next_rbp % 8 != 0 {
+                    break;
+                }
+                curr_rbp = next_rbp;
+                count += 1;
+            }
+
+            let _ = writeln!(console);
+
             let _ = writeln!(console, "Please restart your computer.");
         }
     }
@@ -252,5 +287,35 @@ pub fn panic(info: &PanicInfo) -> ! {
 pub fn panic_for_test(info: &PanicInfo) -> ! {
     serial_println!("[FAILED]");
     serial_println!("Caused by:\t{}", info);
+
+    serial_println!("--- BACKTRACE ---");
+    let mut rbp: u64;
+    unsafe {
+        core::arch::asm!("mov {}, rbp", out(reg) rbp);
+    }
+
+    let mut curr_rbp = rbp;
+    // Skip the first frame
+    if curr_rbp != 0 {
+        curr_rbp = unsafe { *(curr_rbp as *const u64) };
+    }
+
+    let mut count = 0;
+    while curr_rbp != 0 && count < 16 {
+        if curr_rbp < 0xFFFF_0000_0000_0000 {
+            break;
+        }
+
+        let ret_addr = unsafe { *((curr_rbp + 8) as *const u64) };
+        serial_println!("  [{:02}] {:#018x}", count, ret_addr);
+
+        let next_rbp = unsafe { *(curr_rbp as *const u64) };
+        if next_rbp <= curr_rbp || next_rbp % 8 != 0 {
+            break;
+        }
+        curr_rbp = next_rbp;
+        count += 1;
+    }
+
     crate::test::long_jmp();
 }
