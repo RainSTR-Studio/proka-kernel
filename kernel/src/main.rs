@@ -21,7 +21,11 @@
 extern crate proka_kernel;
 extern crate alloc;
 
-use proka_kernel::{libs::time::rtc, output::console::CONSOLE, BASE_REVISION};
+use core::alloc::Layout;
+
+use proka_kernel::{
+    libs::time::rtc, memory::FRAME_ALLOCATOR, output::console::CONSOLE, BASE_REVISION,
+};
 /* The Kernel main code */
 // The normal one
 #[unsafe(no_mangle)]
@@ -78,7 +82,6 @@ pub extern "C" fn kernel_main() -> ! {
 
     proka_kernel::drivers::init_devices(); // Initialize devices
     proka_kernel::libs::time::init(); // Init time system
-
     proka_kernel::libs::initrd::load_initrd(); // Load initrd
     x86_64::instructions::interrupts::enable(); // Enable interrupts
 
@@ -94,6 +97,13 @@ pub extern "C" fn kernel_main() -> ! {
             env!("CARGO_PKG_VERSION"),
             proka_kernel::config::ADDITIONAL_VERSION
         );
+    }
+    unsafe {
+        let layout = Layout::from_size_align(5 * 1024 * 1024, 8).unwrap();
+        let ptr = alloc::alloc::alloc(layout);
+        println!("Allocated memory at {:p}, size: {}", ptr, layout.size());
+        alloc::alloc::dealloc(ptr, layout);
+        println!("Deallocated memory at {:p}, size: {}", ptr, layout.size());
     }
 
     println!("Device list:");

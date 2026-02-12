@@ -18,7 +18,7 @@ pub const HEAP_START: usize = 0x_4444_4444_0000;
 pub struct KernelOomHandler;
 
 impl talc::OomHandler for KernelOomHandler {
-    fn handle_oom(talc: &mut Talc<Self>, _layout: core::alloc::Layout) -> Result<(), ()> {
+    fn handle_oom(talc: &mut Talc<Self>, layout: core::alloc::Layout) -> Result<(), ()> {
         let mut ms_lock = crate::memory::paging::vmm::KERNEL_MEMORY_SET.lock();
         let memory_set = ms_lock.as_mut().ok_or(())?;
 
@@ -30,7 +30,8 @@ impl talc::OomHandler for KernelOomHandler {
                 .find(|a| a.name == "heap")
                 .ok_or(())?;
             let old_end = heap_area.end;
-            let expand_size = crate::config::OOM_EXPAND_SIZE.max(4 * 1024 * 1024);
+            let expand_size =
+                (u64::max(layout.size() as u64 + 4096, 1024 * 1024)).next_multiple_of(4096);
             let new_end = old_end + expand_size;
             heap_area.end = new_end;
             (old_end, new_end)
