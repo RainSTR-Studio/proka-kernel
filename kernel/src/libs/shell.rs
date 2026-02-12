@@ -1,6 +1,6 @@
 use alloc::{string::String, sync::Arc, vec::Vec};
 
-use crate::{drivers::device, memory::FRAME_ALLOCATOR, print, println};
+use crate::{drivers::CharDevice, memory::FRAME_ALLOCATOR, print, println};
 
 pub struct Shell {}
 impl Shell {
@@ -8,7 +8,7 @@ impl Shell {
         Shell {}
     }
 
-    fn get_device(&self, device: &str) -> Option<Arc<dyn device::CharDevice>> {
+    fn get_device(&self, device: &str) -> Option<Arc<dyn CharDevice>> {
         let device_manager = crate::drivers::DEVICE_MANAGER.read();
         if let Some(device) = device_manager.get_device(device) {
             Some(device.as_char_device().expect("non-char device").clone())

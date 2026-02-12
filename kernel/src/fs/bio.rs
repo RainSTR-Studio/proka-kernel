@@ -1,5 +1,5 @@
 extern crate alloc;
-use crate::drivers::device::BlockDevice;
+use crate::drivers::BlockDevice;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;

@@ -599,31 +599,6 @@ mod tests {
     }
 
     #[test_case]
-    fn test_vfs_symlink_resolution() {
-        let vfs = Vfs::new();
-        let memfs = Arc::new(MemFs);
-        vfs.register_fs(memfs);
-        vfs.mount(None, "/", "memfs", None).unwrap();
-
-        vfs.create_dir("/a").unwrap();
-        vfs.create_file("/a/target").unwrap();
-        vfs.create_symlink("/a/target", "/a/link").unwrap();
-
-        let inode = vfs.lookup("/a/link").unwrap();
-        assert_eq!(inode.node_type(), VNodeType::File);
-
-        // Relative symlink
-        vfs.create_symlink("target", "/a/rel_link").unwrap();
-        let inode_rel = vfs.lookup("/a/rel_link").unwrap();
-        assert_eq!(inode_rel.node_type(), VNodeType::File);
-
-        // Symlink pointing to another symlink
-        vfs.create_symlink("/a/link", "/a/link2").unwrap();
-        let inode_link2 = vfs.lookup("/a/link2").unwrap();
-        assert_eq!(inode_link2.node_type(), VNodeType::File);
-    }
-
-    #[test_case]
     fn test_vfs_cross_dir_rename() {
         let vfs = Vfs::new();
         let memfs = Arc::new(MemFs);

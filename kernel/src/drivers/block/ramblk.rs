@@ -1,4 +1,4 @@
-use crate::drivers::device::{BlockDevice, DeviceError, DeviceType, SharedDeviceOps};
+use crate::drivers::{BlockDevice, DeviceError, DeviceType, SharedDeviceOps};
 extern crate alloc;
 use alloc::string::{String, ToString};
 use alloc::vec;
