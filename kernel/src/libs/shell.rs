@@ -1,6 +1,6 @@
-use alloc::{string::String, sync::Arc};
+use alloc::{string::String, sync::Arc, vec::Vec};
 
-use crate::{drivers::device, print, println};
+use crate::{drivers::device, memory::FRAME_ALLOCATOR, print, println};
 
 pub struct Shell {}
 impl Shell {
@@ -20,17 +20,27 @@ impl Shell {
     }
 
     fn handle_command(&self, command: &str) {
+        let cmd = command.split_whitespace().collect::<Vec<&str>>();
+        if cmd.is_empty() {
+            return;
+        }
+        let command = cmd[0];
+        let args = &cmd[1..];
         match command {
             "help" => {
                 println!("Available commands:");
-                println!("  help     - Show this help message");
-                println!("  clear    - Clear the screen");
-                println!("  panic    - Trigger a kernel panic");
-                println!("  fault    - Trigger a CPU exception (Page Fault)");
-                println!("  div0     - Trigger a Divide By Zero exception");
-                println!("  reboot   - Reboot the system");
-                println!("  shutdown - Shutdown the system");
-                println!("  exit     - Exit the shell");
+                println!("  help         - Show this help message");
+                println!("  ls           - List directory contents");
+                println!("  cat <file>   - Show file contents");
+                println!("  uptime       - Show system uptime");
+                println!("  clear        - Clear the screen");
+                println!("  panic        - Trigger a kernel panic");
+                println!("  fault        - Trigger a CPU exception (Page Fault)");
+                println!("  div0         - Trigger a Divide By Zero exception");
+                println!("  memory_stats - Show memory statistics");
+                println!("  reboot       - Reboot the system");
+                println!("  shutdown     - Shutdown the system");
+                println!("  exit         - Exit the shell");
             }
             "clear" => {
                 print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
@@ -62,6 +72,68 @@ impl Shell {
             "shutdown" => {
                 println!("Shutting down...");
                 crate::libs::system::shutdown();
+            }
+            "memory_stats" => {
+                crate::memory::paging::print_memory_stats(&FRAME_ALLOCATOR);
+            }
+            "ls" => {
+                let path = if args.is_empty() { "/" } else { args[0] };
+                match crate::fs::vfs::VFS.lookup(path) {
+                    Ok(inode) => {
+                        if inode.node_type() == crate::fs::vfs::VNodeType::Dir {
+                            match inode.list() {
+                                Ok(entries) => {
+                                    for entry in entries {
+                                        println!("{}", entry);
+                                    }
+                                }
+                                Err(e) => println!("ls: cannot list directory '{}': {:?}", path, e),
+                            }
+                        } else {
+                            println!("{}", path);
+                        }
+                    }
+                    Err(e) => println!("ls: cannot access '{}': {:?}", path, e),
+                }
+            }
+            "cat" => {
+                if args.is_empty() {
+                    println!("Usage: cat <file>");
+                } else {
+                    let path = args[0];
+                    match crate::fs::vfs::VFS.open(path) {
+                        Ok(file) => match file.read_all() {
+                            Ok(content) => {
+                                let s = String::from_utf8_lossy(&content);
+                                print!("{}", s);
+                                if !s.ends_with('\n') {
+                                    println!();
+                                }
+                            }
+                            Err(e) => println!("cat: error reading '{}': {:?}", path, e),
+                        },
+                        Err(e) => println!("cat: cannot open '{}': {:?}", path, e),
+                    }
+                }
+            }
+            "uptime" => {
+                let total_seconds = crate::libs::time::time_since_boot();
+                let hours = (total_seconds / 3600.0) as u64;
+                let minutes = ((total_seconds / 60.0) as u64) % 60;
+                let seconds = (total_seconds as u64) % 60;
+                let seconds_int = total_seconds as u64;
+                let ms = ((total_seconds - seconds_int as f64) * 1000.0) as u64;
+
+                if hours > 0 {
+                    println!(
+                        "up {} hours, {} minutes, {}.{:03} seconds",
+                        hours, minutes, seconds, ms
+                    );
+                } else if minutes > 0 {
+                    println!("up {} minutes, {}.{:03} seconds", minutes, seconds, ms);
+                } else {
+                    println!("up {}.{:03} seconds", seconds, ms);
+                }
             }
             _ => {
                 // ignore empty input, but report unknown commands
