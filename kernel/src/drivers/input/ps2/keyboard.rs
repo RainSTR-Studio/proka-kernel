@@ -8,20 +8,20 @@ use pc_keyboard::{
 use ringbuf::{traits::*, HeapRb};
 use spin::Mutex;
 
-// 缓冲区大小（增加到256字节）
+// Buffer size (increase to 256 bytes)
 const BUFFER_SIZE: usize = 256;
 
-// 键盘控制器端口
+// Keyboard controller ports
 const KEYBOARD_DATA_PORT: u16 = 0x60;
 const KEYBOARD_STATUS_PORT: u16 = 0x64;
 const KEYBOARD_COMMAND_PORT: u16 = 0x64;
 
-// LED 控制位
+// LED control bits
 const LED_SCROLL_LOCK: u8 = 0x01;
 const LED_NUM_LOCK: u8 = 0x02;
 const LED_CAPS_LOCK: u8 = 0x04;
 
-// ioctl 命令定义
+// ioctl commands definitions
 pub const KDGETLED: u64 = 0x4B31;
 pub const KDSETLED: u64 = 0x4B32;
 pub const KDGKBLED: u64 = 0x4B64;
@@ -32,7 +32,7 @@ pub const KB_ENABLE: u64 = 0x4B36;
 pub const KB_DISABLE: u64 = 0x4B37;
 pub const KB_CLEAR_BUFFER: u64 = 0x4B38;
 
-// 键盘模式
+// Keyboard modes
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyboardMode {
     Raw = 0,
@@ -40,13 +40,13 @@ pub enum KeyboardMode {
     Unicode = 2,
 }
 
-// 键盘布局类型（预留用于未来扩展）
+// Keyboard layout types (reserved for future extensions)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyboardLayout {
     Us104,
 }
 
-// 修饰键状态
+// Modifier key states
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ModifierState {
     pub left_shift: bool,
@@ -80,7 +80,7 @@ impl ModifierState {
     }
 }
 
-// 键盘LED状态
+// Keyboard LED states
 #[derive(Debug, Clone, Copy, Default)]
 pub struct LedState {
     pub scroll_lock: bool,
@@ -112,7 +112,7 @@ impl LedState {
     }
 }
 
-// 键盘内部状态
+// Keyboard inner state
 pub struct KeyboardInner {
     pc_keyboard: PcKeyboard<layouts::Us104Key, ScancodeSet1>,
     enabled: bool,
@@ -122,27 +122,27 @@ pub struct KeyboardInner {
     mode: KeyboardMode,
 }
 
-/// 发送命令到键盘控制器
+/// Send a command to the keyboard controller
 fn send_keyboard_command(command: u8, data: u8) {
     use x86_64::instructions::port::Port;
 
     unsafe {
-        // 等待键盘控制器就绪
+        // Wait for keyboard controller to be ready
         let mut status_port = Port::<u8>::new(KEYBOARD_STATUS_PORT);
         while (status_port.read() & 0x02) != 0 {
             core::hint::spin_loop();
         }
 
-        // 发送命令
+        // Send command
         let mut command_port = Port::<u8>::new(KEYBOARD_COMMAND_PORT);
         command_port.write(command);
 
-        // 等待键盘控制器就绪
+        // Wait for keyboard controller to be ready
         while (status_port.read() & 0x02) != 0 {
             core::hint::spin_loop();
         }
 
-        // 发送数据
+        // Send data
         let mut data_port = Port::<u8>::new(KEYBOARD_DATA_PORT);
         data_port.write(data);
     }
@@ -171,18 +171,18 @@ impl KeyboardInner {
         }
     }
 
-    /// 更新LED状态并发送到键盘控制器
+    /// Update LED states and send to keyboard controller
     fn update_leds(&mut self) {
         self.leds.caps_lock = self.modifiers.caps_lock;
         self.leds.num_lock = self.modifiers.num_lock;
         self.leds.scroll_lock = self.modifiers.scroll_lock;
 
-        // 发送LED设置命令
+        // Send LED states to keyboard controller
         let led_bits = self.leds.to_bits();
         send_keyboard_command(0xED, led_bits);
     }
 
-    /// 处理修饰键
+    /// Handle modifier key state changes
     fn update_modifier(&mut self, key_code: KeyCode, state: KeyState) {
         let pressed = state == KeyState::Down;
 
@@ -250,11 +250,11 @@ impl Keyboard {
         x86_64::instructions::interrupts::without_interrupts(|| self.inner.lock().nonblocking)
     }
 
-    /// 添加字符到环形缓冲区
+    /// Push a character to the keyboard buffer
     fn push_char(&self, c: char) {
         let mut producer = self.producer.lock();
-        // 缓冲区满时，直接丢弃字符以避免在中断上下文中进行复杂的同步或死锁风险
-        // 256 字节对于键盘来说通常足够大
+        // When buffer is full, drop the character if non-blocking
+        // We think 256 bytes is enough for a keyboard buffer
         let _ = producer.try_push(c);
     }
 
@@ -267,7 +267,7 @@ impl Keyboard {
             }
 
             if let Ok(Some(key_event)) = inner.pc_keyboard.add_byte(scancode) {
-                // 更新修饰键状态
+                // Update modifier key states
                 inner.update_modifier(key_event.code, key_event.state);
 
                 if let Some(key) = inner.pc_keyboard.process_keyevent(key_event) {
@@ -278,11 +278,11 @@ impl Keyboard {
                             }
                         }
                         KeyboardMode::Raw => {
-                            // 原始模式：将扫描码直接放入缓冲区
+                            // Raw mode: push scancode as character
                             key_to_push = Some(scancode as char);
                         }
                         KeyboardMode::MediumRaw => {
-                            // 中等原始模式：处理后的键码
+                            // MediumRaw mode: push processed key code as character
                             if let DecodedKey::RawKey(key_code) = key {
                                 key_to_push = Some((key_code as u8) as char);
                             }
@@ -412,7 +412,7 @@ impl CharDevice for Keyboard {
             let nonblocking = self.inner.lock().nonblocking;
             let mut consumer = self.consumer.lock();
 
-            // 非阻塞模式检查
+            // Non-blocking mode: return WouldBlock if buffer is empty
             if nonblocking && consumer.is_empty() {
                 return Err(DeviceError::WouldBlock);
             }
@@ -438,7 +438,7 @@ impl CharDevice for Keyboard {
                     // Successfully read, pop it
                     consumer.try_pop();
                 } else {
-                    // 缓冲区空间不足
+                    // Buffer space not enough, stop reading
                     break;
                 }
             }
@@ -465,7 +465,7 @@ impl CharDevice for Keyboard {
 
             let mut read_count = 0;
 
-            // 使用 as_slices 遍历环形缓冲区
+            // Use `as_slices` to get two slices of the consumer buffer
             let (s1, s2): (&[char], &[char]) = consumer.as_slices();
             for &c in s1.iter().chain(s2.iter()) {
                 let mut char_buf = [0u8; 4];

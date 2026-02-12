@@ -192,7 +192,7 @@ macro_rules! ioapic_interrupt_handler {
                 if $irq_number == 1 {
                     let mut port = x86_64::instructions::port::Port::<u8>::new(0x60);
                     let scancode = unsafe { port.read() };
-                    crate::drivers::input::keyboard::KEYBOARD.handle_scancode(scancode);
+                    crate::drivers::input::ps2::keyboard::KEYBOARD.handle_scancode(scancode);
                 } else {
                     serial_println!("IRQ {} received!", $irq_number);
                 }
@@ -202,7 +202,7 @@ macro_rules! ioapic_interrupt_handler {
         }
     };
 }
-// 为所有 16 个 IRQ 定义处理函数
+// Define interrupt handlers for all 16 IRQs
 ioapic_interrupt_handler!(ioapic_interrupt_handler_0, 0); // Timer Interrupt
 ioapic_interrupt_handler!(ioapic_interrupt_handler_1, 1); // Keyboard Interrupt
 ioapic_interrupt_handler!(ioapic_interrupt_handler_2, 2); // Cascade to PIC2
