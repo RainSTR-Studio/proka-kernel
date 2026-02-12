@@ -428,6 +428,6 @@ pub fn init_devices() {
         .expect("Failed to register serial device");
 
     manager
-        .register_device(super::input::keyboard::Keyboard::create_device())
+        .register_device(super::input::ps2::keyboard::Keyboard::create_device())
         .expect("Failed to register keyboard device");
 }

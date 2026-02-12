@@ -48,7 +48,7 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::interrupts::request_irq(1, "Keyboard", |_context| {
         let mut port = x86_64::instructions::port::Port::<u8>::new(0x60);
         let scancode = unsafe { port.read() };
-        proka_kernel::drivers::input::keyboard::KEYBOARD.handle_scancode(scancode);
+        proka_kernel::drivers::input::ps2::keyboard::KEYBOARD.handle_scancode(scancode);
         proka_kernel::interrupts::apic::registry::IrqResult::Handled
     });
 
