@@ -25,7 +25,8 @@
         - [进程调度](architecture/multitasking/scheduler.md)
         - [进程与线程模型](architecture/multitasking/process.md)
         - [系统调用接口设计](architecture/multitasking/syscalls.md)
-    - [安全与异常处理](architecture/security.md)
+    - [安全](architecture/security.md)
+    - [异常处理](architecture/panic.md)
 
 - [具体组件与硬件实现](components/index.md)
     - [人机交互设备](components/hid/index.md)
