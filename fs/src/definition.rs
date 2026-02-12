@@ -49,7 +49,7 @@ impl Default for SuperBlock {
     fn default() -> Self {
         Self {
             magic: 0x504B4653,
-            block_size: 1024,
+            block_size: 4096,
             total_blocks: 1024,
             data_start_block: 1,
             block_bitmap: [0; 512],
@@ -123,5 +123,35 @@ impl Inode {
         let block_idx = inode_start_block + (inode_id as u64 / inodes_per_block as u64);
         let offset = (inode_id as usize % inodes_per_block) * INODE_SIZE;
         (block_idx, offset)
+    }
+}
+
+/// The entry point of directory.
+pub struct DirEntry {
+    /// The inode number of the directory.
+    pub inode: u32,
+
+    /// The name of the directory.
+    pub name: [u8; 256],
+}
+
+impl DirEntry {
+    pub const fn empty() -> Self {
+        Self {
+            inode: 0,
+            name: [0; 256],
+        }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        unsafe {
+            core::slice::from_raw_parts(self as *const Self as *const u8, core::mem::size_of::<Self>())
+        }
+    }
+
+    pub fn as_mut_bytes(&mut self) -> &mut [u8] {
+        unsafe {
+            core::slice::from_raw_parts_mut(self as *mut Self as *mut u8, core::mem::size_of::<Self>())
+        }
     }
 }
