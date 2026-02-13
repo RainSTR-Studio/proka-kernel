@@ -113,7 +113,8 @@ pub extern "C" fn kernel_main() -> ! {
     println!("Time since boot: {time}");
 
     proka_kernel::libs::pci::print_all_pci_devices();
-
+    proka_kernel::drivers::usb::init();
+    
     let shell = proka_kernel::libs::shell::Shell::new();
     shell.run("keyboard");
 

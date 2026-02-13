@@ -4,6 +4,7 @@ pub mod char;
 pub mod device;
 pub mod input;
 pub mod ops;
+pub mod usb;
 pub mod resource;
 
 pub use device::*;
