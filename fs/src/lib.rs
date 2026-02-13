@@ -14,7 +14,7 @@ pub trait BlockDevice {
     /// 
     /// * `block_num` - The block number to read.
     /// * `buf` - The buffer to store the data.
-    fn read_block(&self, block_num: u32, offset: u32, buf: &mut [u8]);
+    fn read_block(&mut self, block_num: u32, offset: u32, buf: &mut [u8]) -> Result<(), &'static str>;
 
     /// Write a block to the block device.
     /// 
@@ -22,7 +22,7 @@ pub trait BlockDevice {
     /// 
     /// * `block_num` - The block number to write.
     /// * `buf` - The data to write.
-    fn write_block(&self, block_num: u32, offset: u32, buf: &[u8]);
+    fn write_block(&mut self, block_num: u32, offset: u32, buf: &[u8]) -> Result<(), &'static str>;
 }
 
 /// The basic structure of the whole file system.
@@ -49,8 +49,7 @@ impl<B: BlockDevice> FileSystem<B> {
     /// 
     /// * `Self` - The mounted file system.
     pub fn mount(bd: B) -> Self {
-        let mut super_block = definition::SuperBlock::default();
-        bd.read_block(0, 0, &mut super_block.as_mut_bytes());
+        let super_block = definition::SuperBlock::default();
         Self {
             block_device: bd,
             super_block: super_block,
@@ -59,8 +58,8 @@ impl<B: BlockDevice> FileSystem<B> {
     }
 
     /// Synchronize the file system to the block device.
-    pub fn sync(&self) {
-        self.block_device.write_block(0, 0, &self.super_block.as_bytes());
+    pub fn sync(&mut self) -> Result<(), &'static str> {
+        self.block_device.write_block(0, 0, &self.super_block.as_bytes())
     }
 
 
@@ -118,13 +117,13 @@ impl<B: BlockDevice> FileSystem<B> {
     }
 
     /// Create a file.
-    pub fn mkfile(&mut self) {
+    pub fn mkfile(&mut self) -> Result<(), &'static str> {
         // 1. Allocate an inode.
         let inode_num = self.alloc_inode(definition::FileType::Regular).unwrap();
 
         // 2. Write the inode to the block device.
         let offset = inode_num.0.inode_id as usize * core::mem::size_of::<Inode>();
-        self.block_device.write_block(inode_num.1, offset as u32, &inode_num.0.as_bytes());
+        self.block_device.write_block(inode_num.1, offset as u32, &inode_num.0.as_bytes())
     }
 
     /// Convert a name to a 256 bytes array.
@@ -150,13 +149,13 @@ impl<B: BlockDevice> FileSystem<B> {
     }
 
     /// Create a directory.
-    pub fn mkdir(&mut self) {
+    pub fn mkdir(&mut self) -> Result<(), &'static str> {
         // 1. Allocate an inode.
         let inode_num = self.alloc_inode(definition::FileType::Directory).unwrap();
 
         // 2. Write the inode to the block device.
         let offset = inode_num.0.inode_id as usize * core::mem::size_of::<Inode>();
-        self.block_device.write_block(inode_num.1, offset as u32, &inode_num.0.as_bytes());
+        self.block_device.write_block(inode_num.1, offset as u32, &inode_num.0.as_bytes())?;
 
         // 3. Create a '.' and '..' entry in the directory.
         // 3.1 Create a '.' entry.
@@ -175,7 +174,8 @@ impl<B: BlockDevice> FileSystem<B> {
 
         // 3.3 Write the '.' and '..' entry to the block device.
         let offset = inode_num.0.inode_id as usize * core::mem::size_of::<definition::DirEntry>();
-        self.block_device.write_block(inode_num.1, offset as u32, &dot_dir_entry.as_bytes());
-        self.block_device.write_block(inode_num.1, (offset + core::mem::size_of::<definition::DirEntry>()) as u32, &dot_dot_dir_entry.as_bytes());
+        self.block_device.write_block(inode_num.1, offset as u32, &dot_dir_entry.as_bytes())?;
+        self.block_device.write_block(inode_num.1, (offset + core::mem::size_of::<definition::DirEntry>()) as u32, &dot_dot_dir_entry.as_bytes())?;
+        Ok(())
     }
 }
