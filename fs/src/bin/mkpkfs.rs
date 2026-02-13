@@ -61,7 +61,7 @@ fn main() -> Result<(), &'static str> {
     let root_inode = Inode {
         inode_id: 0,
         file_type: proka_fs::definition::FileType::Directory,
-        head_block: 131072,
+        head_block: 65536,
         file_length: 2 * core::mem::size_of::<DirEntry>() as u64,
     };
     bd.write_block(1, 0, root_inode.as_bytes())?;
@@ -92,8 +92,8 @@ fn main() -> Result<(), &'static str> {
     // 
     // # Note:
     // - The data block starts at block 1024, which is a constant currently.
-    bd.write_block(131072, 0, entry_dot.as_bytes())?;
-    bd.write_block(131072, core::mem::size_of::<DirEntry>() as u32, entry_parent.as_bytes())?;
+    bd.write_block(65536, 0, entry_dot.as_bytes())?;
+    bd.write_block(65536, core::mem::size_of::<DirEntry>() as u32, entry_parent.as_bytes())?;
     Ok(())
 }
 
