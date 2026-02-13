@@ -10,6 +10,7 @@ const BLOCK_SIZE: usize = 1024;
 
 // Define CLI args
 #[derive(Parser)]
+#[command(about = "The ProkaFS creater")]
 struct Args {
     /// The path to the file to create.
     #[arg(required = true)]
