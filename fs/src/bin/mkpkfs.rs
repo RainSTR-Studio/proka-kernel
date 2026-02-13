@@ -1,9 +1,19 @@
 //! The tool to create the proka file system.
-use proka_fs::{FileSystem, BlockDevice};
+use clap::Parser;
+use proka_fs::definition::{DirEntry, Inode, SuperBlock};
+use proka_fs::{BlockDevice, convert_name};
 use std::io::{Seek, SeekFrom, Read, Write};
-use std::fs::File;
+use std::fs::{File, OpenOptions};
+use colored::Colorize;
 
 const BLOCK_SIZE: usize = 1024;
+
+// Define CLI args
+#[derive(Parser)]
+struct Args {
+    /// The path to the file to create.
+    path: String,
+}
 
 // Implement the block device for the file.
 pub struct FileBlockDevice(File);
@@ -22,8 +32,68 @@ impl BlockDevice for FileBlockDevice {
     }
 }
 
-fn main() {
-    println!("Hello, world!");
-    // TODO: Implement the tool to create the proka file system.
+fn main() -> Result<(), &'static str> {
+    println!("{}: The file system of {}", "ProkaFS (PKFS)".bold(), "ProkaOS".bold());
+    println!("mkpkfs {}", "v0.1.0".cyan().bold());
+    println!("Copyright (C) {} {year}, All rights reserved.", "RainSTR Studio".cyan().bold(), year = "2025-2026".bold());
+    println!();
+    /* Prework: Initialize the program */
+    // Parse the CLI args.
+    let args = Args::parse();
+    // Open the file.
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&args.path)
+        .map_err(|_| "Failed to open file")?;
+    
+    // Create the block device.
+    let mut bd = FileBlockDevice(file);
+
+    /* Stage 1: Initialize the super block */
+    println!("mkpkfs: [INFO] Initialize the super block...");
+    let super_block = SuperBlock::default();
+    bd.write_block(0, 0, super_block.as_bytes())?;
+
+    /* Stage 2: Initialize the root inode */
+    println!("mkpkfs: [INFO] Initialize the root inode...");
+    let root_inode = Inode {
+        inode_id: 0,
+        file_type: proka_fs::definition::FileType::Directory,
+        head_block: 101,
+        file_length: 2 * core::mem::size_of::<Inode>() as u64,
+    };
+    bd.write_block(1, 0, root_inode.as_bytes())?;
+
+    /* Stage 3: Initialize the root directory's basic information */
+    // In this stage, we will create the root directory's basic information.
+    // There are 2 dir entry we MUST define:
+    // - "."
+    // - ".."
+    // These entries are pointed at the same directory: root.
+    println!("mkpkfs: [INFO] Initialize the root directory's basic information...");
+
+    // 3.1: Define the name of the "." and ".." entries.
+    let name_dot = convert_name(b".");
+    let name_parent = convert_name(b"..");
+
+    // 3.2: Define the dir entry of the "." and ".." entries.
+    let entry_dot = DirEntry {
+        inode: 0,
+        name: name_dot,
+    };
+    let entry_parent = DirEntry {
+        inode: 0,
+        name: name_parent,
+    };
+
+    // 3.3: Write the "." and ".." entries to the root directory.
+    // 
+    // # Note:
+    // - The data block starts at block 1024, which is a constant currently.
+    bd.write_block(1024, 0, entry_dot.as_bytes())?;
+    bd.write_block(1024, core::mem::size_of::<DirEntry>() as u32, entry_parent.as_bytes())?;
+    Ok(())
 }
 
