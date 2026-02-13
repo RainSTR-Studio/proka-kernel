@@ -14,9 +14,6 @@ pub struct SuperBlock {
     /// The bitmap which indicates whether each block is used.
     pub block_bitmap: [u8; 128],    // 128 * 8 = 1024 = 1 block
 
-    /// The bitmap which indicates whether each inode part is used.
-    pub inode_block_bitmap: [u8; 1024 * 1024 / core::mem::size_of::<Inode>()],  // 1024 * 1024 bytes = 1024 blocks, divide by inode size = total inode number
-
     /// The bitmap which indicates whether each inode is used.
     pub inode_bitmap: [u8; 128],    // 128 * 8 = 1024 = 1 block
 }
@@ -52,7 +49,6 @@ impl Default for SuperBlock {
             block_size: 1024,
             data_start_block: 65536,
             block_bitmap: [0; 128],
-            inode_block_bitmap: [0; 1024 * 1024 / core::mem::size_of::<Inode>()],
             inode_bitmap: [0; 128],
         }
     }
@@ -91,6 +87,9 @@ pub struct Inode {
 
     /// The file length in bytes.
     pub file_length: u64,
+
+    /// Reserved data
+    pub _reserved: [u8; 8],
 }
 
 impl Inode {

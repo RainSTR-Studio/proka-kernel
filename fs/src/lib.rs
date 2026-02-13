@@ -121,6 +121,7 @@ impl<B: BlockDevice> FileSystem<B> {
             file_type,
             head_block: block_num, // Problem: Can't sure that the behind block is free, being optimized.
             file_length: 0,
+            _reserved: [0; 8],
         };
         Ok((inode, block_num))
     }

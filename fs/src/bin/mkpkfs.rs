@@ -12,6 +12,7 @@ const BLOCK_SIZE: usize = 1024;
 #[derive(Parser)]
 struct Args {
     /// The path to the file to create.
+    #[arg(required = true)]
     path: String,
 }
 
@@ -51,6 +52,19 @@ fn main() -> Result<(), &'static str> {
     // Create the block device.
     let mut bd = FileBlockDevice(file);
 
+    // Decide the data start block
+    // If size > 64MB, the data start block is 65536, which can store max 2,097,120 files.
+    // otherwise, the data start block is 1024, but only 32768 files.
+    let data_start_block = if get_device_size(&args.path)? > 64 * 1024 * 1024 {
+        println!("mkpkfs: [INFO] Detected the device size is {}MB", get_device_size(&args.path)? / 1024 / 1024);
+        println!("mkpkfs: [INFO] Will use the large-file mode.");
+        65536
+    } else {
+        println!("mkpkfs: [INFO] Detected the device size is {}MB", get_device_size(&args.path)? / 1024 / 1024);
+        println!("mkpkfs: [INFO] Will use the small-file mode.");
+        1024
+    };
+
     /* Stage 1: Initialize the super block */
     println!("mkpkfs: [INFO] Initialize the super block...");
     let super_block = SuperBlock::default();
@@ -61,8 +75,9 @@ fn main() -> Result<(), &'static str> {
     let root_inode = Inode {
         inode_id: 0,
         file_type: proka_fs::definition::FileType::Directory,
-        head_block: 65536,
+        head_block: data_start_block,
         file_length: 2 * core::mem::size_of::<DirEntry>() as u64,
+        _reserved: [0; 8],
     };
     bd.write_block(1, 0, root_inode.as_bytes())?;
 
@@ -92,8 +107,13 @@ fn main() -> Result<(), &'static str> {
     // 
     // # Note:
     // - The data block starts at block 1024, which is a constant currently.
-    bd.write_block(65536, 0, entry_dot.as_bytes())?;
-    bd.write_block(65536, core::mem::size_of::<DirEntry>() as u32, entry_parent.as_bytes())?;
+    bd.write_block(data_start_block, 0, entry_dot.as_bytes())?;
+    bd.write_block(data_start_block, core::mem::size_of::<DirEntry>() as u32, entry_parent.as_bytes())?;
     Ok(())
 }
 
+fn get_device_size(path: &str) -> Result<u64, &'static str> {
+    let file = File::open(path).map_err(|_| "Failed to open file")?;
+    let metadata = file.metadata().map_err(|_| "Failed to get metadata")?;
+    Ok(metadata.len())
+}
