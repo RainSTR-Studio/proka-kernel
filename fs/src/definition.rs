@@ -8,9 +8,6 @@ pub struct SuperBlock {
     /// The size of each block in bytes.
     pub block_size: u32,
 
-    /// The total number of blocks in the file system.
-    pub total_blocks: u32,
-
     /// The block number where the data starts.
     pub data_start_block: u32,
 
@@ -53,8 +50,7 @@ impl Default for SuperBlock {
         Self {
             magic: 0x504B4653,
             block_size: 1024,
-            total_blocks: 1024,
-            data_start_block: 1,
+            data_start_block: 65536,
             block_bitmap: [0; 128],
             inode_block_bitmap: [0; 1024 * 1024 / core::mem::size_of::<Inode>()],
             inode_bitmap: [0; 128],
