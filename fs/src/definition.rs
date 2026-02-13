@@ -15,10 +15,13 @@ pub struct SuperBlock {
     pub data_start_block: u32,
 
     /// The bitmap which indicates whether each block is used.
-    pub block_bitmap: [u8; 512],    // 512 * 8 = 4096 = 1 block
+    pub block_bitmap: [u8; 128],    // 128 * 8 = 1024 = 1 block
+
+    /// The bitmap which indicates whether each inode part is used.
+    pub inode_block_bitmap: [u8; 1024 * 1024 / core::mem::size_of::<Inode>()],  // 1024 * 1024 bytes = 1024 blocks, divide by inode size = total inode number
 
     /// The bitmap which indicates whether each inode is used.
-    pub inode_bitmap: [u8; 512],    // 512 * 8 = 4096 = 1 block
+    pub inode_bitmap: [u8; 128],    // 128 * 8 = 1024 = 1 block
 }
 
 impl SuperBlock {
@@ -49,38 +52,49 @@ impl Default for SuperBlock {
     fn default() -> Self {
         Self {
             magic: 0x504B4653,
-            block_size: 4096,
+            block_size: 1024,
             total_blocks: 1024,
             data_start_block: 1,
-            block_bitmap: [0; 512],
-            inode_bitmap: [0; 512],
+            block_bitmap: [0; 128],
+            inode_block_bitmap: [0; 1024 * 1024 / core::mem::size_of::<Inode>()],
+            inode_bitmap: [0; 128],
         }
     }
+}
+
+/// The definition of the file type
+#[derive(Debug, Clone, Copy)]
+pub enum FileType {
+    /// The regular file.
+    Regular = 0,
+
+    /// The directory.
+    Directory = 1,
+
+    /// The device file.
+    Device = 2,
 }
 
 /// The definition of the inode.
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct Inode {
+    /// The ID of this inode.
+    pub inode_id: u32,
+
     /// The file type.
     /// 
     /// # Number of this parameter
     /// 0: regular file;
     /// 
     /// 1: directory;
-    pub file_type: u8,
+    pub file_type: FileType,
 
-    /// The permission of the file.
-    pub permission: u8,
+    /// The head block of the file.
+    pub head_block: u32,
 
-    /// The size of the file in bytes.
-    pub size: u64,
-
-    /// The blocks number which the file occupies.
-    pub block_count: u64,
-
-    /// The data of the file, which points to the blocks in the data area.
-    pub data: [u32; 12],
+    /// The file length in bytes.
+    pub file_length: u64,
 }
 
 impl Inode {
@@ -131,7 +145,7 @@ pub struct DirEntry {
     /// The inode number of the directory.
     pub inode: u32,
 
-    /// The name of the directory.
+    /// The name of the directory, which contains up to 255 characters.
     pub name: [u8; 256],
 }
 
