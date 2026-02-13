@@ -55,6 +55,7 @@ impl Default for SuperBlock {
 }
 
 /// The definition of the file type
+#[repr(u8)]
 #[derive(Debug, Clone, Copy)]
 pub enum FileType {
     /// The regular file.
