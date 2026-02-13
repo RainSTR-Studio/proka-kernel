@@ -186,9 +186,9 @@ impl<B: BlockDevice> FileSystem<B> {
 ///
 /// # Example
 ///
-/// ```
-/// let name = FileSystem::convert_name(b"hello");
-/// # Exa
+/// ```rust
+/// let name = convert_name(b"hello");
+/// ``````
 pub fn convert_name(name_src: &[u8]) -> [u8; 256] {
     let mut name = [0u8; 256];
     let len = name_src.len().min(name.len() - 1);
