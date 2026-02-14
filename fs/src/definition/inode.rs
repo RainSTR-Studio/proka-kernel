@@ -2,7 +2,7 @@ use crate::definition::SuperBlock;
 
 /// The definition of the file type
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FileType {
     /// The regular file.
     Regular = 0,
@@ -16,7 +16,7 @@ pub enum FileType {
 
 /// The definition of the inode.
 #[repr(C)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Inode {
     /// The ID of this inode.
     pub inode_id: u32,
@@ -60,6 +60,44 @@ impl Inode {
         unsafe {
             core::slice::from_raw_parts_mut(self as *mut Self as *mut u8, core::mem::size_of::<Inode>())
         }
+    }
+
+        /// Create an inode object by a slice.
+    /// 
+    /// # Parameters
+    /// 
+    /// * `buf` - The slice of bytes.
+    /// 
+    /// # Returns
+    /// 
+    /// * `Self` - The inode object.
+    pub fn from_bytes(buf: &[u8]) -> Option<&Self> {
+        if buf.len() < core::mem::size_of::<Self>() {
+            return None;
+        }
+        let inode = unsafe {
+            &*(buf[0] as *const u8 as *const Self)
+        };
+        Some(inode)
+    }
+
+    /// Create this inode object by a mutable slice.
+    /// 
+    /// # Parameters
+    /// 
+    /// * `buf` - The slice of bytes.
+    /// 
+    /// # Returns
+    /// 
+    /// * `Self` - The inode object.
+    pub fn from_bytes_mut(buf: &mut [u8]) -> Option<&mut Self> {
+        if buf.len() < core::mem::size_of::<Self>() {
+            return None;
+        }
+        let inode = unsafe {
+            &mut *(buf[0] as *mut u8 as *mut Self)
+        };
+        Some(inode)
     }
 
     /// Locate the inode in the file system.

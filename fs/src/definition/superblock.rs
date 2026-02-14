@@ -1,12 +1,30 @@
+/// The file system type.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum FsType {
+    /// The standard system type, which can store about 2097152 files.
+    /// 
+    /// Uses in > 64MB disk.
+    Standard = 0,
+
+    /// The Minimum file system type, which can *only* store about 32768 files.
+    /// 
+    /// Uses in <= 64MB disk.
+    Minimum = 1,
+}
+
 /// The definition of the super block.
 #[repr(C)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SuperBlock {
     /// The magic number to identify the file system.
     pub magic: u32,
 
     /// The size of each block in bytes.
     pub block_size: u32,
+
+    /// The type of the file system.
+    pub fs_type: FsType,
 
     /// The block number where the data starts.
     pub data_start_block: u32,
@@ -42,11 +60,12 @@ impl SuperBlock {
     }
 }
 
-impl Default for SuperBlock {
-    fn default() -> Self {
+impl SuperBlock {
+    pub fn new(fs_type: FsType) -> Self {
         Self {
             magic: 0x504B4653,
             block_size: 1024,
+            fs_type,
             data_start_block: 65536,
             block_bitmap: [0; 128],
             inode_bitmap: [0; 128],

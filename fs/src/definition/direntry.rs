@@ -1,5 +1,6 @@
 
 /// The entry point of directory.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DirEntry {
     /// The inode number of the directory.
     pub inode: u32,

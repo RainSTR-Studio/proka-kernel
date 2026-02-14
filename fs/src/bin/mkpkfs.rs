@@ -2,6 +2,7 @@
 use clap::Parser;
 use proka_fs::definition::{DirEntry, Inode, SuperBlock};
 use proka_fs::{BlockDevice, convert_name};
+use proka_fs::check_fs_type;
 use std::io::{Seek, SeekFrom, Read, Write};
 use std::fs::{File, OpenOptions};
 use colored::Colorize;
@@ -56,19 +57,19 @@ fn main() -> Result<(), &'static str> {
     // Decide the data start block
     // If size > 64MB, the data start block is 65536, which can store max 2,097,120 files.
     // otherwise, the data start block is 1024, but only 32768 files.
-    let data_start_block = if get_device_size(&args.path)? > 64 * 1024 * 1024 {
+    if check_fs_type(&mut bd)? == proka_fs::definition::FsType::Standard {
         println!("mkpkfs: [INFO] Detected the device size is {}MB", get_device_size(&args.path)? / 1024 / 1024);
-        println!("mkpkfs: [INFO] Will use the large-file mode.");
+        println!("mkpkfs: [INFO] Will use the Standard mode.");
         65536
     } else {
         println!("mkpkfs: [INFO] Detected the device size is {}MB", get_device_size(&args.path)? / 1024 / 1024);
-        println!("mkpkfs: [INFO] Will use the small-file mode.");
+        println!("mkpkfs: [INFO] Will use the Minimum mode.");
         1024
     };
 
     /* Stage 1: Initialize the super block */
     println!("mkpkfs: [INFO] Initialize the super block...");
-    let super_block = SuperBlock::default();
+    let super_block = SuperBlock::new(check_fs_type(&mut bd)?);
     bd.write_block(0, 0, super_block.as_bytes())?;
 
     /* Stage 2: Initialize the root inode */
@@ -111,10 +112,4 @@ fn main() -> Result<(), &'static str> {
     bd.write_block(data_start_block, 0, entry_dot.as_bytes())?;
     bd.write_block(data_start_block, core::mem::size_of::<DirEntry>() as u32, entry_parent.as_bytes())?;
     Ok(())
-}
-
-fn get_device_size(path: &str) -> Result<u64, &'static str> {
-    let file = File::open(path).map_err(|_| "Failed to open file")?;
-    let metadata = file.metadata().map_err(|_| "Failed to get metadata")?;
-    Ok(metadata.len())
 }

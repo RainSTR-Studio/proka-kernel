@@ -1,10 +1,11 @@
 [package]
 name = "proka-fs"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 
 [dependencies]
 clap = { version = "4.5.58", features = ["derive"] }
+proka-fs ={ path = ".", features = ["std"] }
 colored = "3.1.1"
 
 [profile.dev]
@@ -12,3 +13,7 @@ panic = "abort"
 
 [profile.release]
 panic = "abort"
+
+[features]
+default = []
+std = []
