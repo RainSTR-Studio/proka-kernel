@@ -79,6 +79,10 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::drivers::init_devices(); // Initialize devices
     proka_kernel::libs::time::init(); // Init time system
     proka_kernel::libs::initrd::load_initrd(); // Load initrd
+    
+    // Initialize scheduler
+    proka_kernel::process::scheduler::init();
+    
     x86_64::instructions::interrupts::enable(); // Enable interrupts
 
     #[allow(unused_parens)]
@@ -115,10 +119,15 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::libs::pci::print_all_pci_devices();
     proka_kernel::drivers::usb::init();
     
+    // Run scheduler tests before shell
+    proka_kernel::process::scheduler_test::run_tests();
+    
     let shell = proka_kernel::libs::shell::Shell::new();
     shell.run("keyboard");
 
+    // Enter idle loop - scheduler will switch to other threads
     loop {
+        x86_64::instructions::interrupts::enable();
         x86_64::instructions::hlt();
     }
 }

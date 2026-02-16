@@ -164,6 +164,9 @@ pub extern "x86-interrupt" fn timer_interrupt_handler(stack_frame: InterruptStac
         registry.handle(context);
     }
 
+    // Call scheduler timer tick for preemptive multitasking
+    crate::process::scheduler::timer_tick();
+
     apic::end_of_interrupt();
 }
 

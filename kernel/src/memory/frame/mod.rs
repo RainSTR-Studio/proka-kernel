@@ -200,6 +200,19 @@ unsafe impl FrameAllocator<Size4KiB> for LockedFrameAllocator {
     }
 }
 
+impl LockedFrameAllocator {
+    /// Allocate multiple contiguous frames
+    pub fn alloc_frames(&self, count: usize) -> PhysFrame {
+        self.allocate_contiguous(count)
+            .expect("Failed to allocate frames")
+    }
+
+    /// Get the start address of a frame
+    pub fn start_address(&self, frame: PhysFrame) -> usize {
+        frame.start_address().as_u64() as usize
+    }
+}
+
 /// Format byte count to human-readable string
 pub fn format_bytes(bytes: usize) -> alloc::string::String {
     const UNITS: &[&str] = &["B", "KiB", "MiB", "GiB", "TiB"];
