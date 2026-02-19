@@ -44,14 +44,6 @@ impl OldDevice {
         }
     }
 
-    #[cfg(test)]
-    pub fn null() -> Self {
-        Self::new_auto_assign(
-            String::from("null"),
-            DeviceInner::Char(Arc::new(TestDevice)),
-        )
-    }
-
     #[inline]
     fn shared_ops(&self) -> &dyn SharedDeviceOps {
         match &self.inner {
