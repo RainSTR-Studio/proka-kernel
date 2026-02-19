@@ -3,10 +3,11 @@
 use crate::fs::vfs::File;
 use crate::memory::paging::vmm::MemorySet;
 use crate::process::thread::Tid;
+use crate::sync::mutex::Mutex;
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use spin::{Mutex, Once};
+use spin::Once;
 use x86_64::PhysAddr;
 
 /// Process ID type
@@ -293,10 +294,12 @@ impl ProcessManager {
                         let mut scheduler_opt = crate::process::scheduler::SCHEDULER.lock();
                         if let Some(scheduler) = scheduler_opt.as_mut() {
                             if let Some(tcb) = scheduler.get_thread_mut(parent_tid) {
-                                if let crate::process::thread::ThreadState::BlockedWait(target) = tcb.state {
+                                if let crate::process::thread::ThreadState::BlockedWait(target) =
+                                    tcb.state
+                                {
                                     if target.is_none() || target == Some(pid) {
                                         // Unblock!
-                                        drop(tcb); // Release borrow
+                                        let _ = tcb; // Release borrow
                                         let _ = scheduler.unblock(parent_tid);
                                     }
                                 }
@@ -417,7 +420,7 @@ pub fn init() {
 }
 
 /// Get a lock to the global process manager
-pub fn lock() -> spin::MutexGuard<'static, ProcessManager> {
+pub fn lock() -> crate::sync::mutex::MutexGuard<'static, ProcessManager> {
     PROCESS_MANAGER
         .get()
         .expect("Process manager not initialized")

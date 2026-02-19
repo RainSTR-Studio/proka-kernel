@@ -34,6 +34,7 @@
     - [时间与计时器](components/time/timer.md)
     - [视频输出](components/framebuffers.md)
     - [日志与控制台](components/console.md)
+    - [同步原语](components/sync.md)
 
 - [贡献指引](development/index.md)
     - [测试框架与单元测试](development/testing.md)

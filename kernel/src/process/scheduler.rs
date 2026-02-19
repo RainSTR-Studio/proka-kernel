@@ -3,6 +3,8 @@
 //! This module provides the integration between the thread scheduler
 //! and the kernel's interrupt system.
 
+use crate::process::thread::ThreadState;
+
 use super::process;
 use super::process::Pid;
 use super::schedulers::PriorityScheduler;
@@ -54,6 +56,8 @@ pub trait Scheduler: Send {
     fn block_join(&mut self, target_tid: Tid);
     /// Block current thread waiting for synchronization
     fn block_sync(&mut self, sync_id: u64);
+    /// Unblock all threads waiting for a specific synchronization ID
+    fn unblock_sync(&mut self, sync_id: u64);
     /// Unblock a thread (e.g., when IPC message arrives)
     fn unblock(&mut self, tid: Tid) -> Result<(), SchedulerError>;
     /// Get current running thread's TID
@@ -180,6 +184,38 @@ pub fn thread_join(target_tid: Tid) {
     });
     // Trigger reschedule
     yield_thread();
+}
+
+/// Block current thread waiting for IPC
+pub fn block_ipc(sender_tid: Option<Tid>, timeout_ms: Option<u64>) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut scheduler_opt = SCHEDULER.lock();
+        if let Some(scheduler) = scheduler_opt.as_mut() {
+            scheduler.block_ipc(sender_tid, timeout_ms);
+        }
+    });
+    // Trigger reschedule
+    yield_thread();
+}
+
+/// Block current thread waiting for synchronization
+pub fn block_sync(sync_id: u64) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut scheduler_opt = SCHEDULER.lock();
+        if let Some(scheduler) = scheduler_opt.as_mut() {
+            scheduler.block_sync(sync_id);
+        }
+    });
+}
+
+/// Unblock all threads waiting for a specific synchronization ID
+pub fn unblock_sync(sync_id: u64) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut scheduler_opt = SCHEDULER.lock();
+        if let Some(scheduler) = scheduler_opt.as_mut() {
+            scheduler.unblock_sync(sync_id);
+        }
+    });
 }
 
 /// Unblock a thread

@@ -21,7 +21,7 @@
 extern crate proka_kernel;
 extern crate alloc;
 
-use proka_kernel::{libs::time::rtc, output::console::CONSOLE, BASE_REVISION};
+use proka_kernel::{libs::time::rtc, BASE_REVISION};
 /* The Kernel main code */
 // The normal one
 #[unsafe(no_mangle)]
@@ -51,36 +51,6 @@ pub extern "C" fn kernel_main() -> ! {
         proka_kernel::interrupts::apic::registry::IrqResult::Handled
     });
 
-    // Register Timer Handler via Registry
-    #[allow(static_mut_refs)]
-    proka_kernel::interrupts::apic::registry::IRQ_REGISTRY
-        .write()
-        .register(
-            proka_kernel::interrupts::apic::TIMER_VECTOR,
-            "Cursor Blinker",
-            |_context| {
-                use core::sync::atomic::{AtomicU64, Ordering};
-                use proka_kernel::libs::time::uptime_ms;
-                use proka_kernel::output::console::BITFONT_CURSOR_VISIBLE;
-
-                static LAST_BLINK_MS: AtomicU64 = AtomicU64::new(0);
-                let now = uptime_ms();
-                let last = LAST_BLINK_MS.load(Ordering::Relaxed);
-
-                // Blink every 500ms
-                if now >= last + 500 {
-                    LAST_BLINK_MS.store(now, Ordering::Relaxed);
-                    unsafe {
-                        let current = BITFONT_CURSOR_VISIBLE.load(Ordering::Relaxed);
-                        BITFONT_CURSOR_VISIBLE.store(!current, Ordering::Relaxed);
-                        CONSOLE.lock().show_cursor(!current);
-                    }
-                }
-                proka_kernel::interrupts::apic::registry::IrqResult::Handled
-            },
-        )
-        .expect("Failed to register timer handler");
-
     proka_kernel::drivers::init_devices(); // Initialize devices
     proka_kernel::libs::time::init(); // Init time system
     proka_kernel::libs::initrd::load_initrd(); // Load initrd
@@ -93,6 +63,10 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::ipc::init();
 
     x86_64::instructions::interrupts::enable(); // Enable interrupts
+
+    // Spawn cursor blinker service
+    proka_kernel::process::spawn_service("cursor_blinker", cursor_blinker_entry, 10)
+        .expect("Failed to spawn cursor blinker");
 
     #[allow(unused_parens)]
     if (proka_kernel::config::ADDITIONAL_VERSION.is_empty()) {
@@ -128,9 +102,6 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::libs::pci::print_all_pci_devices();
     proka_kernel::drivers::usb::init();
 
-    // Run scheduler tests before shell
-    proka_kernel::process::scheduler_test::run_tests();
-
     let shell = proka_kernel::libs::shell::Shell::new();
 
     // Set priority to idle before entering shell/loop
@@ -142,5 +113,22 @@ pub extern "C" fn kernel_main() -> ! {
     loop {
         x86_64::instructions::interrupts::enable();
         x86_64::instructions::hlt();
+    }
+}
+
+/// Cursor blinker service entry point
+extern "C" fn cursor_blinker_entry() -> ! {
+    use core::sync::atomic::Ordering;
+    use proka_kernel::output::console::{BITFONT_CURSOR_VISIBLE, CONSOLE};
+    use proka_kernel::process::scheduler::thread_sleep;
+
+    loop {
+        // Blink every 500ms
+        thread_sleep(500);
+        unsafe {
+            let current = BITFONT_CURSOR_VISIBLE.load(Ordering::Relaxed);
+            BITFONT_CURSOR_VISIBLE.store(!current, Ordering::Relaxed);
+            CONSOLE.lock().show_cursor(!current);
+        }
     }
 }

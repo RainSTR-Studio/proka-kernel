@@ -4,17 +4,12 @@
 //! of threads to access a resource simultaneously.
 
 use crate::process::scheduler;
-use crate::process::thread::Tid;
-use alloc::vec::Vec;
-use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 /// A counting semaphore
 pub struct Semaphore {
     /// Current count
     count: AtomicUsize,
-    /// Queue of waiting threads
-    waiters: UnsafeCell<Vec<Tid>>,
 }
 
 // Safety: Semaphore is Send and Sync
@@ -26,7 +21,6 @@ impl Semaphore {
     pub const fn new(initial_count: usize) -> Self {
         Self {
             count: AtomicUsize::new(initial_count),
-            waiters: UnsafeCell::new(Vec::new()),
         }
     }
 
@@ -46,24 +40,8 @@ impl Semaphore {
             }
 
             // No permits available, block
-            let current_tid = scheduler::current_tid().expect("Semaphore::wait called outside thread context");
-
-            unsafe {
-                let waiters = &mut *self.waiters.get();
-                if !waiters.contains(&current_tid) {
-                    waiters.push(current_tid);
-                }
-            }
-
-            // Block current thread
-            scheduler::block_sync(self as *const _ as u64);
+            scheduler::block_sync(self as *const _ as *const () as u64);
             scheduler::yield_thread();
-
-            // After unblocking, remove ourselves from waiters and retry
-            unsafe {
-                let waiters = &mut *self.waiters.get();
-                waiters.retain(|&t| t != current_tid);
-            }
         }
     }
 
@@ -84,12 +62,7 @@ impl Semaphore {
         self.count.fetch_add(1, Ordering::Release);
 
         // Wake up a waiter if any
-        unsafe {
-            let waiters = &*self.waiters.get();
-            if let Some(&waiter_tid) = waiters.first() {
-                let _ = scheduler::unblock(waiter_tid);
-            }
-        }
+        scheduler::unblock_sync(self as *const _ as *const () as u64);
     }
 
     /// Get current count (for debugging)

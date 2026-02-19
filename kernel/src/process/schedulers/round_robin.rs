@@ -231,6 +231,24 @@ impl Scheduler for RoundRobinScheduler {
         }
     }
 
+    fn unblock_sync(&mut self, sync_id: u64) {
+        let mut to_wake = Vec::new();
+        for tid in 0..self.threads.len() {
+            let tid = tid as Tid;
+            if let Some(Some(tcb)) = self.threads.get(tid as usize) {
+                if let ThreadState::BlockedSync(id) = tcb.state {
+                    if id == sync_id {
+                        to_wake.push(tid);
+                    }
+                }
+            }
+        }
+
+        for tid in to_wake {
+            let _ = self.unblock(tid);
+        }
+    }
+
     fn unblock(&mut self, tid: Tid) -> Result<(), SchedulerError> {
         if let Some(tcb) = self.get_thread_mut(tid) {
             if tcb.is_blocked() {
