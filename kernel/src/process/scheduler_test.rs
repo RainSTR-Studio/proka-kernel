@@ -11,11 +11,11 @@ static THREAD_B_COUNT: AtomicU64 = AtomicU64::new(0);
 extern "C" fn thread_a_entry() -> ! {
     use crate::println;
     println!("[Thread A] Started");
-    for i in 0..10 {
+    loop {
         THREAD_A_COUNT.fetch_add(1, Ordering::Relaxed);
-        if i % 2 == 0 {
-            println!("[Thread A] Count: {}", i);
-            scheduler::yield_thread();
+        let i = THREAD_A_COUNT.load(Ordering::Relaxed);
+        if i % 50 == 0 {
+            println!("[Thread A] Iteration {}", i);
         }
     }
 
@@ -31,11 +31,11 @@ extern "C" fn thread_a_entry() -> ! {
 extern "C" fn thread_b_entry() -> ! {
     use crate::println;
     println!("[Thread B] Started");
-    for i in 0..10 {
+    loop {
         THREAD_B_COUNT.fetch_add(1, Ordering::Relaxed);
-        if i % 2 == 0 {
-            println!("[Thread B] Count: {}", i);
-            scheduler::yield_thread();
+        let i = THREAD_B_COUNT.load(Ordering::Relaxed);
+        if i % 50 == 0 {
+            println!("[Thread B] Iteration {}", i);
         }
     }
 
@@ -53,36 +53,24 @@ pub fn run_tests() {
 
     println!("[Scheduler Test] Starting...");
 
-    // Check current thread ID
-    if let Some(tid) = scheduler::current_tid() {
-        println!("[Scheduler Test] Current TID: {}", tid);
-    } else {
-        println!("[Scheduler Test] No current thread");
-    }
-
     // Create test threads
     println!("[Scheduler Test] Creating thread A...");
-    match scheduler::create_kernel_thread(thread_a_entry, 5, "thread_a") {
-        Ok(tid_a) => {
-            println!("[Scheduler Test] Thread A created OK, tid={}", tid_a);
+    let tid_a = scheduler::create_kernel_thread(thread_a_entry, 5, "thread_a").unwrap();
+    println!("[Scheduler Test] Thread A created OK, tid={}", tid_a);
 
-            println!("[Scheduler Test] Creating thread B...");
-            match scheduler::create_kernel_thread(thread_b_entry, 5, "thread_b") {
-                Ok(tid_b) => {
-                    println!("[Scheduler Test] Thread B created OK, tid={}", tid_b);
+    println!("[Scheduler Test] Creating thread B...");
+    let tid_b = scheduler::create_kernel_thread(thread_b_entry, 5, "thread_b").unwrap();
+    println!("[Scheduler Test] Thread B created OK, tid={}", tid_b);
 
-                    // Try context switch
-                    println!("[Scheduler Test] Testing yield...");
-                    scheduler::yield_thread();
-                    println!("[Scheduler Test] Yield returned!");
-                }
-                Err(_e) => {
-                    println!("[Scheduler Test] Thread B creation failed");
-                }
-            }
-        }
-        Err(_e) => {
-            println!("[Scheduler Test] Thread A creation failed");
-        }
-    }
+    // Now both threads are in the ready queue.
+    // Set main thread priority to same as A/B (5) to test interleaving
+    scheduler::set_current_priority(5);
+
+    // Yield main thread to let them run
+    println!("[Scheduler Test] Testing multi-thread interleaving...");
+    scheduler::yield_thread();
+    println!("[Scheduler Test] Yield returned!");
+
+    // Set priority back to high to finish test/shell setup
+    scheduler::set_current_priority(0);
 }

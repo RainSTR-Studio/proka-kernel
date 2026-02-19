@@ -18,29 +18,31 @@ pub fn serial_fallback(args: ::core::fmt::Arguments) {
 pub fn _print(args: ::core::fmt::Arguments) {
     use core::fmt::Write;
 
-    // Get device manager's lock
-    let device_manager = DEVICE_MANAGER.read();
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        // Get device manager's lock
+        let device_manager = DEVICE_MANAGER.read();
 
-    // Try to get the device numbered (1,0)
-    match device_manager.get_device_by_major_minor(1, 0) {
-        Some(device) => {
-            // Try to convert the device to a character device
-            if let Some(char_device_arc) = device.as_char_device() {
-                let mut buffer = alloc::string::String::new();
-                buffer.write_fmt(args).expect("Failed to format string");
+        // Try to get the device numbered (1,0)
+        match device_manager.get_device_by_major_minor(1, 0) {
+            Some(device) => {
+                // Try to convert the device to a character device
+                if let Some(char_device_arc) = device.as_char_device() {
+                    let mut buffer = alloc::string::String::new();
+                    buffer.write_fmt(args).expect("Failed to format string");
 
-                char_device_arc
-                    .write(buffer.as_bytes())
-                    .expect("Printing to serial failed");
-            } else {
+                    char_device_arc
+                        .write(buffer.as_bytes())
+                        .expect("Printing to serial failed");
+                } else {
+                    serial_fallback(args);
+                }
+            }
+            None => {
+                // Device (1, 0) not found
                 serial_fallback(args);
             }
         }
-        None => {
-            // Device (1, 0) not found
-            serial_fallback(args);
-        }
-    }
+    });
 }
 
 /// Prints to the host through the serial interface.

@@ -10,6 +10,8 @@
 use alloc::vec::Vec;
 use x86_64::PhysAddr;
 
+use crate::println;
+
 /// Thread ID type
 
 pub type Tid = u16;
@@ -75,6 +77,7 @@ pub struct Context {
 }
 
 /// Thread Control Block (TCB)
+#[derive(Debug)]
 pub struct ThreadControlBlock {
     /// Thread ID
     pub tid: Tid,
@@ -86,8 +89,12 @@ pub struct ThreadControlBlock {
     pub context: Context,
     /// Virtual address space (PML4 physical address)
     pub vspace: Option<PhysAddr>,
-    /// Kernel stack top
+    /// Kernel stack top (Virtual)
     pub kernel_stack_top: usize,
+    /// Kernel stack physical base (for deallocation)
+    pub kernel_stack_phys: PhysAddr,
+    /// Kernel stack size in pages
+    pub kernel_stack_pages: usize,
     /// User stack top (if user thread)
     pub user_stack_top: Option<usize>,
     /// Entry point
@@ -104,8 +111,9 @@ impl ThreadControlBlock {
         tid: Tid,
         priority: u8,
         entry_point: extern "C" fn() -> !,
-        kernel_stack_top: usize,
+        stack_info: (usize, PhysAddr, usize),
     ) -> Self {
+        let (kernel_stack_top, kernel_stack_phys, kernel_stack_pages) = stack_info;
         let mut context = Context::default();
 
         // Use the context_switch module to properly initialize context
@@ -123,6 +131,8 @@ impl ThreadControlBlock {
             context,
             vspace: None,
             kernel_stack_top,
+            kernel_stack_phys,
+            kernel_stack_pages,
             user_stack_top: None,
             entry_point: entry_point as usize,
             tls_ptr: None,
@@ -136,9 +146,10 @@ impl ThreadControlBlock {
         priority: u8,
         entry_point: usize,
         user_stack_top: usize,
-        kernel_stack_top: usize,
+        stack_info: (usize, PhysAddr, usize),
         vspace: PhysAddr,
     ) -> Self {
+        let (kernel_stack_top, kernel_stack_phys, kernel_stack_pages) = stack_info;
         let mut context = Context::default();
         context.rip = entry_point as u64;
         context.rsp = user_stack_top as u64;
@@ -154,6 +165,8 @@ impl ThreadControlBlock {
             context,
             vspace: Some(vspace),
             kernel_stack_top,
+            kernel_stack_phys,
+            kernel_stack_pages,
             user_stack_top: Some(user_stack_top),
             entry_point,
             tls_ptr: None,
@@ -211,18 +224,23 @@ impl PriorityQueue {
     pub fn dequeue(&mut self) -> Option<Tid> {
         // Find highest priority non-empty queue
         for word_idx in 0..self.bitmap.len() {
-            let word = self.bitmap[word_idx];
-            if word != 0 {
-                // Find first set bit
+            let mut word = self.bitmap[word_idx];
+            while word != 0 {
+                // Find first set bit (least significant)
                 let bit = word.trailing_zeros() as usize;
                 let priority = word_idx * 64 + bit;
 
-                if let Some(tid) = self.queues[priority].pop() {
-                    // If queue is now empty, clear the bit
+                if !self.queues[priority].is_empty() {
+                    let tid = self.queues[priority].remove(0);
+                    // If queue is now empty, clear the bit in the ACTUAL bitmap
                     if self.queues[priority].is_empty() {
                         self.bitmap[word_idx] &= !(1 << bit);
                     }
                     return Some(tid);
+                } else {
+                    // Ghost bit - clear it and continue searching this word
+                    self.bitmap[word_idx] &= !(1 << bit);
+                    word &= !(1 << bit);
                 }
             }
         }
@@ -246,11 +264,6 @@ impl PriorityQueue {
         }
         false
     }
-
-    /// Check if empty
-    pub fn is_empty(&self) -> bool {
-        self.bitmap.iter().all(|&w| w == 0)
-    }
 }
 
 /// Thread scheduler
@@ -265,6 +278,8 @@ pub struct Scheduler {
     current_tid: Option<Tid>,
     /// Idle thread TID (special kernel thread)
     idle_tid: Option<Tid>,
+    /// Threads waiting to be reaped
+    zombie_queue: Vec<Tid>,
 }
 
 impl Scheduler {
@@ -275,18 +290,22 @@ impl Scheduler {
             ready_queue: PriorityQueue::new(),
             current_tid: None,
             idle_tid: None,
+            zombie_queue: Vec::new(),
         }
     }
 
     /// Initialize the scheduler with an idle thread
     pub fn init(&mut self, idle_entry: extern "C" fn() -> !) {
         // Create idle thread (tid 0)
-        let idle_stack = allocate_kernel_stack(4096);
+        let stack_info = allocate_kernel_stack(4096);
         let mut idle_tcb = ThreadControlBlock::new_kernel(
-            KERNEL_TID, 255, // Lowest priority
-            idle_entry, idle_stack,
+            KERNEL_TID,
+            0, // Set initial priority to 0 (highest) to avoid starvation during init
+            idle_entry, stack_info,
         );
         idle_tcb.set_name("idle");
+        // The boot thread is currently running, so mark TID 0 as Running
+        idle_tcb.state = ThreadState::Running;
 
         // Ensure threads vector has space for tid 0
         while self.threads.len() <= KERNEL_TID as usize {
@@ -295,6 +314,27 @@ impl Scheduler {
         self.threads[KERNEL_TID as usize] = Some(alloc::boxed::Box::new(idle_tcb));
         self.idle_tid = Some(KERNEL_TID);
         self.current_tid = Some(KERNEL_TID);
+    }
+
+    /// Change the priority of a thread
+    pub fn set_priority(&mut self, tid: Tid, new_priority: u8) -> Result<(), SchedulerError> {
+        if let Some(tcb) = self.get_thread_mut(tid) {
+            let old_priority = tcb.priority;
+            if old_priority == new_priority {
+                return Ok(());
+            }
+
+            tcb.priority = new_priority;
+
+            // If the thread is in the ready queue, we need to move it to the new priority queue
+            if tcb.state == ThreadState::Runnable {
+                self.ready_queue.remove(tid, old_priority);
+                self.ready_queue.enqueue(tid, new_priority);
+            }
+            Ok(())
+        } else {
+            Err(SchedulerError::ThreadNotFound)
+        }
     }
 
     /// Create a new kernel thread
@@ -306,9 +346,9 @@ impl Scheduler {
     ) -> Result<Tid, SchedulerError> {
         let tid = self.alloc_tid()?;
 
-        let stack = allocate_kernel_stack(8192); // 8KB kernel stack
+        let stack_info = allocate_kernel_stack(8192); // 8KB kernel stack
 
-        let mut tcb = ThreadControlBlock::new_kernel(tid, priority, entry_point, stack);
+        let mut tcb = ThreadControlBlock::new_kernel(tid, priority, entry_point, stack_info);
 
         if let Some(n) = name {
             tcb.set_name(n);
@@ -331,19 +371,20 @@ impl Scheduler {
         &mut self,
         entry_point: usize,
         user_stack_top: usize,
-        kernel_stack_top: usize,
+        kernel_stack_size: usize,
         vspace: PhysAddr,
         priority: u8,
         name: Option<&str>,
     ) -> Result<Tid, SchedulerError> {
         let tid = self.alloc_tid()?;
+        let stack_info = allocate_kernel_stack(kernel_stack_size);
 
         let mut tcb = ThreadControlBlock::new_user(
             tid,
             priority,
             entry_point,
             user_stack_top,
-            kernel_stack_top,
+            stack_info,
             vspace,
         );
         if let Some(n) = name {
@@ -374,7 +415,8 @@ impl Scheduler {
                 self.ready_queue.remove(tid, priority);
             }
 
-            // TODO: Clean up resources (stack, vspace, etc.)
+            // Add to zombie queue for cleanup
+            self.zombie_queue.push(tid);
 
             Ok(())
         } else {
@@ -412,21 +454,26 @@ impl Scheduler {
 
     /// Get the next thread to run
     pub fn schedule(&mut self) -> Option<Tid> {
-        // If current thread is still runnable, add it back to queue
+        // 1. If current thread is still running, add it back to ready queue
         if let Some(current) = self.current_tid {
-            if let Some(tcb) = self.get_thread(current) {
-                if tcb.state == ThreadState::Running {
-                    let priority = tcb.priority;
+            let (state, priority) = if let Some(tcb) = self.get_thread(current) {
+                (Some(tcb.state), Some(tcb.priority))
+            } else {
+                (None, None)
+            };
+
+            if state == Some(ThreadState::Running) {
+                if let Some(p) = priority {
                     // Mark as runnable and requeue
                     if let Some(t) = self.get_thread_mut(current) {
                         t.state = ThreadState::Runnable;
                     }
-                    self.ready_queue.enqueue(current, priority);
+                    self.ready_queue.enqueue(current, p);
                 }
             }
         }
 
-        // Get highest priority runnable thread
+        // 2. Get highest priority runnable thread
         if let Some(next_tid) = self.ready_queue.dequeue() {
             if let Some(tcb) = self.get_thread_mut(next_tid) {
                 tcb.state = ThreadState::Running;
@@ -434,7 +481,12 @@ impl Scheduler {
             self.current_tid = Some(next_tid);
             Some(next_tid)
         } else {
-            // No runnable threads, run idle
+            // 3. No runnable threads, run idle thread
+            if let Some(idle_tid) = self.idle_tid {
+                if let Some(tcb) = self.get_thread_mut(idle_tid) {
+                    tcb.state = ThreadState::Running;
+                }
+            }
             self.current_tid = self.idle_tid;
             self.idle_tid
         }
@@ -498,6 +550,41 @@ impl Scheduler {
             }
         }
     }
+
+    /// Reap zombie threads and free their resources
+    pub fn reap_zombies(&mut self) {
+        if self.zombie_queue.is_empty() {
+            return;
+        }
+
+        let mut still_zombie = Vec::new();
+        let mut to_reap = Vec::new();
+
+        // Separate threads that can be reaped from those still running
+        while let Some(tid) = self.zombie_queue.pop() {
+            if Some(tid) == self.current_tid {
+                // Cannot reap current thread yet
+                still_zombie.push(tid);
+            } else {
+                to_reap.push(tid);
+            }
+        }
+        self.zombie_queue = still_zombie;
+
+        for tid in to_reap {
+            if let Some(tcb) = self.threads[tid as usize].take() {
+                // 1. Free kernel stack
+                let stack_phys = tcb.kernel_stack_phys;
+                let stack_pages = tcb.kernel_stack_pages;
+                crate::memory::FRAME_ALLOCATOR.deallocate_contiguous(
+                    x86_64::structures::paging::PhysFrame::containing_address(stack_phys),
+                    stack_pages,
+                );
+
+                // 2. TCB (Box<ThreadControlBlock>) will be dropped here as it goes out of scope
+            }
+        }
+    }
 }
 
 /// Scheduler errors
@@ -511,8 +598,8 @@ pub enum SchedulerError {
 
 /// Allocate a kernel stack
 ///
-/// Returns the virtual address (via HHDM) of the top of the stack
-fn allocate_kernel_stack(size: usize) -> usize {
+/// Returns (top_addr, phys_base, page_count)
+fn allocate_kernel_stack(size: usize) -> (usize, PhysAddr, usize) {
     use crate::memory::frame::FRAME_ALLOCATOR;
     use crate::memory::paging::phys_to_virt;
 
@@ -527,7 +614,8 @@ fn allocate_kernel_stack(size: usize) -> usize {
     let virt_addr = phys_to_virt(phys_addr);
 
     // Stack grows down, so return top address (virtual)
-    virt_addr.as_u64() as usize + (pages * 4096)
+    let top = virt_addr.as_u64() as usize + (pages * 4096);
+    (top, phys_addr, pages)
 }
 
 /// Idle thread - runs when no other threads are ready
@@ -562,7 +650,8 @@ mod tests {
 
     #[test_case]
     fn test_thread_state() {
-        let tcb = ThreadControlBlock::new_kernel(1, 10, idle_thread, 0xFFFF800000000000);
+        let stack_info = (0xFFFF800000000000usize, PhysAddr::new(0), 1usize);
+        let tcb = ThreadControlBlock::new_kernel(1, 10, idle_thread, stack_info);
 
         assert_eq!(tcb.tid, 1);
         assert_eq!(tcb.priority, 10);

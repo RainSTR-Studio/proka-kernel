@@ -3,6 +3,8 @@
 //! This module provides the integration between the thread scheduler
 //! and the kernel's interrupt system.
 
+use crate::println;
+
 use super::thread::{self, Context, Tid};
 use spin::Mutex;
 
@@ -118,6 +120,24 @@ pub fn terminate_self() -> ! {
     unreachable!("Thread should have been terminated");
 }
 
+/// Set the priority of a thread
+pub fn set_priority(tid: Tid, priority: u8) -> Result<(), SchedulerError> {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut scheduler = SCHEDULER.lock();
+        scheduler.set_priority(tid, priority).map_err(|e| e.into())
+    })
+}
+
+/// Set the priority of the current thread
+pub fn set_current_priority(priority: u8) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut scheduler = SCHEDULER.lock();
+        if let Some(tid) = scheduler.current_tid() {
+            let _ = scheduler.set_priority(tid, priority);
+        }
+    });
+}
+
 /// Timer interrupt handler for scheduling
 ///
 /// This is called from the timer interrupt handler.
@@ -138,7 +158,13 @@ pub fn timer_tick() {
 /// # Safety
 /// Must be called with interrupts disabled
 pub unsafe fn schedule_next() {
-    // Get all the information we need in one locked section
+    // 1. Reap zombies before scheduling to keep memory pressure low
+    {
+        let mut scheduler = SCHEDULER.lock();
+        scheduler.reap_zombies();
+    }
+
+    // 2. Get all the information we need in one locked section
     let switch_info = {
         let mut scheduler = SCHEDULER.lock();
         let old_tid = scheduler.current_tid();
@@ -165,7 +191,7 @@ pub unsafe fn schedule_next() {
         }
     };
 
-    // Perform the context switch outside of the lock
+    // 3. Perform the context switch outside of the lock
     if let Some((old_ctx, new_ctx, is_first)) = switch_info {
         match (old_ctx, new_ctx) {
             (Some(old_ctx), Some(new_ctx)) => {

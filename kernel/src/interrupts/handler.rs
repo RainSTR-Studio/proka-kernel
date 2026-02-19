@@ -160,14 +160,15 @@ pub extern "x86-interrupt" fn timer_interrupt_handler(stack_frame: InterruptStac
         error_code: None,
     };
 
+    // Send EOI early before possible context switch
+    apic::end_of_interrupt();
+
     if let Some(registry) = IRQ_REGISTRY.try_read() {
         registry.handle(context);
     }
 
     // Call scheduler timer tick for preemptive multitasking
     crate::process::scheduler::timer_tick();
-
-    apic::end_of_interrupt();
 }
 
 macro_rules! ioapic_interrupt_handler {
