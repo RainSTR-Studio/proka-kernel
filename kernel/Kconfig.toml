@@ -11,3 +11,6 @@ memory = "src/memory"
 library = "src/libs"
 
 output = "src/output"
+
+# The process/scheduler configuration.
+process = "src/process"

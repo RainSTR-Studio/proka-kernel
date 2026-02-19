@@ -85,6 +85,8 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::libs::time::init(); // Init time system
     proka_kernel::libs::initrd::load_initrd(); // Load initrd
 
+    // Initialize process manager
+    proka_kernel::process::process::init();
     // Initialize scheduler
     proka_kernel::process::scheduler::init();
 
