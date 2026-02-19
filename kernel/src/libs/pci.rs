@@ -111,25 +111,80 @@ pub struct PciClass {
 }
 
 /// Print all PCI devices to console.
+/// Uses optimized scanning logic similar to scan_all_pci_devices().
 pub fn print_all_pci_devices() {
     println!("===== All PCI Devices =====");
+
     unsafe {
+        let mut addr_port = Port::<u32>::new(PCI_ADDR);
+        let mut data_port = Port::<u32>::new(PCI_DATA);
+
         for bus in 0..=255 {
             for slot in 0..32 {
-                for func in 0..8 {
-                    let location = PciLocation::new(bus, slot, func);
-                    let identifier = location.pci_vendor_device();
-                    let class = location.get_pci_class();
-                    if identifier.vendor != 0xFFFF {
-                        println!(
-                            "Bus {:#02X}, Slot {:#02X}, Func {:#02X}: Vendor {:#04X}, Device {:#04X}, Class {:#02X}, Subclass {:#02X}, ProgIf {:#02X}", 
-                            bus, slot, func,
-                            identifier.vendor,
-                            identifier.device, class.class,
-                            class.subclass,
-                            class.prog_if
-                        );
+                let _location = PciLocation::new(bus, slot, 0);
+
+                let addr = (1u32 << 31) | (bus as u32) << 16 | (slot as u32) << 11;
+
+                addr_port.write(addr);
+                let vendor_data = data_port.read();
+                let vendor = (vendor_data >> 16) as u16;
+
+                if vendor == 0xFFFF {
+                    continue;
+                }
+
+                let device = (vendor_data & 0xFFFF) as u16;
+
+                // Read class info
+                addr_port.write(addr | 0x08);
+                let class_data = data_port.read();
+                let class = (class_data >> 16) as u8;
+                let subclass = (class_data >> 8) as u8;
+                let prog_if = (class_data & 0xFF) as u8;
+
+                println!(
+                    "Bus {:#02X}, Slot {:#02X}, Func {:#02X}: Vendor {:#04X}, Device {:#04X}, Class {:#02X}, Subclass {:#02X}, ProgIf {:#02X}", 
+                    bus, slot, 0,
+                    vendor,
+                    device, class,
+                    subclass,
+                    prog_if
+                );
+
+                // Check multi-function
+                addr_port.write(addr | 0x0E);
+                let header_data = data_port.read();
+                let header_type = (header_data & 0xFF) as u8;
+
+                let max_func = if (header_type & 0x80) != 0 { 7 } else { 0 };
+
+                for func in 1..=max_func {
+                    let func_addr = addr | ((func as u32) << 8);
+
+                    addr_port.write(func_addr);
+                    let func_vendor_data = data_port.read();
+                    let func_vendor = (func_vendor_data >> 16) as u16;
+
+                    if func_vendor == 0xFFFF {
+                        continue;
                     }
+
+                    let func_device = (func_vendor_data & 0xFFFF) as u16;
+
+                    addr_port.write(func_addr | 0x08);
+                    let func_class_data = data_port.read();
+                    let func_class = (func_class_data >> 16) as u8;
+                    let func_subclass = (func_class_data >> 8) as u8;
+                    let func_prog_if = (func_class_data & 0xFF) as u8;
+
+                    println!(
+                        "Bus {:#02X}, Slot {:#02X}, Func {:#02X}: Vendor {:#04X}, Device {:#04X}, Class {:#02X}, Subclass {:#02X}, ProgIf {:#02X}", 
+                        bus, slot, func,
+                        func_vendor,
+                        func_device, func_class,
+                        func_subclass,
+                        func_prog_if
+                    );
                 }
             }
         }
@@ -139,24 +194,102 @@ pub fn print_all_pci_devices() {
 
 /// Scan all PCI devices and return a vector of (PciIdentifier, PciClass) tuples.
 ///
-/// # Returns
-///
-/// - `Vec<(PciIdentifier, PciClass)>`: A vector of (PciIdentifier, PciClass) tuples.
+/// Optimized version with:
+/// - Port object reuse (avoids recreating Port for each read)
+/// - Early exit on invalid devices (check vendor_id first)
+/// - Multi-function device detection (skip non-existent functions)
 pub fn scan_all_pci_devices() -> Vec<(PciIdentifier, PciClass)> {
     let mut devices = Vec::new();
+
     unsafe {
+        let mut addr_port = Port::<u32>::new(PCI_ADDR);
+        let mut data_port = Port::<u32>::new(PCI_DATA);
+
         for bus in 0..=255 {
             for slot in 0..32 {
-                for func in 0..8 {
-                    let location = PciLocation::new(bus, slot, func);
-                    let identifier = location.pci_vendor_device();
-                    let class = location.get_pci_class();
-                    if identifier.vendor != 0xFFFF {
-                        devices.push((identifier, class));
+                // Check if any device exists at this slot (func 0)
+                // by reading vendor_id first - early exit if no device
+                let _location = PciLocation::new(bus, slot, 0);
+
+                // Reuse port objects for this location
+                let addr = (1u32 << 31) | (bus as u32) << 16 | (slot as u32) << 11 | 0u32; // func = 0
+
+                addr_port.write(addr);
+                let vendor_data = data_port.read();
+                let vendor = (vendor_data >> 16) as u16;
+
+                // No device at this slot - skip entire slot (all 8 functions)
+                if vendor == 0xFFFF {
+                    continue;
+                }
+
+                // Device exists - get full info
+                let device = (vendor_data & 0xFFFF) as u16;
+                let identifier = PciIdentifier { vendor, device };
+
+                // Read class info (offset 0x08)
+                let class_addr = addr | 0x08;
+                addr_port.write(class_addr);
+                let class_data = data_port.read();
+                let class = (class_data >> 16) as u8;
+                let subclass = (class_data >> 8) as u8;
+                let prog_if = (class_data & 0xFF) as u8;
+                let pci_class = PciClass {
+                    class,
+                    subclass,
+                    prog_if,
+                };
+
+                devices.push((identifier, pci_class));
+
+                // Check if this is a multi-function device
+                // Read header type at offset 0x0E (only lower byte matters)
+                let header_addr = addr | 0x0E;
+                addr_port.write(header_addr);
+                let header_data = data_port.read();
+                let header_type = (header_data & 0xFF) as u8;
+
+                // If bit 7 set, it's a multi-function device - scan all functions
+                // Otherwise only func 0 exists
+                let max_func = if (header_type & 0x80) != 0 { 7 } else { 0 };
+
+                for func in 1..=max_func {
+                    let func_addr = (1u32 << 31)
+                        | (bus as u32) << 16
+                        | (slot as u32) << 11
+                        | (func as u32) << 8;
+
+                    addr_port.write(func_addr);
+                    let func_vendor_data = data_port.read();
+                    let func_vendor = (func_vendor_data >> 16) as u16;
+
+                    if func_vendor == 0xFFFF {
+                        continue;
                     }
+
+                    let func_device = (func_vendor_data & 0xFFFF) as u16;
+                    let func_identifier = PciIdentifier {
+                        vendor: func_vendor,
+                        device: func_device,
+                    };
+
+                    // Read class info for this function
+                    addr_port.write(func_addr | 0x08);
+                    let func_class_data = data_port.read();
+                    let func_class = (func_class_data >> 16) as u8;
+                    let func_subclass = (func_class_data >> 8) as u8;
+                    let func_prog_if = (func_class_data & 0xFF) as u8;
+                    let func_pci_class = PciClass {
+                        class: func_class,
+                        subclass: func_subclass,
+                        prog_if: func_prog_if,
+                    };
+
+                    devices.push((func_identifier, func_pci_class));
                 }
             }
         }
     }
+
     devices
 }

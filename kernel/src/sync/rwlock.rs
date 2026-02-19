@@ -44,7 +44,7 @@ impl<T> RwLock<T> {
 impl<T: ?Sized> RwLock<T> {
     /// Acquire read access, blocking if a writer holds the lock or is pending.
     /// Automatically disables interrupts while held.
-    pub fn read(&self) -> RwLockReadGuard<T> {
+    pub fn read(&self) -> RwLockReadGuard<'_, T> {
         let interrupts_enabled = x86_64::instructions::interrupts::are_enabled();
         if interrupts_enabled {
             x86_64::instructions::interrupts::disable();
@@ -79,7 +79,7 @@ impl<T: ?Sized> RwLock<T> {
     }
 
     /// Try to acquire read access without blocking
-    pub fn try_read(&self) -> Option<RwLockReadGuard<T>> {
+    pub fn try_read(&self) -> Option<RwLockReadGuard<'_, T>> {
         let interrupts_enabled = x86_64::instructions::interrupts::are_enabled();
         if interrupts_enabled {
             x86_64::instructions::interrupts::disable();
@@ -107,7 +107,7 @@ impl<T: ?Sized> RwLock<T> {
 
     /// Acquire write access, blocking if any readers or a writer hold the lock.
     /// Automatically disables interrupts while held.
-    pub fn write(&self) -> RwLockWriteGuard<T> {
+    pub fn write(&self) -> RwLockWriteGuard<'_, T> {
         let interrupts_enabled = x86_64::instructions::interrupts::are_enabled();
         if interrupts_enabled {
             x86_64::instructions::interrupts::disable();
@@ -158,7 +158,7 @@ impl<T: ?Sized> RwLock<T> {
     }
 
     /// Try to acquire write access without blocking
-    pub fn try_write(&self) -> Option<RwLockWriteGuard<T>> {
+    pub fn try_write(&self) -> Option<RwLockWriteGuard<'_, T>> {
         let interrupts_enabled = x86_64::instructions::interrupts::are_enabled();
         if interrupts_enabled {
             x86_64::instructions::interrupts::disable();

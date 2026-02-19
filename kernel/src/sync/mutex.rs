@@ -40,7 +40,7 @@ impl<T> Mutex<T> {
 impl<T: ?Sized> Mutex<T> {
     /// Acquire the lock, blocking if necessary.
     /// Automatically disables interrupts while held.
-    pub fn lock(&self) -> MutexGuard<T> {
+    pub fn lock(&self) -> MutexGuard<'_, T> {
         // Save and disable interrupts
         let interrupts_enabled = x86_64::instructions::interrupts::are_enabled();
         if interrupts_enabled {
@@ -67,7 +67,7 @@ impl<T: ?Sized> Mutex<T> {
     }
 
     #[inline(never)]
-    fn lock_slow(&self, interrupts_enabled: bool) -> MutexGuard<T> {
+    fn lock_slow(&self, interrupts_enabled: bool) -> MutexGuard<'_, T> {
         let current_tid =
             scheduler::current_tid().expect("Mutex::lock called outside thread context");
         let current_priority = self.get_thread_priority(current_tid).unwrap_or(128);
@@ -237,7 +237,7 @@ impl<T> SpinLock<T> {
         }
     }
 
-    pub fn lock(&self) -> SpinLockGuard<T> {
+    pub fn lock(&self) -> SpinLockGuard<'_, T> {
         let my_ticket = self.next_ticket.fetch_add(1, Ordering::Relaxed);
         while self.now_serving.load(Ordering::Acquire) != my_ticket {
             core::hint::spin_loop();
@@ -245,7 +245,7 @@ impl<T> SpinLock<T> {
         SpinLockGuard { lock: self }
     }
 
-    pub fn try_lock(&self) -> Option<SpinLockGuard<T>> {
+    pub fn try_lock(&self) -> Option<SpinLockGuard<'_, T>> {
         let serving = self.now_serving.load(Ordering::Relaxed);
         if self
             .next_ticket
