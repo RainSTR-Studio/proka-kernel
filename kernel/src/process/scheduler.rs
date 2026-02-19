@@ -13,7 +13,9 @@ use spin::Mutex;
 use x86_64::PhysAddr;
 
 /// Global scheduler instance
-pub static SCHEDULER: Mutex<Option<Box<dyn Scheduler>>> = Mutex::new(None);
+/// Note: This is pub(crate) to allow access from sync module while
+/// maintaining encapsulation. External code should use the public API.
+pub(crate) static SCHEDULER: Mutex<Option<Box<dyn Scheduler>>> = Mutex::new(None);
 
 /// Flag to indicate if scheduler is initialized
 static SCHEDULER_INITIALIZED: spin::RwLock<bool> = spin::RwLock::new(false);
@@ -44,6 +46,14 @@ pub trait Scheduler: Send {
     fn terminate_thread(&mut self, tid: Tid) -> Result<(), SchedulerError>;
     /// Block current thread waiting for IPC
     fn block_ipc(&mut self, sender_tid: Option<Tid>, timeout_ms: Option<u64>);
+    /// Block current thread to sleep until a certain uptime
+    fn block_sleep(&mut self, until_ms: u64);
+    /// Block current thread waiting for a child process
+    fn block_wait(&mut self, target_pid: Option<Pid>);
+    /// Block current thread waiting for another thread to exit
+    fn block_join(&mut self, target_tid: Tid);
+    /// Block current thread waiting for synchronization
+    fn block_sync(&mut self, sync_id: u64);
     /// Unblock a thread (e.g., when IPC message arrives)
     fn unblock(&mut self, tid: Tid) -> Result<(), SchedulerError>;
     /// Get current running thread's TID
@@ -58,6 +68,8 @@ pub trait Scheduler: Send {
     fn yield_current(&mut self);
     /// Reap zombie threads and free their resources
     fn reap_zombies(&mut self);
+    /// Check for sleeping threads that should be woken up
+    fn wake_sleeping_threads(&mut self, current_uptime_ms: u64);
 }
 
 /// Initialize the scheduler system
@@ -128,14 +140,46 @@ pub fn yield_thread() {
     }
 }
 
-/// Block current thread waiting for IPC
-pub fn block_ipc(sender_tid: Option<Tid>, timeout_ms: Option<u64>) {
+/// Block current thread for a duration in milliseconds
+pub fn thread_sleep(ms: u64) {
+    let until = crate::libs::time::uptime_ms() + ms;
     x86_64::instructions::interrupts::without_interrupts(|| {
         let mut scheduler_opt = SCHEDULER.lock();
         if let Some(scheduler) = scheduler_opt.as_mut() {
-            scheduler.block_ipc(sender_tid, timeout_ms);
+            scheduler.block_sleep(until);
         }
     });
+    // Trigger reschedule
+    yield_thread();
+}
+
+/// Block current thread until a child process exits
+pub fn wait_child(target_pid: Option<Pid>) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut scheduler_opt = SCHEDULER.lock();
+        if let Some(scheduler) = scheduler_opt.as_mut() {
+            scheduler.block_wait(target_pid);
+        }
+    });
+    // Trigger reschedule
+    yield_thread();
+}
+
+/// Block current thread until another thread exits
+pub fn thread_join(target_tid: Tid) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut scheduler_opt = SCHEDULER.lock();
+        if let Some(scheduler) = scheduler_opt.as_mut() {
+            // Check if thread still exists
+            if let Some(tcb) = scheduler.get_thread(target_tid) {
+                if tcb.state != ThreadState::Terminated {
+                    scheduler.block_join(target_tid);
+                }
+            }
+        }
+    });
+    // Trigger reschedule
+    yield_thread();
 }
 
 /// Unblock a thread
@@ -224,15 +268,43 @@ pub fn set_current_priority(priority: u8) {
 /// Timer interrupt handler for scheduling
 ///
 /// This is called from the timer interrupt handler.
-/// It performs preemptive scheduling.
+/// It performs preemptive scheduling with time slice checking.
 pub fn timer_tick() {
     // Only schedule if scheduler is initialized
     if !is_initialized() {
         return;
     }
 
-    unsafe {
-        schedule_next();
+    // Check for sleeping threads to wake
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut scheduler_opt = SCHEDULER.lock();
+        if let Some(scheduler) = scheduler_opt.as_mut() {
+            scheduler.wake_sleeping_threads(crate::libs::time::uptime_ms());
+        }
+    });
+
+    // Check if current thread's time slice is exhausted
+    let should_switch = x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut scheduler_opt = SCHEDULER.lock();
+        if let Some(scheduler) = scheduler_opt.as_mut() {
+            if let Some(current_tid) = scheduler.current_tid() {
+                if let Some(tcb) = scheduler.get_thread_mut(current_tid) {
+                    // Decrement time slice and check if exhausted
+                    if tcb.tick_time_slice() {
+                        // Time slice exhausted, need to switch
+                        tcb.reset_time_slice();
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    });
+
+    if should_switch {
+        unsafe {
+            schedule_next();
+        }
     }
 }
 

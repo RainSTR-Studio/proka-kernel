@@ -169,6 +169,22 @@ impl Scheduler for RoundRobinScheduler {
 
         self.zombie_queue.push(tid);
 
+        // Notify joined threads
+        for other_tid in 0..self.threads.len() {
+            let other_tid = other_tid as Tid;
+            let mut should_wake = false;
+            if let Some(Some(tcb)) = self.threads.get(other_tid as usize) {
+                if let ThreadState::BlockedJoin(target) = tcb.state {
+                    if target == tid {
+                        should_wake = true;
+                    }
+                }
+            }
+            if should_wake {
+                let _ = self.unblock(other_tid);
+            }
+        }
+
         Ok(())
     }
 
@@ -179,6 +195,38 @@ impl Scheduler for RoundRobinScheduler {
                     sender_tid,
                     timeout_ms,
                 };
+            }
+        }
+    }
+
+    fn block_sleep(&mut self, until_ms: u64) {
+        if let Some(current) = self.current_tid {
+            if let Some(tcb) = self.get_thread_mut(current) {
+                tcb.state = ThreadState::Sleeping(until_ms);
+            }
+        }
+    }
+
+    fn block_wait(&mut self, target_pid: Option<Pid>) {
+        if let Some(current) = self.current_tid {
+            if let Some(tcb) = self.get_thread_mut(current) {
+                tcb.state = ThreadState::BlockedWait(target_pid);
+            }
+        }
+    }
+
+    fn block_join(&mut self, target_tid: Tid) {
+        if let Some(current) = self.current_tid {
+            if let Some(tcb) = self.get_thread_mut(current) {
+                tcb.state = ThreadState::BlockedJoin(target_tid);
+            }
+        }
+    }
+
+    fn block_sync(&mut self, sync_id: u64) {
+        if let Some(current) = self.current_tid {
+            if let Some(tcb) = self.get_thread_mut(current) {
+                tcb.state = ThreadState::BlockedSync(sync_id);
             }
         }
     }
@@ -253,6 +301,28 @@ impl Scheduler for RoundRobinScheduler {
                     x86_64::structures::paging::PhysFrame::containing_address(stack_phys),
                     stack_pages,
                 );
+            }
+        }
+    }
+
+    fn wake_sleeping_threads(&mut self, current_uptime_ms: u64) {
+        for tid in 0..self.threads.len() {
+            let tid = tid as Tid;
+            let mut should_wake = false;
+
+            if let Some(Some(tcb)) = self.threads.get(tid as usize) {
+                if let ThreadState::Sleeping(until) = tcb.state {
+                    if current_uptime_ms >= until {
+                        should_wake = true;
+                    }
+                }
+            }
+
+            if should_wake {
+                if let Some(tcb) = self.get_thread_mut(tid) {
+                    tcb.state = ThreadState::Runnable;
+                    self.ready_queue.push(tid);
+                }
             }
         }
     }

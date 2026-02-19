@@ -38,6 +38,14 @@ pub enum ThreadState {
     },
     /// Thread is blocked waiting for resource
     BlockedResource { resource_id: u64 },
+    /// Thread is sleeping until a certain time (uptime in ms)
+    Sleeping(u64),
+    /// Thread is blocked waiting for a child process to exit
+    BlockedWait(Option<Pid>),
+    /// Thread is blocked waiting for another thread to exit
+    BlockedJoin(Tid),
+    /// Thread is blocked waiting for synchronization (Mutex, Semaphore, etc.)
+    BlockedSync(u64),
     /// Thread has terminated
     Terminated,
 }
@@ -75,6 +83,9 @@ pub struct Context {
     pub gs_base: u64,
 }
 
+/// Default time slice in milliseconds
+pub const DEFAULT_TIME_SLICE_MS: u64 = 10;
+
 /// Thread Control Block (TCB)
 ///
 /// Contains only thread-specific execution state.
@@ -105,6 +116,9 @@ pub struct ThreadControlBlock {
     pub tls_ptr: Option<usize>,
     /// Thread name (for debugging)
     pub name: Option<alloc::string::String>,
+    /// Time slice management
+    pub time_slice_remaining: u64, // 剩余时间片 (ms)
+    pub base_time_slice: u64, // 基础时间片 (ms)
 }
 
 impl ThreadControlBlock {
@@ -130,6 +144,8 @@ impl ThreadControlBlock {
             true, // kernel thread
         );
 
+        let base_slice = Self::calculate_time_slice(priority);
+
         Self {
             tid,
             pid,
@@ -143,6 +159,8 @@ impl ThreadControlBlock {
             entry_point: entry_point as usize,
             tls_ptr: None,
             name: None,
+            time_slice_remaining: base_slice,
+            base_time_slice: base_slice,
         }
     }
 
@@ -168,6 +186,8 @@ impl ThreadControlBlock {
         context.cs = 0x1B; // User code segment
         context.ss = 0x23; // User data segment
 
+        let base_slice = Self::calculate_time_slice(priority);
+
         Self {
             tid,
             pid,
@@ -181,6 +201,8 @@ impl ThreadControlBlock {
             entry_point,
             tls_ptr: None,
             name: None,
+            time_slice_remaining: base_slice,
+            base_time_slice: base_slice,
         }
     }
 
@@ -198,7 +220,12 @@ impl ThreadControlBlock {
     pub fn is_blocked(&self) -> bool {
         matches!(
             self.state,
-            ThreadState::BlockedIpc { .. } | ThreadState::BlockedResource { .. }
+            ThreadState::BlockedIpc { .. }
+                | ThreadState::BlockedResource { .. }
+                | ThreadState::Sleeping(_)
+                | ThreadState::BlockedWait(_)
+                | ThreadState::BlockedJoin(_)
+                | ThreadState::BlockedSync(_)
         )
     }
 
@@ -210,5 +237,29 @@ impl ThreadControlBlock {
     /// Get the thread's full identifier (pid:tid)
     pub fn full_id(&self) -> alloc::string::String {
         alloc::format!("{}:{}", self.pid, self.tid)
+    }
+
+    /// Calculate time slice based on priority
+    /// Higher priority (lower number) gets more time
+    fn calculate_time_slice(priority: u8) -> u64 {
+        // Priority 0: 20ms, Priority 255: 5ms
+        // Linear interpolation: base + (255 - priority) * factor
+        let base = 5u64;
+        let max_bonus = 15u64;
+        let bonus = ((255 - priority as u64) * max_bonus) / 255;
+        base + bonus
+    }
+
+    /// Reset time slice to base value
+    pub fn reset_time_slice(&mut self) {
+        self.time_slice_remaining = self.base_time_slice;
+    }
+
+    /// Decrement time slice, returns true if exhausted
+    pub fn tick_time_slice(&mut self) -> bool {
+        if self.time_slice_remaining > 0 {
+            self.time_slice_remaining -= 1;
+        }
+        self.time_slice_remaining == 0
     }
 }

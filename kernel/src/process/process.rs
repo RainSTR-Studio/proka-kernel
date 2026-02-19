@@ -55,6 +55,8 @@ pub struct ProcessControlBlock {
     pub children: Vec<Pid>,
     /// Signal mask (simplified)
     pub signal_mask: u64,
+    /// Pending signals
+    pub pending_signals: u64,
 }
 
 impl ProcessControlBlock {
@@ -85,6 +87,7 @@ impl ProcessControlBlock {
             main_thread_tid: None,
             children: Vec::new(),
             signal_mask: 0,
+            pending_signals: 0,
         }
     }
 
@@ -211,6 +214,13 @@ impl ProcessControlBlock {
     pub fn get_cwd(&self) -> &str {
         &self.cwd
     }
+
+    /// Send a signal to the process
+    pub fn send_signal(&mut self, sig: u8) {
+        if sig > 0 && sig <= 64 {
+            self.pending_signals |= 1 << (sig - 1);
+        }
+    }
 }
 
 /// Process Manager
@@ -273,6 +283,28 @@ impl ProcessManager {
 
             // Add to zombie queue for parent to reap
             self.zombie_queue.push((pid, ppid, exit_code));
+
+            // Check if parent is blocked on BlockedWait and unblock its threads
+            if let Some(parent_pcb_arc) = self.get_process(ppid) {
+                let parent_pcb = parent_pcb_arc.lock();
+                for &parent_tid in &parent_pcb.threads {
+                    // Try to unblock parent threads that are waiting
+                    let _ = x86_64::instructions::interrupts::without_interrupts(|| {
+                        let mut scheduler_opt = crate::process::scheduler::SCHEDULER.lock();
+                        if let Some(scheduler) = scheduler_opt.as_mut() {
+                            if let Some(tcb) = scheduler.get_thread_mut(parent_tid) {
+                                if let crate::process::thread::ThreadState::BlockedWait(target) = tcb.state {
+                                    if target.is_none() || target == Some(pid) {
+                                        // Unblock!
+                                        drop(tcb); // Release borrow
+                                        let _ = scheduler.unblock(parent_tid);
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
 
             Some(threads)
         } else {
@@ -353,6 +385,16 @@ impl ProcessManager {
             }
         }
         None
+    }
+
+    /// Send a signal to a process
+    pub fn send_signal(&mut self, pid: Pid, sig: u8) -> Result<(), ()> {
+        if let Some(pcb_arc) = self.get_process(pid) {
+            pcb_arc.lock().send_signal(sig);
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 }
 
