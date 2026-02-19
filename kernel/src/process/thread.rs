@@ -197,6 +197,8 @@ pub struct PriorityQueue {
     queues: [Vec<Tid>; NUM_PRIORITIES],
     /// Bitmap to quickly find non-empty queues
     bitmap: [u64; NUM_PRIORITIES / 64],
+    /// Counter for fairness
+    dequeue_count: u32,
 }
 
 impl PriorityQueue {
@@ -205,6 +207,7 @@ impl PriorityQueue {
         Self {
             queues: [EMPTY_VEC; NUM_PRIORITIES],
             bitmap: [0; NUM_PRIORITIES / 64],
+            dequeue_count: 0,
         }
     }
 
@@ -220,7 +223,31 @@ impl PriorityQueue {
 
     /// Remove and return the highest priority thread
     pub fn dequeue(&mut self) -> Option<Tid> {
-        // Find highest priority non-empty queue
+        self.dequeue_count = self.dequeue_count.wrapping_add(1);
+
+        // Every 16th dequeue, try to pick from lower priorities for fairness
+        if self.dequeue_count % 16 == 0 {
+            // Search from lowest to highest
+            for word_idx in (0..self.bitmap.len()).rev() {
+                let mut word = self.bitmap[word_idx];
+                while word != 0 {
+                    // Find last set bit (most significant)
+                    let bit = 63 - word.leading_zeros() as usize;
+                    let priority = word_idx * 64 + bit;
+
+                    if !self.queues[priority].is_empty() {
+                        let tid = self.queues[priority].remove(0);
+                        if self.queues[priority].is_empty() {
+                            self.bitmap[word_idx] &= !(1 << bit);
+                        }
+                        return Some(tid);
+                    }
+                    word &= !(1 << bit);
+                }
+            }
+        }
+
+        // Normal path: Find highest priority non-empty queue
         for word_idx in 0..self.bitmap.len() {
             let mut word = self.bitmap[word_idx];
             while word != 0 {
