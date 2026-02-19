@@ -281,7 +281,11 @@ impl Inode for MemVNode {
         }
     }
 
-    fn create_device(&self, name: &str, device: Arc<OldDevice>) -> Result<Arc<dyn Inode>, VfsError> {
+    fn create_device(
+        &self,
+        name: &str,
+        device: Arc<OldDevice>,
+    ) -> Result<Arc<dyn Inode>, VfsError> {
         match &self.content {
             MemNodeContent::Dir { entries } => {
                 let mut entries = entries.write();

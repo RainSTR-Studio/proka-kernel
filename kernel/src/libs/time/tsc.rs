@@ -47,6 +47,24 @@ pub fn time_since_boot() -> f64 {
     ticks as f64 / freq as f64
 }
 
+/// Get time since boot in milliseconds
+pub fn uptime_ms() -> u64 {
+    let freq = frequency();
+    if freq == 0 {
+        return 0;
+    }
+    ((read() as u128 * 1000) / freq as u128) as u64
+}
+
+/// Get time since boot in microseconds
+pub fn uptime_us() -> u64 {
+    let freq = frequency();
+    if freq == 0 {
+        return 0;
+    }
+    ((read() as u128 * 1_000_000) / freq as u128) as u64
+}
+
 /// Sleep for a given number of microseconds using TSC
 /// Requires initialization first
 pub fn sleep_us(us: u64) {

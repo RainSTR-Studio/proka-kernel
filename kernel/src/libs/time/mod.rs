@@ -3,7 +3,7 @@ pub mod pit;
 pub mod rtc;
 pub mod tsc;
 
-pub use tsc::{init, sleep_us, time_since_boot};
+pub use tsc::{init, sleep_us, time_since_boot, uptime_ms, uptime_us};
 
 /// Calibrate a timer using the PIT (Programmable Interval Timer).
 ///

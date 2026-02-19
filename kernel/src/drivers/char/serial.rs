@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use super::super::{CharDevice, OldDevice, DeviceError, DeviceInner, DeviceType, SharedDeviceOps};
+use super::super::{CharDevice, DeviceError, DeviceInner, DeviceType, OldDevice, SharedDeviceOps};
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;

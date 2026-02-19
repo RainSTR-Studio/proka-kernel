@@ -192,7 +192,11 @@ impl Inode for KernInode {
         }
     }
 
-    fn create_device(&self, name: &str, device: Arc<OldDevice>) -> Result<Arc<dyn Inode>, VfsError> {
+    fn create_device(
+        &self,
+        name: &str,
+        device: Arc<OldDevice>,
+    ) -> Result<Arc<dyn Inode>, VfsError> {
         match &self.content {
             KernNodeContent::Dir(entries) => {
                 let mut map = entries.write();

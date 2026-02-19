@@ -60,10 +60,16 @@ pub extern "C" fn kernel_main() -> ! {
             "Cursor Blinker",
             |_context| {
                 use core::sync::atomic::{AtomicU64, Ordering};
+                use proka_kernel::libs::time::uptime_ms;
                 use proka_kernel::output::console::BITFONT_CURSOR_VISIBLE;
-                static TICKS: AtomicU64 = AtomicU64::new(0);
-                let t = TICKS.fetch_add(1, Ordering::Relaxed);
-                if t > 0 && t.is_multiple_of(20) {
+
+                static LAST_BLINK_MS: AtomicU64 = AtomicU64::new(0);
+                let now = uptime_ms();
+                let last = LAST_BLINK_MS.load(Ordering::Relaxed);
+
+                // Blink every 500ms
+                if now >= last + 500 {
+                    LAST_BLINK_MS.store(now, Ordering::Relaxed);
                     unsafe {
                         let current = BITFONT_CURSOR_VISIBLE.load(Ordering::Relaxed);
                         BITFONT_CURSOR_VISIBLE.store(!current, Ordering::Relaxed);

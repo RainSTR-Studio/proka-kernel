@@ -1,4 +1,4 @@
-use crate::drivers::{OldDevice, DeviceError, DEVICE_MANAGER};
+use crate::drivers::{DeviceError, OldDevice, DEVICE_MANAGER};
 extern crate alloc;
 use super::fs_impl;
 use alloc::format;
@@ -110,7 +110,11 @@ pub trait Inode: Send + Sync + core::fmt::Debug {
         Err(VfsError::NotImplemented)
     }
 
-    fn create_device(&self, name: &str, device: Arc<OldDevice>) -> Result<Arc<dyn Inode>, VfsError> {
+    fn create_device(
+        &self,
+        name: &str,
+        device: Arc<OldDevice>,
+    ) -> Result<Arc<dyn Inode>, VfsError> {
         let _ = (name, device);
         Err(VfsError::NotImplemented)
     }
