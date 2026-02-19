@@ -25,7 +25,6 @@ use proka_kernel::{libs::time::rtc, output::console::CONSOLE, BASE_REVISION};
 /* The Kernel main code */
 // The normal one
 #[unsafe(no_mangle)]
-
 pub extern "C" fn kernel_main() -> ! {
     // Check is limine version supported
     assert!(BASE_REVISION.is_supported(), "Limine version not supported");
@@ -64,7 +63,7 @@ pub extern "C" fn kernel_main() -> ! {
                 use proka_kernel::output::console::BITFONT_CURSOR_VISIBLE;
                 static TICKS: AtomicU64 = AtomicU64::new(0);
                 let t = TICKS.fetch_add(1, Ordering::Relaxed);
-                if t > 0 && t % 20 == 0 {
+                if t > 0 && t.is_multiple_of(20) {
                     unsafe {
                         let current = BITFONT_CURSOR_VISIBLE.load(Ordering::Relaxed);
                         BITFONT_CURSOR_VISIBLE.store(!current, Ordering::Relaxed);

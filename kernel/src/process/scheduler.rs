@@ -3,8 +3,6 @@
 //! This module provides the integration between the thread scheduler
 //! and the kernel's interrupt system.
 
-use crate::println;
-
 use super::thread::{self, Context, Tid};
 use spin::Mutex;
 

@@ -52,6 +52,14 @@ impl OldDevice {
         }
     }
 
+    #[cfg(test)]
+    pub fn null() -> Self {
+        Self::new_auto_assign(
+            String::from("null"),
+            DeviceInner::Char(Arc::new(crate::drivers::TestDevice)),
+        )
+    }
+
     pub fn device_type(&self) -> DeviceType {
         self.shared_ops().device_type()
     }

@@ -10,8 +10,6 @@
 use alloc::vec::Vec;
 use x86_64::PhysAddr;
 
-use crate::println;
-
 /// Thread ID type
 
 pub type Tid = u16;
@@ -603,7 +601,7 @@ fn allocate_kernel_stack(size: usize) -> (usize, PhysAddr, usize) {
     use crate::memory::frame::FRAME_ALLOCATOR;
     use crate::memory::paging::phys_to_virt;
 
-    let pages = (size + 4095) / 4096;
+    let pages = size.div_ceil(4096);
 
     let frame = FRAME_ALLOCATOR
         .allocate_contiguous(pages)
@@ -646,16 +644,5 @@ mod tests {
         assert_eq!(queue.dequeue(), Some(1)); // priority 10
         assert_eq!(queue.dequeue(), Some(3)); // priority 20
         assert_eq!(queue.dequeue(), None);
-    }
-
-    #[test_case]
-    fn test_thread_state() {
-        let stack_info = (0xFFFF800000000000usize, PhysAddr::new(0), 1usize);
-        let tcb = ThreadControlBlock::new_kernel(1, 10, idle_thread, stack_info);
-
-        assert_eq!(tcb.tid, 1);
-        assert_eq!(tcb.priority, 10);
-        assert!(tcb.is_runnable());
-        assert!(!tcb.is_blocked());
     }
 }

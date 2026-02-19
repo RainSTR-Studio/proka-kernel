@@ -8,7 +8,7 @@ macro_rules! print {
         {
             $crate::output::dual::_dual_print_serial(format_args!($($arg)*));
             // Always print to console
-            $crate::output::dual::_dual_print_console(format_args!($($arg)*))
+            $crate::output::dual::_dual_print_console(format_args!($($arg)*));
         }
     };
 }
