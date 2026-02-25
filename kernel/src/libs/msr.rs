@@ -132,5 +132,66 @@ pub const IA32_X2APIC_CUR_COUNT: u32 = 0x839;
 /// x2APIC Divide Configuration register (R/W)
 pub const IA32_X2APIC_DIV_CONF: u32 = 0x83e;
 
-/// If ( CPUID.01H:ECX.[bit 21]  = 1 )
+/// If ( CPUID.01H:ECX.[bit 21] = 1 )
 pub const IA32_X2APIC_SELF_IPI: u32 = 0x83f;
+
+// ============================================
+// Syscall/Sysret MSRs
+// ============================================
+
+/// Extended Feature Enable Register (EFER) - 用于启用 syscall 指令
+pub const IA32_EFER: u32 = 0xC0000080;
+
+/// EFER.SCE (Syscall Enable) bit
+pub const EFER_SCE: u64 = 1 << 0;
+
+/// IA32_STAR - 存储内核和用户代码段选择器
+/// 格式: [63:48] = user CS, [47:32] = kernel CS
+/// 用户 DS = user CS + 8, 内核 DS = kernel CS + 8
+pub const IA32_STAR: u32 = 0xC0000081;
+
+/// IA32_LSTAR - 系统调用入口点地址 (RIP)
+pub const IA32_LSTAR: u32 = 0xC0000082;
+
+/// IA32_CSTAR - 兼容模式系统调用入口点 (32-bit)
+pub const IA32_CSTAR: u32 = 0xC0000083;
+
+/// IA32_FMASK - RFLAGS 掩码，syscall 时自动清除这些位
+/// 通常屏蔽 IF (0x200) 和 TF (0x100)
+pub const IA32_FMASK: u32 = 0xC0000084;
+
+/// 读取 MSR (Model-Specific Register)
+///
+/// # Safety
+/// 读取 MSR 可能影响系统状态，必须在特权级 0 执行
+#[inline]
+pub unsafe fn rdmsr(msr: u32) -> u64 {
+    let low: u32;
+    let high: u32;
+    core::arch::asm!(
+        "rdmsr",
+        in("ecx") msr,
+        out("eax") low,
+        out("edx") high,
+        options(nomem, nostack)
+    );
+    ((high as u64) << 32) | (low as u64)
+}
+
+/// 写入 MSR (Model-Specific Register)
+///
+/// # Safety
+/// 写入 MSR 可能改变系统行为，必须在特权级 0 执行
+/// 错误的值可能导致系统崩溃
+#[inline]
+pub unsafe fn wrmsr(msr: u32, value: u64) {
+    let low = value as u32;
+    let high = (value >> 32) as u32;
+    core::arch::asm!(
+        "wrmsr",
+        in("ecx") msr,
+        in("eax") low,
+        in("edx") high,
+        options(nomem, nostack)
+    );
+}

@@ -61,6 +61,8 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::process::scheduler::init();
     // Initialize IPC subsystem
     proka_kernel::ipc::init();
+    // Initialize syscall subsystem
+    proka_kernel::syscall::init();
 
     x86_64::instructions::interrupts::enable(); // Enable interrupts
 

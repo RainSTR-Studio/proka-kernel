@@ -24,6 +24,7 @@ pub mod output;
 pub mod panic;
 pub mod process;
 pub mod sync;
+pub mod syscall;
 pub mod test;
 
 pub mod config {
