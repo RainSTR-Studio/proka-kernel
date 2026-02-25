@@ -21,7 +21,13 @@
 extern crate proka_kernel;
 extern crate alloc;
 
-use proka_kernel::{libs::time::rtc, BASE_REVISION};
+use proka_kernel::{
+    libs::{
+        elf::{load_elf, test_load_elf},
+        time::rtc,
+    },
+    BASE_REVISION,
+};
 /* The Kernel main code */
 // The normal one
 #[unsafe(no_mangle)]
@@ -100,7 +106,7 @@ pub extern "C" fn kernel_main() -> ! {
 
     let time = proka_kernel::libs::time::time_since_boot();
     println!("Time since boot: {time}");
-
+    test_load_elf().unwrap();
     proka_kernel::libs::pci::print_all_pci_devices();
     proka_kernel::drivers::usb::init();
 

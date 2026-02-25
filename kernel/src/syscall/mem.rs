@@ -3,8 +3,6 @@
 //! This module provides functions to safely access and validate memory
 //! pointers provided by user space during system calls.
 
-use x86_64::VirtAddr;
-
 /// Start of user address space
 pub const USER_SPACE_START: u64 = 0x0000_0000_0000_0000;
 /// End of user address space (canonical address limit)

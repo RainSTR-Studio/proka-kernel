@@ -17,7 +17,7 @@ use core::arch::global_asm;
 // This uses LLVM/GNU assembler syntax.
 global_asm!(
     r#"
-.intel_syntax noprefix
+
 .section .text
 
 .extern syscall_handler
@@ -101,7 +101,7 @@ pub struct SyscallArgs {
     pub user_rsp: u64,
 }
 
-/// External symbol for the syscall entry point
+// External symbol for the syscall entry point
 extern "C" {
     fn syscall_entry();
 }

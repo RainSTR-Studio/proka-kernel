@@ -1,6 +1,7 @@
 pub mod acpi;
 pub mod bitmap;
 pub mod bmp;
+pub mod elf;
 pub mod initrd;
 pub mod logger;
 pub mod msr;

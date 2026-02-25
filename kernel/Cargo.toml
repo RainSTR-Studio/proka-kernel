@@ -25,6 +25,7 @@ x86_64 = "0.15.2"
 pc-keyboard = "0.7.0"
 acpi = { version = "6.0.1", features = ["alloc", "aml"] }
 ringbuf = { version = "0.4.8", default-features = false, features = ["alloc"] }
+elf_loader = "0.14.0"
 
 [features]
 ttf = ["dep:ab_glyph", "dep:libm"]
