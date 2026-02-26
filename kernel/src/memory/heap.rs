@@ -30,7 +30,7 @@ impl talc::OomHandler for KernelOomHandler {
             let heap_area = memory_set
                 .areas
                 .iter_mut()
-                .find(|a| a.name == "heap")
+                .find(|a| a.area_type == crate::memory::paging::vmm::VmAreaType::KernelHeap)
                 .ok_or_else(|| {
                     log::error!("Heap OOM: No heap area found in memory set");
                     ()
@@ -42,13 +42,6 @@ impl talc::OomHandler for KernelOomHandler {
             heap_area.end = new_end;
             (old_end, new_end)
         };
-
-        log::debug!(
-            "Expanding heap: {:#x} -> {:#x} (requested size: {})",
-            old_end.as_u64(),
-            new_end.as_u64(),
-            layout.size()
-        );
 
         // Map the new pages MANUALLY to avoid deadlock via #PF
         let page_range = {

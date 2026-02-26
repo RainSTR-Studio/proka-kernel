@@ -17,10 +17,16 @@ pub mod nr {
     pub const IPC_RECV: u64 = 3;
     /// sys_get_pid - Get the current process ID
     pub const GET_PID: u64 = 4;
+    /// sys_mmap - Map memory into user address space
+    pub const MMAP: u64 = 5;
+    /// sys_munmap - Unmap memory from user address space
+    pub const MUNMAP: u64 = 6;
+    /// sys_brk - Change heap break
+    pub const BRK: u64 = 7;
 }
 
 /// Maximum syscall number supported
-const MAX_SYSCALL: usize = 5;
+const MAX_SYSCALL: usize = 8;
 
 /// Error code for unsupported system calls (ENOSYS)
 const ENOSYS: u64 = 38;
@@ -38,6 +44,9 @@ static SYSCALL_TABLE: [Option<SyscallHandler>; MAX_SYSCALL] = [
     Some(handlers::sys_ipc_send), // 2: sys_ipc_send
     Some(handlers::sys_ipc_recv), // 3: sys_ipc_recv
     Some(handlers::sys_get_pid),  // 4: sys_get_pid
+    Some(handlers::sys_mmap),     // 5: sys_mmap
+    Some(handlers::sys_munmap),   // 6: sys_munmap
+    Some(handlers::sys_brk),      // 7: sys_brk
 ];
 
 /// Dispatch a system call to its handler
@@ -75,6 +84,9 @@ pub fn syscall_name(num: u64) -> &'static str {
         nr::IPC_SEND => "ipc_send",
         nr::IPC_RECV => "ipc_recv",
         nr::GET_PID => "get_pid",
+        nr::MMAP => "mmap",
+        nr::MUNMAP => "munmap",
+        nr::BRK => "brk",
         _ => "unknown",
     }
 }

@@ -22,10 +22,7 @@ extern crate proka_kernel;
 extern crate alloc;
 
 use proka_kernel::{
-    libs::{
-        elf::{load_elf, test_load_elf},
-        time::rtc,
-    },
+    libs::{elf::test_load_elf, time::rtc},
     BASE_REVISION,
 };
 /* The Kernel main code */
@@ -109,7 +106,6 @@ pub extern "C" fn kernel_main() -> ! {
     test_load_elf().unwrap();
     proka_kernel::libs::pci::print_all_pci_devices();
     proka_kernel::drivers::usb::init();
-
     let shell = proka_kernel::libs::shell::Shell::new();
 
     // Set priority to idle before entering shell/loop
