@@ -17,15 +17,12 @@ pub mod drivers;
 pub mod fs;
 pub mod graphics;
 pub mod interrupts;
-pub mod ipc;
 pub mod libs;
 pub mod memory;
 pub mod output;
 pub mod panic;
 pub mod process;
-pub mod service;
 pub mod sync;
-pub mod syscall;
 pub mod test;
 
 pub mod config {

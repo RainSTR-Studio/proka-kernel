@@ -207,46 +207,6 @@ impl Scheduler for PriorityScheduler {
         Ok(tid)
     }
 
-    fn create_user_thread(
-        &mut self,
-        pid: Pid,
-        entry_point: usize,
-        user_stack_top: usize,
-        priority: u8,
-        name: Option<&str>,
-    ) -> Result<Tid, SchedulerError> {
-        // Ensure the process exists
-        let pcb_arc = process::lock()
-            .get_process(pid)
-            .ok_or(SchedulerError::PidNotFound)?;
-
-        let tid = self.alloc_tid()?;
-        let kernel_stack_size = 8192; // Default kernel stack for user threads
-        let stack_info = allocate_kernel_stack(kernel_stack_size);
-
-        let mut tcb = ThreadControlBlock::new_user(
-            tid,
-            pid,
-            priority,
-            entry_point,
-            user_stack_top,
-            stack_info,
-        );
-        if let Some(n) = name {
-            tcb.set_name(n);
-        }
-
-        // Add thread to process
-        pcb_arc.lock().add_thread(tid);
-
-        while self.threads.len() <= tid as usize {
-            self.threads.push(None);
-        }
-        self.threads[tid as usize] = Some(alloc::boxed::Box::new(tcb));
-        self.ready_queue.enqueue(tid, priority);
-        Ok(tid)
-    }
-
     fn terminate_thread(&mut self, tid: Tid) -> Result<(), SchedulerError> {
         let is_current = self.current_tid == Some(tid);
         let (pid, priority) = {
@@ -291,17 +251,6 @@ impl Scheduler for PriorityScheduler {
         }
 
         Ok(())
-    }
-
-    fn block_ipc(&mut self, sender_tid: Option<Tid>, timeout_ms: Option<u64>) {
-        if let Some(current) = self.current_tid {
-            if let Some(tcb) = self.get_thread_mut(current) {
-                tcb.state = ThreadState::BlockedIpc {
-                    sender_tid,
-                    timeout_ms,
-                };
-            }
-        }
     }
 
     fn block_sleep(&mut self, until_ms: u64) {

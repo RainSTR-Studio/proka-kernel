@@ -1,9 +1,8 @@
 //! ELF loader support for Proka Kernel
 //!
-//! This module provides ELF binary loading for both kernel and user space:
+//! This module provides ELF binary loading for kernel space:
 //!
 //! - `KernelMmap`: For loading kernel-space ELF (shared libraries, kernel modules)
-//! - `UserMmap`: For loading user-space ELF executables
 //!
 //! # Memory Management Strategy
 //!
@@ -17,18 +16,6 @@
 //!
 //! For use cases requiring library unloading, consider using a separate tracking
 //! structure or implementing a page-level slab allocator.
-//!
-//! # User Space ELF Loading
-//!
-//! User programs are loaded into their own address space with proper isolation:
-//!
-//! ```text
-//! User Address Space Layout:
-//! 0x0000_0010_0000_0000  Program text (ELF segments)
-//! 0x0000_1000_0000_0000  User heap
-//! 0x0000_7FA0_0000_0000  mmap region
-//! 0x0000_7FC0_0000_0000  User stack (grows down)
-//! ```
 
 extern crate alloc;
 use core::fmt::Debug;
@@ -38,7 +25,6 @@ use spin::Mutex;
 use x86_64::structures::paging::{FrameAllocator, Mapper, Size4KiB, Translate};
 
 use crate::fs::vfs::{VfsError, VFS};
-use crate::memory::paging::vmm::{MemorySet, VmArea, VmAreaType, USER_STACK_TOP};
 use crate::memory::FRAME_ALLOCATOR;
 use crate::println;
 use x86_64::structures::paging::PageTableFlags;

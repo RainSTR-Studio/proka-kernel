@@ -35,19 +35,8 @@ pub trait Scheduler: Send {
         priority: u8,
         name: Option<&str>,
     ) -> Result<Tid, SchedulerError>;
-    /// Create a new user thread within a given process
-    fn create_user_thread(
-        &mut self,
-        pid: Pid,
-        entry_point: usize,
-        user_stack_top: usize,
-        priority: u8,
-        name: Option<&str>,
-    ) -> Result<Tid, SchedulerError>;
     /// Terminate a thread
     fn terminate_thread(&mut self, tid: Tid) -> Result<(), SchedulerError>;
-    /// Block current thread waiting for IPC
-    fn block_ipc(&mut self, sender_tid: Option<Tid>, timeout_ms: Option<u64>);
     /// Block current thread to sleep until a certain uptime
     fn block_sleep(&mut self, until_ms: u64);
     /// Block current thread waiting for a child process
@@ -58,7 +47,7 @@ pub trait Scheduler: Send {
     fn block_sync(&mut self, sync_id: u64);
     /// Unblock all threads waiting for a specific synchronization ID
     fn unblock_sync(&mut self, sync_id: u64);
-    /// Unblock a thread (e.g., when IPC message arrives)
+    /// Unblock a thread
     fn unblock(&mut self, tid: Tid) -> Result<(), SchedulerError>;
     /// Get current running thread's TID
     fn current_tid(&self) -> Option<Tid>;
@@ -180,18 +169,6 @@ pub fn thread_join(target_tid: Tid) {
                     scheduler.block_join(target_tid);
                 }
             }
-        }
-    });
-    // Trigger reschedule
-    yield_thread();
-}
-
-/// Block current thread waiting for IPC
-pub fn block_ipc(sender_tid: Option<Tid>, timeout_ms: Option<u64>) {
-    x86_64::instructions::interrupts::without_interrupts(|| {
-        let mut scheduler_opt = SCHEDULER.lock();
-        if let Some(scheduler) = scheduler_opt.as_mut() {
-            scheduler.block_ipc(sender_tid, timeout_ms);
         }
     });
     // Trigger reschedule

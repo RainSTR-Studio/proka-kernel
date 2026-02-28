@@ -37,16 +37,6 @@ pub fn spawn_service_high(name: &str, entry: extern "C" fn() -> !) -> Result<Tid
     spawn_service(name, entry, 64)
 }
 
-/// 创建用户进程 (预留接口)
-///
-/// 当前为占位实现，返回错误。
-/// 后续需要实现 ELF 加载器后才能正常工作。
-pub fn create_user_process(_name: &str, _priority: u8) -> Result<Pid, ()> {
-    // TODO: Implement ELF loading and user process creation
-    log::warn!("create_user_process is not yet implemented");
-    Err(())
-}
-
 /// 获取当前运行线程的 ID
 pub fn current_tid() -> Option<Tid> {
     scheduler::current_tid()
@@ -62,10 +52,9 @@ pub fn current_pid() -> Option<Pid> {
     current_process().map(|p| p.lock().pid)
 }
 
-/// 启动一个“服务”线程
+/// 启动一个服务线程
 ///
-/// 在微内核架构中，服务通常是长期运行的线程/进程。
-/// 此函数为后续自动注册 IPC 服务预留了入口。
+/// 服务是长期运行的内核线程，用于执行后台任务。
 pub fn spawn_service(
     name: &str,
     entry: extern "C" fn() -> !,

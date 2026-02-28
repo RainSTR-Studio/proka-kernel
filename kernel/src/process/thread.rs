@@ -31,11 +31,6 @@ pub enum ThreadState {
     Runnable,
     /// Thread is currently running
     Running,
-    /// Thread is blocked waiting for IPC message
-    BlockedIpc {
-        sender_tid: Option<Tid>,
-        timeout_ms: Option<u64>,
-    },
     /// Thread is blocked waiting for resource
     BlockedResource { resource_id: u64 },
     /// Thread is sleeping until a certain time (uptime in ms)
@@ -108,8 +103,6 @@ pub struct ThreadControlBlock {
     pub kernel_stack_phys: PhysAddr,
     /// Kernel stack size in pages
     pub kernel_stack_pages: usize,
-    /// User stack top (if user thread) - cached from process
-    pub user_stack_top: Option<usize>,
     /// Entry point
     pub entry_point: usize,
     /// Thread-local storage pointer
@@ -155,50 +148,7 @@ impl ThreadControlBlock {
             kernel_stack_top,
             kernel_stack_phys,
             kernel_stack_pages,
-            user_stack_top: None,
             entry_point: entry_point as usize,
-            tls_ptr: None,
-            name: None,
-            time_slice_remaining: base_slice,
-            base_time_slice: base_slice,
-        }
-    }
-
-    /// Create a new user thread
-    ///
-    /// User threads belong to a process and will use the process's
-    /// address space (vspace). The vspace is managed by the process,
-    /// not stored in the thread.
-    pub fn new_user(
-        tid: Tid,
-        pid: Pid,
-        priority: u8,
-        entry_point: usize,
-        user_stack_top: usize,
-        stack_info: (usize, PhysAddr, usize),
-    ) -> Self {
-        let (kernel_stack_top, kernel_stack_phys, kernel_stack_pages) = stack_info;
-        let mut context = Context::default();
-        context.rip = entry_point as u64;
-        context.rsp = user_stack_top as u64;
-        context.rflags = 0x202; // IF flag set
-                                // User mode segment selectors (will be set during context switch)
-        context.cs = 0x1B; // User code segment
-        context.ss = 0x23; // User data segment
-
-        let base_slice = Self::calculate_time_slice(priority);
-
-        Self {
-            tid,
-            pid,
-            state: ThreadState::Runnable,
-            priority,
-            context,
-            kernel_stack_top,
-            kernel_stack_phys,
-            kernel_stack_pages,
-            user_stack_top: Some(user_stack_top),
-            entry_point,
             tls_ptr: None,
             name: None,
             time_slice_remaining: base_slice,
@@ -220,18 +170,12 @@ impl ThreadControlBlock {
     pub fn is_blocked(&self) -> bool {
         matches!(
             self.state,
-            ThreadState::BlockedIpc { .. }
-                | ThreadState::BlockedResource { .. }
+            ThreadState::BlockedResource { .. }
                 | ThreadState::Sleeping(_)
                 | ThreadState::BlockedWait(_)
                 | ThreadState::BlockedJoin(_)
                 | ThreadState::BlockedSync(_)
         )
-    }
-
-    /// Check if this is a kernel thread
-    pub fn is_kernel_thread(&self) -> bool {
-        self.user_stack_top.is_none()
     }
 
     /// Get the thread's full identifier (pid:tid)
