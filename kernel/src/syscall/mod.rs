@@ -1,50 +1,78 @@
-//! System Call Support for Proka Kernel
+//! IPC System Call for Proka Kernel
 //!
-//! This module provides the x86_64 syscall/sysret mechanism for handling
-//! system calls from user space (Ring 3) to kernel space (Ring 0).
+//! This module provides the single syscall entry point for all IPC operations.
+//! Instead of multiple syscalls, user programs use `ipc_call` to communicate
+//! with kernel services.
+//!
+//! # Architecture
+//!
+//! ```text
+//! User Program
+//!     |
+//!     | mov rax, 0  ; IPC_CALL
+//!     | syscall
+//!     v
+//! +------------------+
+//! | syscall_entry    |  (assembly)
+//! +------------------+
+//!     |
+//!     v
+//! +------------------+
+//! | ipc_call_handler |  (Rust)
+//! +------------------+
+//!     |
+//!     v
+//! +------------------+
+//! | service::dispatch|
+//! +------------------+
+//!     |
+//!     v
+//! +------------------+
+//! | ProcessService   |
+//! | MemoryService    |
+//! | ConsoleService   |
+//! +------------------+
+//! ```
 
-pub mod handlers;
-pub mod mem;
 pub mod msr;
-pub mod table;
 
 #[cfg(test)]
 pub mod test;
 
+use crate::process::scheduler;
+use crate::service::{self, IpcRequest, IpcRequestHeader};
 use core::arch::global_asm;
 
-// Include the assembly entry point using global_asm!
-// This uses LLVM/GNU assembler syntax.
+// Include the assembly entry point
 global_asm!(
     r#"
-
 .section .text
 
-.extern syscall_handler
+.extern ipc_call_handler
 
 .global syscall_entry
 syscall_entry:
     # 1. Save user RSP and switch to kernel stack
-    mov [rip + syscall_user_rsp_scratch], rsp
-    mov rsp, [rip + syscall_kernel_stack_top]
+    mov [rip + ipc_user_rsp_scratch], rsp
+    mov rsp, [rip + ipc_kernel_stack_top]
 
-    # 2. Construct SyscallArgs on kernel stack
-    # Order: user_rsp, user_rflags, user_rip, arg6, arg5, arg4, arg3, arg2, arg1, syscall_num
+    # 2. Construct IpcCallArgs on kernel stack
+    # Order: user_rsp, user_rflags, user_rip, payload_size, payload_ptr, msg_type, reserved, payload_ptr2, service_id, syscall_num
     
-    push [rip + syscall_user_rsp_scratch]
+    push [rip + ipc_user_rsp_scratch]
     push r11
     push rcx
-    push r9
-    push r8
-    push r10
-    push rdx
-    push rsi
-    push rdi
-    push rax
+    push r9      # payload_size
+    push r8      # payload_ptr
+    push r10     # msg_type
+    push rdx     # reserved
+    push rsi     # payload_ptr2 (or arg2)
+    push rdi     # service_id
+    push rax     # syscall number (always 0 for ipc_call)
 
     # 3. Call Rust handler
     mov rdi, rsp
-    call syscall_handler
+    call ipc_call_handler
 
     # 4. Restore registers and return
     add rsp, 8
@@ -62,37 +90,37 @@ syscall_entry:
 
 .section .bss
 .align 4096
-syscall_kernel_stack:
+ipc_kernel_stack:
     .space 8192
-syscall_user_rsp_scratch:
+ipc_user_rsp_scratch:
     .quad 0
 
 .section .text
-syscall_kernel_stack_top:
-    .quad syscall_kernel_stack + 8192
+ipc_kernel_stack_top:
+    .quad ipc_kernel_stack + 8192
 "#
 );
 
-/// System call arguments structure
+/// IPC call arguments structure
 ///
 /// Matches the order of registers pushed in global_asm!
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-pub struct SyscallArgs {
-    /// System call number (RAX)
+pub struct IpcCallArgs {
+    /// Syscall number (always 0 for ipc_call)
     pub syscall_num: u64,
-    /// First argument (RDI)
-    pub arg1: u64,
-    /// Second argument (RSI)
-    pub arg2: u64,
-    /// Third argument (RDX)
-    pub arg3: u64,
-    /// Fourth argument (R10)
-    pub arg4: u64,
-    /// Fifth argument (R8)
-    pub arg5: u64,
-    /// Sixth argument (R9)
-    pub arg6: u64,
+    /// Target service ID (RDI)
+    pub service_id: u64,
+    /// Payload pointer (RSI)
+    pub payload_ptr: u64,
+    /// Reserved (RDX)
+    pub _reserved: u64,
+    /// Message type (R10)
+    pub msg_type: u64,
+    /// Payload pointer (R8)
+    pub payload_ptr2: u64,
+    /// Payload size (R9)
+    pub payload_size: u64,
     /// User RIP (saved by hardware in RCX)
     pub user_rip: u64,
     /// User RFLAGS (saved by hardware in R11)
@@ -106,7 +134,7 @@ extern "C" {
     fn syscall_entry();
 }
 
-/// Main syscall handler called from assembly
+/// Main IPC call handler called from assembly
 ///
 /// # Arguments
 /// * `args` - Pointer to saved register state on the kernel stack
@@ -114,20 +142,76 @@ extern "C" {
 /// # Returns
 /// * Return value to be placed in RAX for the user program
 #[no_mangle]
-pub extern "C" fn syscall_handler(args: *const SyscallArgs) -> u64 {
-    // SAFETY: args is valid as it's constructed by assembly
+pub extern "C" fn ipc_call_handler(args: *const IpcCallArgs) -> u64 {
     let args = unsafe { &*args };
 
-    // Dispatch to the appropriate handler
-    table::dispatch(args.syscall_num, args)
+    // Get current thread ID for the request
+    let sender = match scheduler::current_tid() {
+        Some(tid) => tid,
+        None => {
+            log::warn!("ipc_call: no current thread");
+            return u64::MAX;
+        }
+    };
+
+    // Build the IPC request
+    let request = build_request(args);
+
+    // Dispatch to the appropriate service
+    let response = service::dispatch(sender, &request);
+
+    // Return the status code
+    // Note: For now we return status in RAX. In the future, we may
+    // support returning payload data via a buffer.
+    if response.header.status == 0 {
+        response.header.retval
+    } else {
+        // Encode error: high bit set + error code
+        (1u64 << 63) | (response.header.status as u64 & 0x7FFFFFFF)
+    }
 }
 
-/// Initialize the system call subsystem
+/// Build an IPC request from the syscall arguments
+fn build_request(args: &IpcCallArgs) -> IpcRequest {
+    let header = IpcRequestHeader {
+        service: args.service_id as u16,
+        msg_type: args.msg_type as u16,
+        flags: 0,
+        payload_size: args.payload_size,
+    };
+
+    // Copy payload from user space if present
+    let payload = if args.payload_size > 0 && args.payload_ptr != 0 {
+        // Validate payload is in user space
+        if args.payload_ptr >= crate::memory::paging::vmm::USER_SPACE_END {
+            log::warn!("ipc_call: payload pointer out of user space");
+            alloc::vec::Vec::new()
+        } else {
+            let size = args.payload_size as usize;
+            let ptr = args.payload_ptr as *const u8;
+
+            // SAFETY: We validated the pointer is in user space.
+            // In a real kernel, we'd handle page faults during access.
+            let mut vec = alloc::vec::Vec::with_capacity(size);
+            unsafe {
+                let slice = core::slice::from_raw_parts(ptr, size.min(1024));
+                vec.extend_from_slice(slice);
+            }
+            vec
+        }
+    } else {
+        alloc::vec::Vec::new()
+    };
+
+    IpcRequest { header, payload }
+}
+
+/// Initialize the IPC syscall subsystem
 ///
 /// This function configures the MSRs and prepares the kernel
-/// to handle system calls from user space.
+/// to handle IPC calls from user space.
 pub fn init() {
-    log::info!("Initializing syscall subsystem...");
+    log::info!("Initializing IPC syscall subsystem...");
 
     // Get the address of the syscall entry point
     let entry_addr = syscall_entry as *const () as u64;
@@ -137,5 +221,8 @@ pub fn init() {
         msr::configure_syscall_msrs(entry_addr);
     }
 
-    log::info!("Syscall subsystem initialized (entry: {:#x})", entry_addr);
+    log::info!(
+        "IPC syscall subsystem initialized (entry: {:#x})",
+        entry_addr
+    );
 }

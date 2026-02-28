@@ -1,15 +1,28 @@
 //! Inter-Process Communication (IPC) for Proka Kernel
 //!
-//! This module provides message passing between threads.
+//! This module provides message passing between threads and services.
 //! Design principles:
 //! - Simple synchronous message passing
 //! - Support for timeout and asynchronous send
-//! - Efficient for kernel-level communication
+//! - Named service registration and discovery
+//! - Support for both kernel-space and user-space services
+//!
+//! # Named Services
+//!
+//! Services can be registered by name for discovery:
+//! - `proc:/` - Process service (kernel)
+//! - `mem:/` - Memory service (kernel)
+//! - `console:/` - Console service (kernel)
+//! - `fs:/` - File system service (user-space)
+//! - `dev:/` - Device service (user-space)
+//!
+//! Kernel services use TID 0 to indicate kernel-space handling.
 
 use crate::process::scheduler;
 use crate::process::thread::Tid;
 use crate::sync::mutex::Mutex;
 use alloc::collections::VecDeque;
+use alloc::string::String;
 use alloc::vec::Vec;
 
 /// Maximum message size in bytes
@@ -17,6 +30,9 @@ pub const MAX_MESSAGE_SIZE: usize = 1024;
 
 /// Maximum number of pending messages per queue
 pub const MAX_QUEUE_SIZE: usize = 64;
+
+/// Special TID indicating a kernel-space service
+pub const KERNEL_SERVICE_TID: Tid = 0;
 
 /// IPC message structure
 #[derive(Debug, Clone)]
@@ -195,6 +211,11 @@ pub fn send(target: Tid, msg: Message, block: bool) -> Result<(), IpcError> {
 /// Register a service name for the current thread
 pub fn register_service(name: &str) -> Result<(), IpcError> {
     let tid = scheduler::current_tid().ok_or(IpcError::NotInitialized)?;
+    do_register_service(name, tid)
+}
+
+/// Internal function to register a service with a specific TID
+fn do_register_service(name: &str, tid: Tid) -> Result<(), IpcError> {
     let mut registry_opt = SERVICE_REGISTRY.lock();
     let registry = registry_opt.as_mut().ok_or(IpcError::NotInitialized)?;
 
@@ -202,15 +223,52 @@ pub fn register_service(name: &str) -> Result<(), IpcError> {
         return Err(IpcError::ServiceExists);
     }
 
-    registry.insert(alloc::string::String::from(name), tid);
+    registry.insert(String::from(name), tid);
+    Ok(())
+}
+
+/// Register a kernel-space service
+///
+/// Kernel services don't have a TID, so we use KERNEL_SERVICE_TID (0)
+/// and store the service_id for routing.
+pub fn register_kernel_service(name: &str, service_id: u16) -> Result<(), IpcError> {
+    // For kernel services, we encode: TID=0, service_id in the lower bits
+    // This allows dispatch to route to the kernel service handler
+    let encoded = KERNEL_SERVICE_TID | ((service_id as Tid) << 8);
+
+    do_register_service(name, encoded)?;
+
+    log::debug!(
+        "Kernel service '{}' registered (encoded TID: {})",
+        name,
+        encoded
+    );
     Ok(())
 }
 
 /// Look up a thread ID by service name
+///
+/// Returns the TID of the service thread, or KERNEL_SERVICE_TID for kernel services.
+/// The caller can check if the result is KERNEL_SERVICE_TID to determine if
+/// the service is a kernel-space service.
 pub fn lookup_service(name: &str) -> Option<Tid> {
     let registry_opt = SERVICE_REGISTRY.lock();
     let registry = registry_opt.as_ref()?;
-    registry.get(name).cloned()
+    registry.get(name).copied()
+}
+
+/// Check if a TID refers to a kernel-space service
+pub fn is_kernel_service(tid: Tid) -> bool {
+    tid == KERNEL_SERVICE_TID || (tid & 0xFF) == KERNEL_SERVICE_TID
+}
+
+/// Get the service ID from an encoded kernel service TID
+pub fn get_kernel_service_id(tid: Tid) -> Option<u16> {
+    if is_kernel_service(tid) {
+        Some((tid >> 8) as u16)
+    } else {
+        None
+    }
 }
 
 /// Receive a message

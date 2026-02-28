@@ -24,7 +24,7 @@
         - [EFI加载器](architecture/multitasking/efi-loader.md)
         - [进程调度](architecture/multitasking/scheduler.md)
         - [进程与线程模型](architecture/multitasking/process.md)
-        - [系统调用接口设计](architecture/multitasking/syscalls.md)
+        - [IPC 服务架构](architecture/multitasking/ipc_services.md)
         - [ELF 加载器](architecture/multitasking/elf-loader.md)
     - [安全](architecture/security.md)
     - [异常处理](architecture/panic.md)
