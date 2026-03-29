@@ -6,14 +6,14 @@ MAKEFLAGS += -rR
 .SUFFIXES:
 
 # Output binary name
-OUTPUT     := ../$(OUT_DIR)/kernel
+OUTPUT     := ../$(OUT_DIR)/proka-kernel
 # Cargo package name
 PKG_NAME   := proka-kernel
 # Rust target triple
 RUST_TARGET := x86_64-unknown-none
 
 # Build profile (dev, release)
-PROFILE    ?= release
+PROFILE ?= release
 # Map 'dev' to Cargo's 'debug' directory
 ifeq ($(PROFILE),dev)
     PROFILE_DIR := debug
@@ -29,7 +29,10 @@ else
 endif
 
 # Rust compilation flags
-RUSTFLAGS  := -C relocation-model=static -C force-frame-pointers=yes
+RUSTFLAGS := -C relocation-model=static \
+	     -C code-model=large \
+	     -C no-redzone \
+	     -C force-frame-pointers=yes
 
 # Binary path relative to kernel directory
 BIN_PATH := ../target/$(RUST_TARGET)/$(PROFILE_DIR)/$(PKG_NAME)
@@ -39,7 +42,8 @@ BIN_PATH := ../target/$(RUST_TARGET)/$(PROFILE_DIR)/$(PKG_NAME)
 all: $(OUTPUT)
 
 $(OUTPUT): $(BIN_PATH)
-	$(Q)cp $< $@
+	$(Q)cp $< $@.elf
+	objcopy -O binary $@.elf $@
 	rm -f $(BIN_PATH)
 	@echo "Kernel binary ready: $@"
 

@@ -1,9 +1,0 @@
-title = "Process Manager"
-
-[[config]]
-name = "SCHEDULER_TYPE"
-type = "choice"
-default = "RoundRobin"
-desc = "Scheduler Type"
-options = ["RoundRobin", "Priority"]
-help = "Select the CPU scheduler algorithm. RoundRobin provides fair time-slicing, Priority allows threads with higher priority to run first."

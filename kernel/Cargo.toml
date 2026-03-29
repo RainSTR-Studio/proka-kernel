@@ -1,31 +1,13 @@
 [package]
 name = "proka-kernel"
-version = "0.1.2"
-edition = "2021"
+version = "0.1.0"
+edition = "2024"
 
 [build-dependencies]
 anaxa-builder = "0.5.0"
 glob = "0.3.0"
 
 [dependencies]
-ab_glyph = { version = "0.2.31", default-features = false, features = [
-    "libm",
-], optional = true }
-libm = { version = "0.2.15", optional = true }
 lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
-limine = "0.5.0"
-log = "0.4.27"
-paste = "1.0.15"
-pic8259 = "0.11.0"
-raw-cpuid = "11.5.0"
-spin = "0.10.0"
-talc = "4.4.3"
-uart_16550 = "0.4.0"
-x86_64 = "0.15.2"
-pc-keyboard = "0.7.0"
-acpi = { version = "6.0.1", features = ["alloc", "aml"] }
-ringbuf = { version = "0.4.8", default-features = false, features = ["alloc"] }
-elf_loader = "0.14.0"
-
-[features]
-ttf = ["dep:ab_glyph", "dep:libm"]
+proka-bootloader = "0.1.1"
+x86_64 = "0.15.4"
