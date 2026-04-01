@@ -18,18 +18,28 @@
 
 #[macro_use]
 extern crate proka_kernel;
-use proka_bootloader::BootInfo;
+use proka_bootloader::{BootInfo, output::Framebuffer};
 
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text")]
 pub extern "C" fn kernel_main(info: &BootInfo) -> ! {
+    let info = *info;
+
     // Init IDT first
     proka_kernel::tables::idt::init();
 
     let framebuffer = info.framebuffer();
     unsafe {
-        let ptr = 0xFFFF8000_40000000 as *mut u32;
-        *ptr = 0xFFFFFFFF;
+
+        for i in 0..200u16 {
+            let ptr = 0x100000 as *mut u8;
+            let bpp = framebuffer.bpp() / 16;
+            *ptr = bpp;
+
+            let ptr = framebuffer.address() as *mut u8;
+            let offset = framebuffer.pitch() * i + i * framebuffer.bpp() as u16;
+            ptr.add(offset as usize).cast::<u32>().write(0x00ffffff);
+        }
     }
     loop {}
 }

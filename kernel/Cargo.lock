@@ -144,9 +144,9 @@ dependencies = [
 
 [[package]]
 name = "proka-bootloader"
-version = "0.1.1"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f281432ff8c836e16e8d42ba89b2b1170f924c1d036fbd515e5dc85f3b82ea2"
+checksum = "0b51bb78ed5be7004b738402095b7e68f19af70b6351fa67bdee0469965654d6"
 
 [[package]]
 name = "proka-kernel"
