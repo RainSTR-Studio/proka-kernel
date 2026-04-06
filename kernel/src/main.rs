@@ -18,7 +18,7 @@
 
 #[macro_use]
 extern crate proka_kernel;
-use proka_bootloader::{BootInfo, output::Framebuffer};
+use proka_bootloader::BootInfo;
 
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text")]
@@ -30,15 +30,10 @@ pub extern "C" fn kernel_main(info: &BootInfo) -> ! {
 
     let framebuffer = info.framebuffer();
     unsafe {
-
-        for i in 0..200u16 {
-            let ptr = 0x100000 as *mut u8;
-            let bpp = framebuffer.bpp() / 16;
-            *ptr = bpp;
-
-            let ptr = framebuffer.address() as *mut u8;
-            let offset = framebuffer.pitch() * i + i * framebuffer.bpp() as u16;
-            ptr.add(offset as usize).cast::<u32>().write(0x00ffffff);
+        let ptr = framebuffer.address() as *mut u8;
+        for i in 0..500 {
+            let offset = framebuffer.pitch() * i + i * framebuffer.bpp();
+            ptr.add(offset as usize).cast::<u32>().write(0x00FFFFFF);
         }
     }
     loop {}
