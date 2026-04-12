@@ -13,3 +13,6 @@
 
 pub mod panic;
 pub mod tables;
+pub mod output;
+pub mod color;
+pub mod memory;

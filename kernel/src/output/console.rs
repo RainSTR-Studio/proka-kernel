@@ -1,0 +1,312 @@
+extern crate alloc;
+use alloc::{vec, vec::Vec};
+use crate::{color, color::{Color}};
+use crate::output::font8x16::FONT8X16;
+use proka_bootloader::get_bootinfo;
+use core::fmt::{self, Write};
+use lazy_static::lazy_static;
+use spin::Mutex;
+
+// Constants
+const FONT_W: u64 = 8;
+const FONT_H: u64 = 16;
+
+// Some statics which is global
+lazy_static! {
+    pub static ref CONSOLE: Mutex<Console> = Mutex::new(Console::init());
+}
+
+/// The ANSI parse status
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ParseState {
+    Normal,           // Normal mode
+    Escape,           // Has read ESC char
+    EscapeBracket,    // Already read ESC[
+    CollectingParams, // Params for collecting
+}
+
+/// The object of console.
+pub struct Console {
+    address: *mut u8,
+    width: u64,
+    height: u64,
+    pitch: u64,
+    bpp: u64,
+    position: (u64, u64), // (x, y)
+    fg_color: Color,
+    bg_color: Color,
+    parse_state: ParseState,
+    ansi_params: Vec<u16>,
+    current_param: u16,      // Current ANSI param
+}
+
+// We have to do it, so that it can be contained by Mutex.
+unsafe impl Send for Console {}
+unsafe impl Sync for Console {}
+
+impl Console {
+    pub fn init() -> Self {
+        let framebuffer = get_bootinfo().framebuffer();
+        Self {
+            address: framebuffer.address() as *mut u8,
+            width: framebuffer.width(),
+            height: framebuffer.height(),
+            pitch: framebuffer.pitch(),
+            bpp: framebuffer.bpp(),
+            position: (0, 0),
+            fg_color: color::WHITE,
+            bg_color: color::BLACK,
+            parse_state: ParseState::Normal,
+            ansi_params: Vec::new(),
+            current_param: 0,
+        }
+    }
+
+    #[inline(always)]
+    fn scroll_up(&mut self) {
+        unsafe {
+            let base_ptr = self.address as *mut u8;
+            let scroll_bytes = (FONT_H as usize) * self.pitch as usize;
+            let total_bytes = (self.height as usize) * self.pitch as usize;
+
+            // Use memmove
+            // Move all buffer upper scroll_bytes
+            core::ptr::copy(
+                base_ptr.add(scroll_bytes),
+                base_ptr,
+                total_bytes - scroll_bytes,
+            );
+
+            // Clear last scroll_bytes area
+            core::ptr::write_bytes(base_ptr.add(total_bytes - scroll_bytes), 0, scroll_bytes);
+        }
+    }
+
+    /// Print a char to framebuffer console.
+    ///
+    /// Note that the character must discovorable in ASCII, otherwise we don't know what
+    /// unexpected thing is being happened.
+    pub fn print_char(&mut self, c: u8) {
+        // Parse ANSI symbol
+        match self.parse_state {
+            ParseState::Normal => {
+                if c == 0x1B {
+                    // ESC char
+                    self.parse_state = ParseState::Escape;
+                } else {
+                    self.print_normal_char(c as usize);
+                }
+            }
+            ParseState::Escape => {
+                if c == b'[' {
+                    self.parse_state = ParseState::EscapeBracket;
+                    self.ansi_params.clear();
+                    self.current_param = 0;
+                } else {
+                    // Invalid symbol, fall back
+                    self.parse_state = ParseState::Normal;
+                    self.print_normal_char(0x1B as usize);
+                    self.print_normal_char(c as usize);
+                }
+            }
+            ParseState::EscapeBracket => {
+                if c.is_ascii_digit() {
+                    self.current_param = self.current_param * 10 + (c - b'0') as u16;
+                    self.parse_state = ParseState::CollectingParams;
+                } else if c == b';' {
+                    self.ansi_params.push(self.current_param);
+                    self.current_param = 0;
+                } else {
+                    self.ansi_params.push(self.current_param);
+                    self.parse_ansi_command(c);
+                    self.parse_state = ParseState::Normal;
+                }
+            }
+            ParseState::CollectingParams => {
+                if c.is_ascii_digit() {
+                    self.current_param = self.current_param * 10 + (c - b'0') as u16;
+                } else if c == b';' {
+                    self.ansi_params.push(self.current_param);
+                    self.current_param = 0;
+                    self.parse_state = ParseState::EscapeBracket;
+                } else {
+                    self.ansi_params.push(self.current_param);
+                    self.parse_ansi_command(c);
+                    self.parse_state = ParseState::Normal;
+                }
+            }
+        }
+    }
+
+    /// Print a normal char to console.
+    fn print_normal_char(&mut self, c: usize) {
+        if (self.height - self.position.1) < FONT_H {
+            self.scroll_up();
+            self.position.1 = self.height - FONT_H;
+        }
+
+        // If character is "\n", just switch to next line.
+        if c == ('\n' as usize) {
+            self.position.0 = 0;
+            self.position.1 += FONT_H;
+            return;
+        }
+
+        // If over than self.width, switch to next line.
+        if self.position.0 + FONT_W > self.width {
+            self.position.0 = 0;
+            self.position.1 += FONT_H;
+        }
+
+        // Compute the current position
+        let start_x = self.position.0;
+        let start_y = self.position.1;
+
+        // Write pixel
+        for line in 0..FONT_H {
+            for i in 0..FONT_W {
+                let mask = 0x80 >> i;
+
+                // Write white pixel
+                // Compute current pixel offset
+                let x = start_x + i;
+                let y = start_y + line;
+                if x < self.width && y < self.height {
+                    let pixel_offset = y * self.pitch + x * self.bpp;
+                    if FONT8X16[c][line as usize] & mask != 0 {
+                        // Write
+                        unsafe {
+                            self.address
+                                .add(pixel_offset as usize)
+                                .cast::<u32>()
+                                .write(self.fg_color.to_u32(true));
+                        }
+                    } else {
+                        unsafe {
+                            self.address
+                                .add(pixel_offset as usize)
+                                .cast::<u32>()
+                                .write(self.bg_color.to_u32(true));
+                        }
+                    }
+                }
+            }
+        }
+
+        self.position.0 += FONT_W;
+    }
+
+    /// Handle ANSI commands
+    fn parse_ansi_command(&mut self, cmd: u8) {
+        match cmd {
+            b'm' => self.handle_sgr(),
+            b'A' => self.handle_cursor_up(),
+            b'B' => self.handle_cursor_down(),
+            b'C' => self.handle_cursor_right(),
+            b'D' => self.handle_cursor_left(),
+            _ => {} // Ignore non-impl command
+        }
+    }
+
+    // SGR command handler
+    fn handle_sgr(&mut self) {
+        let params = if self.ansi_params.is_empty() {
+            vec![0]
+        } else {
+            self.ansi_params.clone()
+        };
+        for param in params {
+            match param {
+                0 => {
+                    // Reset
+                    self.fg_color = color::WHITE;
+                    self.bg_color = color::BLACK;
+                }
+                // Normal foreground color
+                30 => self.fg_color = color::BLACK,
+                31 => self.fg_color = color::RED,
+                32 => self.fg_color = color::GREEN,
+                33 => self.fg_color = color::YELLOW,
+                34 => self.fg_color = color::BLUE,
+                35 => self.fg_color = color::MAGENTA,
+                36 => self.fg_color = color::CYAN,
+                37 => self.fg_color = color::WHITE,
+                // Normal background color
+                40 => self.bg_color = color::BLACK,
+                41 => self.bg_color = color::RED,
+                42 => self.bg_color = color::GREEN,
+                43 => self.bg_color = color::YELLOW,
+                44 => self.bg_color = color::BLUE,
+                45 => self.bg_color = color::MAGENTA,
+                46 => self.bg_color = color::CYAN,
+                47 => self.bg_color = color::WHITE,
+                _ => {}
+            }
+        }
+        self.ansi_params.clear();
+        self.current_param = 0;
+    }
+
+    /// Print a string to console.
+    pub fn print_string(&mut self, s: &str) {
+        for c in s.bytes() {
+            self.print_char(c);
+        }
+    }
+
+    /* Settings methods */
+    /// Set up the color of foreground character.
+    pub fn set_fg_color(&mut self, color: Color) {
+        self.fg_color = color
+    }
+
+    /// Set up the color of background character.
+    pub fn set_bg_color(&mut self, color: Color) {
+        self.bg_color = color
+    }
+
+    /// Get the color of foreground character.
+    pub fn get_fg_color(&self) -> Color {
+        self.fg_color
+    }
+
+    /// Get the color of background character.
+    pub fn get_bg_color(&self) -> Color {
+        self.bg_color
+    }
+
+    /* Cursor handler */
+    // Todo: Implement cursor
+    pub fn handle_cursor_up(&mut self) {}
+    pub fn handle_cursor_down(&mut self) {}
+    pub fn handle_cursor_left(&mut self) {}
+    pub fn handle_cursor_right(&mut self) {}
+}
+
+// Implement the [`Write`] trait to support formatting
+impl Write for Console {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.print_string(s);
+        Ok(())
+    }
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::output::console::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    use core::fmt::Write;
+    CONSOLE
+        .lock()
+        .write_fmt(args)
+        .expect("Failed to write to console");
+}
