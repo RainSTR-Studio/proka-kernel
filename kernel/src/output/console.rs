@@ -168,6 +168,13 @@ impl Console {
                 let mask = 0x80 >> i;
 
                 // Write white pixel
+                // Check is alpha needed
+                let is_alpha = if self.bpp == 4 {
+                    true
+                } else {
+                    false
+                };
+
                 // Compute current pixel offset
                 let x = start_x + i;
                 let y = start_y + line;
@@ -179,14 +186,14 @@ impl Console {
                             self.address
                                 .add(pixel_offset as usize)
                                 .cast::<u32>()
-                                .write(self.fg_color.to_u32(true));
+                                .write(self.fg_color.to_u32(is_alpha));
                         }
                     } else {
                         unsafe {
                             self.address
                                 .add(pixel_offset as usize)
                                 .cast::<u32>()
-                                .write(self.bg_color.to_u32(true));
+                                .write(self.bg_color.to_u32(is_alpha));
                         }
                     }
                 }

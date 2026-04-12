@@ -42,7 +42,7 @@ impl Color {
             let a = self.a as u32;
             return (a << 24) | (r << 16) | (g << 8) | b;
         }
-        (r << 24) | (g << 16) | (b << 8)
+        (0 << 24) | (r << 16) | (g << 8) | b
     }
 
     pub fn from_u32(color: u32) -> Self {
