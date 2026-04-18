@@ -11,8 +11,8 @@
 #![test_runner(crate::test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-pub mod panic;
-pub mod tables;
-pub mod output;
 pub mod color;
 pub mod memory;
+pub mod output;
+pub mod panic;
+pub mod tables;

@@ -1,10 +1,10 @@
 extern crate alloc;
-use alloc::{vec, vec::Vec};
-use crate::{color, color::{Color}};
 use crate::output::font8x16::FONT8X16;
-use proka_bootloader::get_bootinfo;
+use crate::{color, color::Color};
+use alloc::{vec, vec::Vec};
 use core::fmt::{self, Write};
 use lazy_static::lazy_static;
+use proka_bootloader::get_bootinfo;
 use spin::Mutex;
 
 // Constants
@@ -37,7 +37,7 @@ pub struct Console {
     bg_color: Color,
     parse_state: ParseState,
     ansi_params: Vec<u16>,
-    current_param: u16,      // Current ANSI param
+    current_param: u16, // Current ANSI param
 }
 
 // We have to do it, so that it can be contained by Mutex.
@@ -169,11 +169,7 @@ impl Console {
 
                 // Write white pixel
                 // Check is alpha needed
-                let is_alpha = if self.bpp == 4 {
-                    true
-                } else {
-                    false
-                };
+                let is_alpha = if self.bpp == 4 { true } else { false };
 
                 // Compute current pixel offset
                 let x = start_x + i;

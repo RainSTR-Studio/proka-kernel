@@ -1,7 +1,7 @@
 //! The paging module.
+use x86_64::PhysAddr;
 use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::*;
-use x86_64::PhysAddr;
 
 const PML4_ADDR: u64 = 0x100000;
 const PDPT_LOW_ADDR: u64 = 0x101000;
@@ -33,15 +33,15 @@ pub fn init() {
     }
 
     // Higher-half mapping:
-    // Physical: 0x200000 ~ 0x8200000 (128MiB)
+    // Physical: 0x200000 ~ 0x2200000 (32MiB)
     // Virtual:  0xffff800000000000 ~
     pml4[256].set_addr(PhysAddr::new(PDPT_HIGH_ADDR), flags);
     pdpt_high[0].set_addr(PhysAddr::new(PDT_HIGH_ADDR), flags);
 
     let mut pt_current = PT_HIGH_ADDR;
 
-    // 128MiB = 32 PTs (each PT maps 4MiB)
-    for i_pdt in 0..32 {
+    // 32MiB = 16 PTs (each PT maps 2MiB)
+    for i_pdt in 0..16 {
         let pt = unsafe { &mut *(pt_current as *mut PageTable) };
 
         let base_phys = 0x200000 + (i_pdt as u64 * 0x400000);

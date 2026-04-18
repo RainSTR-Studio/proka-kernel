@@ -98,7 +98,7 @@ pub const BLUE: Color = color!(0, 0, 255);
 
 // Mixed colors
 pub const YELLOW: Color = color!(255, 255, 0);
-pub const CYAN: Color = color!(0, 255, 255); 
+pub const CYAN: Color = color!(0, 255, 255);
 pub const MAGENTA: Color = color!(255, 0, 255);
 pub const GRAY: Color = color!(128, 128, 128);
 

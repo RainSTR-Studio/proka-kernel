@@ -1,7 +1,7 @@
 //! The GDT table
 
 use lazy_static::lazy_static;
-use x86_64::structures::gdt::{GlobalDescriptorTable, Descriptor};
+use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable};
 
 lazy_static! {
     pub static ref GDT: GlobalDescriptorTable = {

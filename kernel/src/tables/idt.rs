@@ -27,10 +27,7 @@ pub fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: 
                 options(nomem, nostack)
             );
         } else {
-            core::arch::asm!(
-                "mov r9, 0xFFFF",
-                options(nomem, nostack)
-            );
+            core::arch::asm!("mov r9, 0xFFFF", options(nomem, nostack));
         }
     }
     loop {}

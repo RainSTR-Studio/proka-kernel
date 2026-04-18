@@ -36,11 +36,15 @@ pub extern "C" fn kernel_main() -> ! {
     // Print messages
     println!("[INFO] Successfully loaded kernel.");
 
-    for i in 0..1000 {
-        println!("Hello {i}!"); 
-    }
+    // Copyrights
+    println!("\x1b[36m[INFO] Proka Kernel v0.1.0");
+    println!("[INFO] Copyright (C) RainSTR Studio 2026, All rights reserved.\x1b[0m");
 
+    println!("[INFO] Begin to initialize kernel staff...");
+
+    // Re-init the kernel page
     proka_kernel::memory::paging::init();
+    print!("[INFO] Initialized memory manager.");
 
     loop {}
 }
