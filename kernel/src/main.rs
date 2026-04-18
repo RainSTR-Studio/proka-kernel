@@ -18,14 +18,29 @@
 
 #[macro_use]
 extern crate proka_kernel;
+use proka_bootloader::header::Header;
+
+// Kernel header definition
+#[unsafe(link_section = ".header")]
+#[used]
+static KERNEL_HEADER: Header = Header::default();
 
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text")]
+#[unsafe(link_section = ".main")]
 pub extern "C" fn kernel_main() -> ! {
     // Init IDT
     proka_kernel::tables::idt::init();
+    // Init GDT
+    proka_kernel::tables::gdt::init();
 
-    // Print hello
-    println!("Hello");
+    // Print messages
+    println!("[INFO] Successfully loaded kernel.");
+
+    for i in 0..1000 {
+        println!("Hello {i}!"); 
+    }
+
+    proka_kernel::memory::paging::init();
+
     loop {}
 }

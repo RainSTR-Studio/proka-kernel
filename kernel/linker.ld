@@ -7,10 +7,12 @@ ENTRY(kernel_main)
 /* Sections */
 SECTIONS {
     /* Load at half-high address (proka-bootloader) */
-    . = 0xffff800000000000; 
+    . = 0xffff800000000000;
 
     /* Texts */
     .text : {
+	*(.header*)
+	*(.main*)
         *(.text*)
     }
 
