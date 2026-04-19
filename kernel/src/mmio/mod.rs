@@ -120,6 +120,10 @@ pub fn init() {
     });
 }
 
+/// Global index to track current PDPT slot and PDT allocation
+static MMIO_PDPT_IDX: Mutex<usize> = Mutex::new(0);
+static MMIO_NEXT_PDT_PHY: Mutex<u64> = Mutex::new(0);
+
 /// The mapper of other MMIO
 fn mapper(phys: u64, offset_idx: u64) {
     // Now set up the basic things.
@@ -132,7 +136,31 @@ fn mapper(phys: u64, offset_idx: u64) {
     // Create page table object
     let pml4 = unsafe { &mut *(PML4 as *mut PageTable) };
     let pdpt = unsafe { &mut *((pml4[448].addr().as_u64()) as *mut PageTable) };
-    let pdt = unsafe { &mut *((pdpt[0].addr().as_u64()) as *mut PageTable) };
 
-    pdt[(offset_idx + 8) as usize].set_addr(PhysAddr::new(phys), flags);
+    let mut pdpt_idx = MMIO_PDPT_IDX.lock();
+    let mut next_pdt_phy = MMIO_NEXT_PDT_PHY.lock();
+
+    let entry_idx = offset_idx + 8;
+
+    // Out of PDT bounds: switch to next PDPT entry and allocate new PDT
+    if entry_idx >= 512 {
+        *pdpt_idx += 1;
+        trace!("MMIO: PDT full, switch to PDPT[{}]", *pdpt_idx);
+
+        // First new PDT starts at (pml4[448].addr() & 0xFFFF) + 0x8000
+        if *next_pdt_phy == 0 {
+            let base = pml4[448].addr().as_u64();
+            *next_pdt_phy = (base & 0xFFFF) + 0x8000;
+        }
+
+        // Map new PDT into PDPT
+        pdpt[*pdpt_idx].set_addr(PhysAddr::new(*next_pdt_phy), flags);
+        *next_pdt_phy += 0x1000;
+    }
+
+    // Get current PDT from PDPT
+    let pdt = unsafe { &mut *(pdpt[*pdpt_idx].addr().as_u64() as *mut PageTable) };
+    let idx = (entry_idx % 512) as usize;
+
+    pdt[idx].set_addr(PhysAddr::new(phys), flags);
 }
