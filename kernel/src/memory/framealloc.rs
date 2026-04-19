@@ -4,8 +4,8 @@ use proka_bootloader::get_bootinfo;
 use proka_bootloader::memory::{MemoryMap, MemoryType};
 use spin::Mutex;
 use x86_64::{
-    PhysAddr,
     structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB},
+    PhysAddr,
 };
 
 lazy_static! {
@@ -23,7 +23,7 @@ pub struct FrameAlloc {
 
 impl FrameAlloc {
     /// Init the frame allocator.
-    pub fn init(&mut self, map: MemoryMap) -> Self {
+    pub fn init(mut self, map: MemoryMap) -> Self {
         // Get the max addr
         let max_phys_addr = map
             .entries

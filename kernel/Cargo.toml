@@ -9,7 +9,7 @@ glob = "0.3.0"
 
 [dependencies]
 lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
-proka-bootloader = "0.4.0"
+proka-bootloader = "0.4.1"
 spin = "0.10.0"
 spinning_top = "0.3.0"
 talc = "5.0.3"

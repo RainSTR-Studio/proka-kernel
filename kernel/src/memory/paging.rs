@@ -1,7 +1,7 @@
 //! The paging module.
-use x86_64::PhysAddr;
 use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::*;
+use x86_64::PhysAddr;
 
 const PML4_ADDR: u64 = 0x100000;
 const PDPT_LOW_ADDR: u64 = 0x101000;
@@ -28,11 +28,12 @@ pub fn init() {
     pdpt_low[0].set_addr(PhysAddr::new(PDT_LOW_ADDR), flags);
     pdt_low[0].set_addr(PhysAddr::new(PT_LOW_ADDR), flags);
 
+    let low_flags = flags | PageTableFlags::GLOBAL;
     for i in 0..512 {
-        pt_low[i].set_addr(PhysAddr::new((i * 0x1000) as u64), flags);
+        pt_low[i].set_addr(PhysAddr::new((i * 0x1000) as u64), low_flags);
     }
 
-    // Higher-half mapping:
+    // Higher-half mapping (kernel):
     // Physical: 0x200000 ~ 0x2200000 (32MiB)
     // Virtual:  0xffff800000000000 ~
     pml4[256].set_addr(PhysAddr::new(PDPT_HIGH_ADDR), flags);
@@ -44,10 +45,28 @@ pub fn init() {
     for i_pdt in 0..16 {
         let pt = unsafe { &mut *(pt_current as *mut PageTable) };
 
-        let base_phys = 0x200000 + (i_pdt as u64 * 0x400000);
+        let base_phys = 0x200000 + (i_pdt as u64 * 0x200000);
         for i_pt in 0..512 {
             let phys = base_phys + (i_pt as u64 * 0x1000);
             pt[i_pt].set_addr(PhysAddr::new(phys), flags);
+        }
+
+        pdt_high[i_pdt].set_addr(PhysAddr::new(pt_current), flags);
+        pt_current += 0x1000;
+    }
+
+    // Higher-half mapping (initrd):
+    // Physical: 0x2200000 ~ 0x4200000 (32MiB)
+    // Virtual: 0xffff800002000000
+
+    // 32MiB = 16 PTs (each PT maps 2MiB)
+    for i_pdt in 16..32 {
+        let pt = unsafe { &mut *(pt_current as *mut PageTable) };
+        let base_phys = 0x2200000 + ((i_pdt - 16) as u64 * 0x200000);
+        let initrd_flags = PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE;
+        for i_pt in 0..512 {
+            let phys = base_phys + (i_pt as u64 * 0x1000);
+            pt[i_pt].set_addr(PhysAddr::new(phys), initrd_flags);
         }
 
         pdt_high[i_pdt].set_addr(PhysAddr::new(pt_current), flags);

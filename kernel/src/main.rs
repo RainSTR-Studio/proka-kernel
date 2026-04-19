@@ -43,7 +43,7 @@ pub extern "C" fn kernel_main() -> ! {
     println!("[INFO] Begin to initialize kernel staff...");
 
     // Re-init the kernel page
-    proka_kernel::memory::paging::init();
+    proka_kernel::memory::init();
     print!("[INFO] Initialized memory manager.");
 
     loop {}
