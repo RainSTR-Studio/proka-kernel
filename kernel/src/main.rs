@@ -18,6 +18,8 @@
 
 #[macro_use]
 extern crate proka_kernel;
+#[macro_use]
+extern crate log;
 use proka_bootloader::header::Header;
 
 // Kernel header definition
@@ -44,7 +46,11 @@ pub extern "C" fn kernel_main() -> ! {
 
     // Re-init the kernel page
     proka_kernel::memory::init();
-    print!("[INFO] Initialized memory manager.");
+    println!("[INFO] Initialized memory manager.");
+
+    // Init logger for convenient
+    proka_kernel::logger::init();
+    info!("Initialized log system.");
 
     loop {}
 }
