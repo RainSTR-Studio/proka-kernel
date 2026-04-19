@@ -55,6 +55,7 @@ pub extern "C" fn kernel_main() -> ! {
     // Start do MMIO mapping
     info!("Starting the MMIO mapping process...");
     proka_kernel::mmio::init();
+    success!("Completed MMIO mapping process.");
 
     loop {}
 }

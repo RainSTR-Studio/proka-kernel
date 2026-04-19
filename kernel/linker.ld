@@ -16,13 +16,22 @@ SECTIONS {
         *(.text*)
     }
 
+    /* Move to the next memory page */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
     .data : {
         *(.data*)
     }
 
+    /* Move to the next memory page */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
     .rodata : {
         *(.rodata*)
     }
+
+    /* Move to the next memory page */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
 
     .bss : {
         *(.bss*)

@@ -53,9 +53,9 @@ impl FrameAlloc {
             }
         }
 
-        // Mark 0 ~ 32MiB as used (avoid allocating low memory)
-        let max_32mb_page = ((32 << 20) >> 12) as usize;
-        for pfn in 0..max_32mb_page {
+        // Mark 0 ~ 64MiB as used (avoid allocating low memory)
+        let max_64mb_page = ((64 << 20) >> 12) as usize;
+        for pfn in 0..max_64mb_page {
             self.set_bit(pfn, 1);
         }
 
