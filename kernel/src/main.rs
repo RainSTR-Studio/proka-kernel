@@ -52,5 +52,9 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::logger::init();
     info!("Initialized log system.");
 
+    // Start do MMIO mapping
+    info!("Starting the MMIO mapping process...");
+    proka_kernel::mmio::init();
+
     loop {}
 }
