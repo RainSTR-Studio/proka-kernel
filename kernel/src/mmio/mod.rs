@@ -8,6 +8,10 @@ use x86_64::PhysAddr;
 
 // Constants
 const PML4: u64 = 0x100000;
+const BASE: u64 = 0xffffe00001000000;
+
+/// Stores the table index offset.
+pub static OFFSET_IDX: Mutex<u64> = Mutex::new(0);
 
 // The MMIO table
 lazy_static! {
@@ -98,16 +102,15 @@ pub fn init() {
             // If not, just do standard mapping.
             trace!("Not in display...");
             let mut offset = 0u64;
-            let base = {
-                let table = MMIO.lock();
-                let idx = (table.count - 1) as usize;
-                table.entries[idx].virt + table.entries[idx].length
-            };
+            let mut offset_idx = OFFSET_IDX.lock();
+            let base = BASE + *offset_idx * 0x200000;
             while offset <= dev.mmio_size {
-                trace!("base: 0x{:16x}, offset: 0x{:08x}",base, offset);
-                mapper(dev.mmio_base, offset / 0x200000);
+                trace!("base: 0x{:16x}, offset_idx: 0x{:04x}", base, *offset_idx);
+                mapper(dev.mmio_base, *offset_idx);
                 offset += 0x200000;
             }
+
+            // Get the offset in this mapped page
 
             // Write to table
             let mut table = MMIO.lock();
@@ -116,8 +119,15 @@ pub fn init() {
             table.entries[idx].virt = base;
             table.entries[idx].length = dev.mmio_size;
             table.count += 1;
+
+            // Update counter
+            *offset_idx += offset / 0x200000;
+            trace!("Offset index updated to {}", *offset_idx);
         }
     });
+
+    let table = MMIO.lock();
+    trace!("Table after initialization: \n{:08x?}", *table);
 }
 
 /// Global index to track current PDPT slot and PDT allocation
@@ -162,5 +172,6 @@ fn mapper(phys: u64, offset_idx: u64) {
     let pdt = unsafe { &mut *(pdpt[*pdpt_idx].addr().as_u64() as *mut PageTable) };
     let idx = (entry_idx % 512) as usize;
 
+    trace!("Mapping phys {:08x} to pdt[{}]...", phys, idx);
     pdt[idx].set_addr(PhysAddr::new(phys), flags);
 }
