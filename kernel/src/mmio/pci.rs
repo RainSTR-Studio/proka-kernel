@@ -1,4 +1,5 @@
 use log::debug;
+use spin::Mutex;
 use x86_64::instructions::port::Port;
 
 /// PCI device structure with core identifiers and MMIO info
@@ -44,10 +45,28 @@ impl PciDevice {
     }
 }
 
-/// Global array of discovered PCI devices
-pub static mut PCI_DEVICES: [PciDevice; 64] = [PciDevice::zero(); 64];
-/// Number of discovered PCI devices
-pub static mut PCI_DEVICE_COUNT: usize = 0;
+/// The PCI devices table.
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct PciDeviceTable {
+    /// Each entries of device
+    pub entries: [PciDevice; 64],
+
+    /// Valid counts
+    pub count: u8,
+}
+
+impl PciDeviceTable {
+    pub const fn default() -> Self {
+        Self {
+            entries: [PciDevice::zero(); 64],
+            count: 0,
+        }
+    }
+}
+
+/// Global PCI table
+pub static PCI_DEVICES: Mutex<PciDeviceTable> = Mutex::new(PciDeviceTable::default());
 
 // PCI configuration access ports
 const PCI_CONFIG_ADDR: u16 = 0xCF8;
@@ -117,9 +136,7 @@ fn pci_read_bar(bus: u8, dev: u8, func: u8, bar_idx: u8) -> Option<(u64, u64)> {
 
 /// Scan PCI bus and populate the global PCI device list
 pub fn pci_scan() {
-    unsafe {
-        PCI_DEVICE_COUNT = 0;
-    }
+    let mut pci_table = PCI_DEVICES.lock();
 
     for bus in 0..=255 {
         for dev in 0..=31 {
@@ -154,28 +171,26 @@ pub fn pci_scan() {
                     }
                 }
 
-                unsafe {
-                    let idx = PCI_DEVICE_COUNT;
-                    if idx >= 64 {
-                        return;
-                    }
-
-                    PCI_DEVICES[idx] = dev_info;
-                    PCI_DEVICE_COUNT = idx + 1;
-
-                    debug!(
-                        "Got PCI device: bus {:02x}, device {:02x}, func {:02x}, vendor {:04x}, device {:04x}, class {:02x}/{:02x}, mmio {:016x}, size {:04x}",
-                        dev_info.bus,
-                        dev_info.dev,
-                        dev_info.func,
-                        dev_info.vendor_id,
-                        dev_info.device_id,
-                        dev_info.class,
-                        dev_info.subclass,
-                        dev_info.mmio_base,
-                        dev_info.mmio_size
-                    );
+                let idx = pci_table.count;
+                if idx >= 64 {
+                    return;
                 }
+
+                pci_table.entries[idx as usize] = dev_info;
+                pci_table.count = idx + 1;
+
+                debug!(
+                    "Got PCI device: bus {:02x}, device {:02x}, func {:02x}, vendor {:04x}, device {:04x}, class {:02x}/{:02x}, mmio {:016x}, size {:04x}",
+                    dev_info.bus,
+                    dev_info.dev,
+                    dev_info.func,
+                    dev_info.vendor_id,
+                    dev_info.device_id,
+                    dev_info.class,
+                    dev_info.subclass,
+                    dev_info.mmio_base,
+                    dev_info.mmio_size
+                );
             }
         }
     }
@@ -183,9 +198,8 @@ pub fn pci_scan() {
 
 /// Iterate over all scanned PCI devices
 pub fn pci_for_each<F: Fn(&PciDevice)>(f: F) {
-    unsafe {
-        for i in 0..PCI_DEVICE_COUNT {
-            f(&PCI_DEVICES[i]);
-        }
+    let pci_table = PCI_DEVICES.lock();
+    for i in 0..pci_table.count as usize {
+        f(&pci_table.entries[i]);
     }
 }
