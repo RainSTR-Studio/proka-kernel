@@ -18,3 +18,4 @@ pub mod panic;
 pub mod tables;
 pub mod logger;
 pub mod mmio;
+pub mod test;

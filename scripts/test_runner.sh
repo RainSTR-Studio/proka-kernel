@@ -91,7 +91,7 @@ while IFS= read -r line; do
 done <<< "$TEST_RESULTS"
 
 # Handle case where QEMU crashed or no tests ran but exit code was error
-if [ "$TOTAL_TESTS" -eq 0 ] && [ "$STATUS" -ne 33 ]; then
+if [[ $TOTAL_TESTS -eq 0 ]] && [[ "$STATUS" -ne 33 ]]; then
     echo "  <testcase name=\"kernel_boot\" classname=\"kernel\">" >> "$JUNIT_REPORT"
     echo "    <failure message=\"Kernel failed to boot or run tests\">Exit code: $STATUS</failure>" >> "$JUNIT_REPORT"
     echo "  </testcase>" >> "$JUNIT_REPORT"
