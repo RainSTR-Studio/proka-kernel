@@ -111,12 +111,13 @@ pub fn init() {
             }
 
             // Get the offset in this mapped page
+            let offset_in_page = dev.mmio_base & 0x1fffff;
 
             // Write to table
             let mut table = MMIO.lock();
             let idx = table.count as usize;
             table.entries[idx].phys = dev.mmio_base;
-            table.entries[idx].virt = base;
+            table.entries[idx].virt = base + offset_in_page;
             table.entries[idx].length = dev.mmio_size;
             table.count += 1;
 
@@ -125,9 +126,6 @@ pub fn init() {
             trace!("Offset index updated to {}", *offset_idx);
         }
     });
-
-    let table = MMIO.lock();
-    trace!("Table after initialization: \n{:08x?}", *table);
 }
 
 /// Global index to track current PDPT slot and PDT allocation
