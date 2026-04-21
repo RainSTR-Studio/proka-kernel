@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use log::{debug, trace};
 use spin::Mutex;
 use x86_64::structures::paging::{PageTable, PageTableFlags};
-use x86_64::PhysAddr;
+use x86_64::{PhysAddr, align_down};
 
 // Constants
 const PML4: u64 = 0x100000;
@@ -83,7 +83,7 @@ pub fn init() {
     debug!("Doing MMIO mapping...");
     self::pci::pci_for_each(|dev| {
         // If base / size = 0, we don't map its MMIO.
-        if dev.mmio_base == 0 || dev.mmio_size == 0 || dev.mmio_size > 0x1_0000_0000_0000 {
+        if dev.mmio_base == 0 || dev.mmio_size == 0 || dev.mmio_size > 0xff000000 {
             return;
         }
 
@@ -106,6 +106,7 @@ pub fn init() {
             let base = BASE + *offset_idx * 0x200000;
             while offset <= dev.mmio_size {
                 trace!("base: 0x{:16x}, offset_idx: 0x{:04x}", base, *offset_idx);
+                align_down(dev.mmio_base, 4096);                
                 mapper(dev.mmio_base, *offset_idx);
                 offset += 0x200000;
             }
