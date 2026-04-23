@@ -10,7 +10,8 @@ use x86_64::{
 
 lazy_static! {
     pub static ref FRAME_ALLOCATOR: Mutex<FrameAlloc> = {
-        let frame_allocator = FrameAlloc::default().init(get_bootinfo().memory());
+        let mut frame_allocator = FrameAlloc::default();
+        frame_allocator.init(get_bootinfo().memory());
         Mutex::new(frame_allocator)
     };
 }
@@ -23,7 +24,7 @@ pub struct FrameAlloc {
 
 impl FrameAlloc {
     /// Init the frame allocator.
-    pub fn init(mut self, map: MemoryMap) -> Self {
+    pub fn init(&mut self, map: MemoryMap) {
         // Get the max addr
         let max_phys_addr = map
             .entries
@@ -32,15 +33,10 @@ impl FrameAlloc {
             .max()
             .unwrap();
 
-        let max_page = (max_phys_addr / 4096) as usize;
+        self.max_page = (max_phys_addr / 4096) as usize;
 
-        // See how much bytes does the bitmap needed
-        let bitmap_bytes = (max_page + 7) / 8;
-
-        let bitmap =
-            unsafe { core::slice::from_raw_parts_mut(0xffff800000c00000 as *mut u8, bitmap_bytes) };
-
-        bitmap.fill(0);
+        // Init bitmap
+        self.bitmap.fill(0);
 
         // Mark the unavailable memory
         for desc in map.entries {
@@ -58,9 +54,6 @@ impl FrameAlloc {
         for pfn in 0..max_64mb_page {
             self.set_bit(pfn, 1);
         }
-
-        // Finished init
-        Self { bitmap, max_page }
     }
 
     /// Mark a page frame (pfn) with the given value (0 or 1)
