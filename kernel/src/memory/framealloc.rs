@@ -4,8 +4,8 @@ use proka_bootloader::get_bootinfo;
 use proka_bootloader::memory::{MemoryMap, MemoryType};
 use spin::Mutex;
 use x86_64::{
-    PhysAddr,
     structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB},
+    PhysAddr,
 };
 
 lazy_static! {
@@ -36,9 +36,8 @@ impl FrameAlloc {
         self.max_page = (max_phys_addr / 4096) as usize;
 
         // Init bitmap
-        self.bitmap = unsafe {
-            core::slice::from_raw_parts_mut(0xffff800000c00000 as *mut u8, 4 * 1024 * 1024)
-        };
+        self.bitmap =
+            unsafe { core::slice::from_raw_parts_mut(0xffff800001000000 as *mut u8, 8 << 20) };
         self.bitmap.fill(0);
 
         // Mark the unavailable memory
@@ -53,8 +52,8 @@ impl FrameAlloc {
         }
 
         // Mark 0 ~ 64MiB as used (avoid allocating low memory)
-        let max_64mb_page = ((64 << 20) >> 12) as usize;
-        for pfn in 0..max_64mb_page {
+        let used_page = ((66 << 20) >> 12) as usize;
+        for pfn in 0..used_page {
             self.set_bit(pfn, 1);
         }
     }
