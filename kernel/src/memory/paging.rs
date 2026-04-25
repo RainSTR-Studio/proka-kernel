@@ -1,7 +1,7 @@
 //! The paging module.
+use x86_64::PhysAddr;
 use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::*;
-use x86_64::PhysAddr;
 
 const PML4_ADDR: u64 = 0x100000;
 const PDPT_LOW_ADDR: u64 = 0x101000;

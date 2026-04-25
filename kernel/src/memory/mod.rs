@@ -5,11 +5,11 @@ pub mod paging;
 
 use lazy_static::lazy_static;
 use spin::Mutex;
-use x86_64::structures::paging::{
-    mapper::PageTableFrameMapping, MappedPageTable, Mapper, Page, PageTable, PageTableFlags,
-    PhysFrame, Size4KiB,
-};
 use x86_64::VirtAddr;
+use x86_64::structures::paging::{
+    MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
+    mapper::PageTableFrameMapping,
+};
 
 // PML4 phys addr
 const PML4: u64 = 0x100000;

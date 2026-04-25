@@ -106,7 +106,7 @@ pub fn init() {
             let base = BASE + *offset_idx * 0x200000;
             while offset <= dev.mmio_size {
                 trace!("base: 0x{:16x}, offset_idx: 0x{:04x}", base, *offset_idx);
-                align_down(dev.mmio_base, 4096);                
+                align_down(dev.mmio_base, 4096);
                 mapper(dev.mmio_base, *offset_idx);
                 offset += 0x200000;
             }

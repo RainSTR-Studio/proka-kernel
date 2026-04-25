@@ -12,10 +12,11 @@
 #![reexport_test_harness_main = "test_main"]
 
 pub mod color;
+pub mod logger;
 pub mod memory;
+pub mod mmio;
 pub mod output;
 pub mod panic;
+pub mod process;
 pub mod tables;
-pub mod logger;
-pub mod mmio;
 pub mod test;
