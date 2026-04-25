@@ -10,16 +10,18 @@ lazy_static! {
 
 /// The normal process list.
 #[repr(C)]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct NormalProcessTable {
-    pub process: [NormalProcess; MAX_PS],
+    pub process: &'static mut [NormalProcess],
     pub count: u16,
 }
 
 impl NormalProcessTable {
     pub fn default() -> Self {
+        let process = 
+            unsafe { core::slice::from_raw_parts_mut(0xffff800000c00000 as *mut NormalProcess, MAX_PS) };
         Self {
-            process: [NormalProcess::default(); MAX_PS],
+            process,
             count: 0,
         }
     }

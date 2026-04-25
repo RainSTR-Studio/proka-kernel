@@ -10,16 +10,18 @@ lazy_static! {
 
 /// The driver process list.
 #[repr(C)]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct DriverProcessTable {
-    pub process: [DriverProcess; MAX_PS],
+    pub process: &'static mut [DriverProcess],
     pub count: u16,
 }
 
 impl DriverProcessTable {
     pub fn default() -> Self {
+        let process = 
+            unsafe { core::slice::from_raw_parts_mut(0xffff800000e00000 as *mut DriverProcess, MAX_PS) };
         Self {
-            process: [DriverProcess::default(); MAX_PS],
+            process,
             count: 0,
         }
     }
