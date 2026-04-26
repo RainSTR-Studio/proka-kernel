@@ -20,3 +20,4 @@ pub mod panic;
 pub mod process;
 pub mod tables;
 pub mod test;
+pub mod apic;

@@ -57,5 +57,10 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::mmio::init();
     success!("Completed MMIO mapping process.");
 
+    // Init APIC
+    info!("Initializing APIC...");
+    proka_kernel::apic::init();
+    success!("Completed APIC initialization.");
+
     loop {}
 }

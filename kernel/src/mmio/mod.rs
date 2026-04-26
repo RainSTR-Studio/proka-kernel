@@ -4,10 +4,14 @@ use lazy_static::lazy_static;
 use log::{debug, trace};
 use spin::Mutex;
 use x86_64::structures::paging::{PageTable, PageTableFlags};
-use x86_64::{PhysAddr, align_down};
+use x86_64::registers::model_specific::Msr;
+use x86_64::{align_down, PhysAddr};
 
 // Constants
 const PML4: u64 = 0x100000;
+const LAPIC_PDPT: u64 = 0x80000;
+const LAPIC_PDT: u64 = 0x81000;
+const LAPIC_PT: u64 = 0x82000;
 const BASE: u64 = 0xffffe00001000000;
 
 /// Stores the table index offset.
@@ -127,6 +131,10 @@ pub fn init() {
             trace!("Offset index updated to {}", *offset_idx);
         }
     });
+
+    // Add the LAPIC mapping
+    debug!("Mapping LAPIC...");
+    map_lapic();
 }
 
 /// Global index to track current PDPT slot and PDT allocation
@@ -173,4 +181,28 @@ fn mapper(phys: u64, offset_idx: u64) {
 
     trace!("Mapping phys {:08x} to pdt[{}]...", phys, idx);
     pdt[idx].set_addr(PhysAddr::new(phys), flags);
+}
+
+#[inline]
+fn map_lapic() {
+    // The LAPIC phys addr
+    let lapic_phys = unsafe {
+        let value = Msr::new(0x1B).read();
+        value & !0xFFF
+    };
+    trace!("LAPIC phys: 0x{:08x}", lapic_phys);
+
+    // Init page table
+    let pml4 = unsafe { &mut *(PML4 as *mut PageTable) };
+    let pdpt = unsafe { &mut *(LAPIC_PDPT as *mut PageTable) };
+    let pdt = unsafe { &mut *(LAPIC_PDT as *mut PageTable) };
+    let pt = unsafe { &mut *(LAPIC_PT as *mut PageTable) }; // Map
+    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+    let pt_flags = flags
+        | PageTableFlags::NO_CACHE
+        | PageTableFlags::WRITE_THROUGH; // UC
+    pml4[449].set_addr(PhysAddr::new(LAPIC_PDPT), flags);
+    pdpt[0].set_addr(PhysAddr::new(LAPIC_PDT), flags);
+    pdt[0].set_addr(PhysAddr::new(LAPIC_PT), flags);
+    pt[0].set_addr(PhysAddr::new(lapic_phys), pt_flags);
 }
