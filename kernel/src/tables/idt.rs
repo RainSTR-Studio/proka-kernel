@@ -1,5 +1,5 @@
 //! The IDT table
-
+use crate::println;
 use lazy_static::lazy_static;
 use x86_64::set_general_handler;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
@@ -7,29 +7,18 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 lazy_static! {
     pub static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
-        set_general_handler!(&mut idt, general_handler);
+        set_general_handler!(&mut idt, general_handler, 0..31);
         idt
     };
 }
 
 pub fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Option<u64>) {
-    unsafe {
-        core::arch::asm!(
-            "movzx r8, {0}",
-            in(reg_byte) index,
-            options(nomem, nostack),
-        );
-
-        if let Some(code) = error_code {
-            core::arch::asm!(
-                "mov r9, {0}",
-                in(reg) code,
-                options(nomem, nostack)
-            );
-        } else {
-            core::arch::asm!("mov r9, 0xFFFF", options(nomem, nostack));
-        }
-    }
+    let errcode = if let Some(code) = error_code { code } else { 0xFFFF };
+    println!(
+        "[ERROR] CPU Exception! index: {},\n\
+        stack: {:#?}, \nerrcode: {}",
+        index, stack_frame, errcode
+    );
     loop {}
 }
 
