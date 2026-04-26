@@ -1,7 +1,13 @@
 //! The normal process definition.
-use super::{MAX_PS, Status};
+use super::{Error, Status, MAX_PS};
+use crate::memory::framealloc::FRAME_ALLOCATOR;
 use lazy_static::lazy_static;
 use spin::Mutex;
+use x86_64::structures::paging::FrameAllocator;
+
+// Constants
+/// RSP address for all normal process.
+pub const NORMAL_RSP: u64 = 0x1FF000;
 
 lazy_static! {
     pub static ref NORMAL_PROCESS: Mutex<NormalProcessTable> =
@@ -32,8 +38,8 @@ pub struct NormalProcess {
     /// Assign is the process present.
     pub present: bool,
 
-    /// The process entry point.
-    pub entry: u64,
+    /// The current RIP of this process.
+    pub rip: u64,
 
     /// The process status.
     pub status: Status,
@@ -46,4 +52,31 @@ pub struct NormalProcess {
 
     /// The process's page table.
     pub table_addr: u64,
+}
+
+impl NormalProcess {
+    /// Create a process.
+    #[inline]
+    pub fn create(priority: u8) -> Result<Self, Error> {
+        let frame = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_frame() {
+            frame.start_address().as_u64()
+        } else {
+            return Err(Error::MemoryNotEnough);
+        };
+
+        Ok(Self {
+            present: true,
+            rip: 0x200000,
+            status: Status::Ready,
+            rsp: NORMAL_RSP,
+            priority,
+            table_addr: frame,
+        })
+    }
+
+    /// Remove a process.
+    #[inline]
+    pub fn remove(&mut self) {
+        self.present = false;
+    }
 }

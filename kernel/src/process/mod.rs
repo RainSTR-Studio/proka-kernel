@@ -18,3 +18,14 @@ pub enum Status {
     /// Means the kernel is now running.
     Running = 1,
 }
+
+/// The error of operations of process.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Error {
+    /// The memory is not enough to create process.
+    MemoryNotEnough,
+
+    /// The address is not aligned.
+    AddressNotAligned,
+}

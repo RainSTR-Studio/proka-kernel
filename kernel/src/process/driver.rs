@@ -1,7 +1,13 @@
 //! The driver process definition.
-use super::{MAX_PS, Status};
+use crate::memory::framealloc::FRAME_ALLOCATOR;
+use super::{Status, MAX_PS, Error};
 use lazy_static::lazy_static;
 use spin::Mutex;
+use x86_64::structures::paging::FrameAllocator;
+
+// Constants
+/// The RSP of drivers.
+pub const DRIVER_RSP: u64 = 0xffffc000001F0000;
 
 lazy_static! {
     pub static ref DRIVER_PROCESS: Mutex<DriverProcessTable> =
@@ -32,8 +38,8 @@ pub struct DriverProcess {
     /// Assign is the current process exists.
     pub present: bool,
 
-    /// The process entry point.
-    pub entry: u64,
+    /// The current RIP of process.
+    pub rip: u64,
 
     /// The process status.
     pub status: Status,
@@ -43,4 +49,29 @@ pub struct DriverProcess {
 
     /// The process's page table.
     pub table_addr: u64,
+}
+
+impl DriverProcess {
+    /// Create a process.
+    #[inline]
+    pub fn create() -> Result<Self, Error> {
+        let frame = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_frame() {
+            frame.start_address().as_u64()
+        } else {
+            return Err(Error::MemoryNotEnough);
+        };
+        Ok(Self {
+            present: true,
+            rip: 0xffffc00000200000,
+            status: Status::Ready,
+            rsp: DRIVER_RSP,
+            table_addr: frame,
+        })
+    }
+
+    /// Remove this process.
+    #[inline]
+    pub fn remove(&mut self) {
+        self.present = false;
+    }
 }
