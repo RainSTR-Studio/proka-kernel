@@ -22,7 +22,12 @@ lazy_static! {
         let table = MappedPageTable::new(pml4, IdentityPageTableMapper);
         Mutex::new(table)
     };
-    pub static ref TOTAL_RAM: Once<u64> = {
+
+    /// The total RAM.
+    ///
+    /// The first one is the whole memory, and the second 
+    /// is the free-only memory.
+    pub static ref TOTAL_RAM: Once<(u64, u64)> = {
         let ram = Once::new();
         ram.call_once(|| {
             let memory_map = get_bootinfo().memory();
@@ -32,7 +37,12 @@ lazy_static! {
                 .filter(|entry| entry.mem_type == MemoryType::FreeRAM)
                 .map(|entry| entry.length)
                 .sum();
-            total_free_ram
+            let total_ram: u64 = memory_map
+                .entries
+                .iter()
+                .map(|entry| entry.length)
+                .sum();
+            (total_ram, total_free_ram)
         });
         ram
     };
@@ -59,7 +69,12 @@ pub fn init() {
     // Safety: Once the TOTAL_RAM used, the TOTAL_RAM
     // has already initialized by lazy_static.
     let total_ram = TOTAL_RAM.get().unwrap();
-    println!("[INFO] Total usable RAM: {}MiB", total_ram >> 20);
+    println!(
+        "[INFO] Total RAM: {}MiB, {}MiB is usable",
+        total_ram.0 >> 20,
+        total_ram.1 >> 20
+    );
+
 
     // Use mapper to make some pages not writable:
     // 0x10000~0x1FFFF: The BootInfo
