@@ -28,9 +28,8 @@ pub fn init() {
     pdpt_low[0].set_addr(PhysAddr::new(PDT_LOW_ADDR), flags);
     pdt_low[0].set_addr(PhysAddr::new(PT_LOW_ADDR), flags);
 
-    let low_flags = flags | PageTableFlags::GLOBAL;
     for i in 0..512 {
-        pt_low[i].set_addr(PhysAddr::new((i * 0x1000) as u64), low_flags);
+        pt_low[i].set_addr(PhysAddr::new((i * 0x1000) as u64), flags);
     }
 
     // Higher-half mapping (kernel):

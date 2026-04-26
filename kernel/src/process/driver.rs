@@ -1,5 +1,5 @@
 //! The driver process definition.
-use super::{Status, MAX_PS};
+use super::{MAX_PS, Status};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -18,12 +18,10 @@ pub struct DriverProcessTable {
 
 impl DriverProcessTable {
     pub fn default() -> Self {
-        let process = 
-            unsafe { core::slice::from_raw_parts_mut(0xffff800000e00000 as *mut DriverProcess, MAX_PS) };
-        Self {
-            process,
-            count: 0,
-        }
+        let process = unsafe {
+            core::slice::from_raw_parts_mut(0xffff800000e00000 as *mut DriverProcess, MAX_PS)
+        };
+        Self { process, count: 0 }
     }
 }
 

@@ -3,8 +3,10 @@ pub mod framealloc;
 pub mod heap;
 pub mod paging;
 
+use crate::println;
 use lazy_static::lazy_static;
-use spin::Mutex;
+use proka_bootloader::{get_bootinfo, memory::MemoryType};
+use spin::{Mutex, Once};
 use x86_64::VirtAddr;
 use x86_64::structures::paging::{
     MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
@@ -19,6 +21,20 @@ lazy_static! {
         let pml4 = &mut *(PML4 as *mut PageTable);
         let table = MappedPageTable::new(pml4, IdentityPageTableMapper);
         Mutex::new(table)
+    };
+    pub static ref TOTAL_RAM: Once<u64> = {
+        let ram = Once::new();
+        ram.call_once(|| {
+            let memory_map = get_bootinfo().memory();
+            let total_free_ram: u64 = memory_map
+                .entries
+                .iter()
+                .filter(|entry| entry.mem_type == MemoryType::FreeRAM)
+                .map(|entry| entry.length)
+                .sum();
+            total_free_ram
+        });
+        ram
     };
 }
 
@@ -39,13 +55,19 @@ pub fn init() {
     // Enable new page table
     self::paging::init();
 
+    // Print total memory
+    // Safety: Once the TOTAL_RAM used, the TOTAL_RAM
+    // has already initialized by lazy_static.
+    let total_ram = TOTAL_RAM.get().unwrap();
+    println!("[INFO] Total usable RAM: {}MiB", total_ram >> 20);
+
     // Use mapper to make some pages not writable:
     // 0x10000~0x1FFFF: The BootInfo
     let mut mapper = MAPPER.lock();
     for i in 0..16 {
         let addr = VirtAddr::new(0x10000 + i * 4096);
         let page: Page<Size4KiB> = Page::containing_address(addr);
-        let flags = PageTableFlags::PRESENT | PageTableFlags::GLOBAL;
+        let flags = PageTableFlags::PRESENT;
         unsafe {
             mapper.update_flags(page, flags).unwrap().flush();
         }
