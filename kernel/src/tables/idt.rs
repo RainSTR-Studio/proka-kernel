@@ -1,5 +1,5 @@
 //! The IDT table
-use crate::println;
+use crate::{println, print};
 use lazy_static::lazy_static;
 use x86_64::set_general_handler;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
@@ -25,7 +25,7 @@ fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Opti
 }
 
 extern "x86-interrupt" fn time_interrupt(_: InterruptStackFrame) {
-    println!("Hello!");
+    print!(".");
     crate::apic::eoi();
 }
 

@@ -6,6 +6,8 @@ use x86_64::registers::model_specific::Msr;
 // Constants
 pub const LAPIC_SPURIOUS: u32 = 0xF0;
 pub const LAPIC_LVT_TIMER: u32 = 0x320;
+pub const LAPIC_TIMER_DIVIDE: u32 = 0x3E0;
+pub const LAPIC_TIMER_INITIAL: u32 = 0x380;
 pub const LAPIC_EOI: u32 = 0xB0;
 
 pub fn init() {
@@ -23,6 +25,12 @@ pub fn init() {
         // Set up Timer IVT
         let value = (0 << 18) | (1 << 17) | (0 << 16) | 0x30;
         lapic_write(LAPIC_LVT_TIMER, value);
+
+        // Set up Timer divide (by 16)
+        lapic_write(LAPIC_TIMER_DIVIDE, 0x3);
+
+        // Set up timer initial
+        lapic_write(LAPIC_TIMER_INITIAL, 0x10000);
 
         // Set up spurious IVT
         let value = (1 << 8) | 0xFF;
