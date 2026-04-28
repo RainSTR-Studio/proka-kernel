@@ -6,13 +6,7 @@ use x86_64::registers::model_specific::Msr;
 // Constants
 pub const LAPIC_SPURIOUS: u32 = 0xF0;
 pub const LAPIC_LVT_TIMER: u32 = 0x320;
-pub const LAPIC_TIMER_DIV: u32 = 0x3E0;
-pub const LAPIC_TIMER_INIT: u32 = 0x380;
 pub const LAPIC_EOI: u32 = 0xB0;
-
-// Local APIC enable | Periodic timer
-const APIC_ENABLE: u32 = 1 << 8;
-const TIMER_PERIODIC: u32 = 1 << 17;
 
 pub fn init() {
     unsafe {
@@ -26,17 +20,13 @@ pub fn init() {
         base |= 1 << 11;
         Msr::new(0x1B).write(base);
 
-        // Enable Local APIC + spurious interrupt vector 0xFF
-        lapic_write(LAPIC_SPURIOUS, APIC_ENABLE | 0xFF);
+        // Set up Timer IVT
+        let value = (0 << 18) | (1 << 17) | (0 << 16) | 0x30;
+        lapic_write(LAPIC_LVT_TIMER, value);
 
-        // Timer divide by 16
-        lapic_write(LAPIC_TIMER_DIV, 0x3);
-
-        // Periodic timer, interrupt vector 0x30
-        lapic_write(LAPIC_LVT_TIMER, TIMER_PERIODIC | 0x30);
-
-        // Set initial count (ticks periodic timer)
-        lapic_write(LAPIC_TIMER_INIT, 100000);
+        // Set up spurious IVT
+        let value = (1 << 8) | 0xFF;
+        lapic_write(LAPIC_SPURIOUS, value);
 
         x86_64::instructions::interrupts::enable();
     }

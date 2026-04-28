@@ -308,8 +308,12 @@ macro_rules! println {
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    CONSOLE
-        .lock()
-        .write_fmt(args)
-        .expect("Failed to write to console");
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        CONSOLE
+            .lock()
+            .write_fmt(args)
+            .expect("Failed to write to console");
+    });
 }
