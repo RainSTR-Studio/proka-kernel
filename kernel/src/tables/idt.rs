@@ -1,5 +1,5 @@
 //! The IDT table
-use crate::{println, print};
+use crate::println;
 use lazy_static::lazy_static;
 use x86_64::set_general_handler;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
@@ -25,7 +25,19 @@ fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Opti
 }
 
 extern "x86-interrupt" fn time_interrupt(_: InterruptStackFrame) {
-    print!(".");
+    // Switch to kernel page table first
+    unsafe {
+        core::arch::asm!(
+            "mov rax, 0x100000", // Fixed addr
+            "mov cr3, rax",
+            options(nomem, nostack, preserves_flags)
+        )
+    }
+
+    // Invoke tadk switcher
+    crate::scheduler::switch_task();
+
+    // Send EOI
     crate::apic::eoi();
 }
 

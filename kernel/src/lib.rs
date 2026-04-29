@@ -21,3 +21,4 @@ pub mod process;
 pub mod tables;
 pub mod test;
 pub mod apic;
+pub mod scheduler;
