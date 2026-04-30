@@ -12,7 +12,7 @@ use x86_64::{
     },
 };
 
-use crate::process::{DRIVER_PROCESS, NORMAL_PROCESS};
+use crate::{print, process::{DRIVER_PROCESS, NORMAL_PROCESS}};
 
 /// The normal process queue.
 pub static NORMAL_QUEUE: Mutex<Vec<usize>> = Mutex::new(Vec::new());
@@ -36,6 +36,8 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
             options(nomem, nostack, preserves_flags)
         )
     }
+
+    print!(".");
 
     // Get smth bruh
     let normal_empty = NORMAL_QUEUE.lock().is_empty();

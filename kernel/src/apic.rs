@@ -1,57 +1,63 @@
 //! The APIC module.
-use log::trace;
+use lazy_static::lazy_static;
+use spin::Mutex;
+use x2apic::lapic::{LocalApic as LocalApicOut, LocalApicBuilder, TimerDivide, TimerMode};
 use x86_64::instructions::port::Port;
-use x86_64::registers::model_specific::Msr;
 
 // Constants
-pub const LAPIC_SPURIOUS: u32 = 0xF0;
-pub const LAPIC_LVT_TIMER: u32 = 0x320;
-pub const LAPIC_TIMER_DIVIDE: u32 = 0x3E0;
-pub const LAPIC_TIMER_INITIAL: u32 = 0x380;
-pub const LAPIC_EOI: u32 = 0xB0;
+pub const XAPIC_BASE: u64 = 0xFFFFe08000000000;
+
+// Global statics
+lazy_static! {
+    pub static ref LAPIC: Mutex<LocalApic> = {
+        let mut lapic_cfg = LocalApicBuilder::new();
+
+        // Set XAPIC base (mapped)
+        lapic_cfg.set_xapic_base(XAPIC_BASE);
+
+        // Set up timer
+        lapic_cfg.timer_divide(TimerDivide::Div16);
+        lapic_cfg.timer_initial(0x1000);
+        lapic_cfg.timer_mode(TimerMode::Periodic);
+        lapic_cfg.timer_vector(0x20);
+
+        // Set up sprious and error handler
+        lapic_cfg.spurious_vector(0xF0);
+        lapic_cfg.error_vector(0xF1);
+
+        // Build and store
+        let lapic = lapic_cfg.build().unwrap();
+        Mutex::new(LocalApic(lapic))
+    };
+}
+
+/// A sturct contains the local apic, but implemented [`Send`] and [`Sync`].
+pub struct LocalApic(LocalApicOut);
+
+// Implement them
+unsafe impl Send for LocalApic {}
+unsafe impl Sync for LocalApic {}
 
 pub fn init() {
+    x86_64::instructions::interrupts::disable();
     unsafe {
         // First, close the 8259 PIC
         Port::new(0x21).write(0xFFu8);
         Port::new(0xA1).write(0xFFu8);
 
         // Then, open the global APIC
-        let mut base = Msr::new(0x1B).read();
-        trace!("{base}");
-        base |= 1 << 11;
-        Msr::new(0x1B).write(base);
+        let mut lapic = LAPIC.lock();
+        lapic.0.enable();
 
-        // Set up Timer IVT
-        let value = (0 << 18) | (1 << 17) | (0 << 16) | 0x30;
-        lapic_write(LAPIC_LVT_TIMER, value);
-
-        // Set up Timer divide (by 16)
-        lapic_write(LAPIC_TIMER_DIVIDE, 0x3);
-
-        // Set up timer initial
-        lapic_write(LAPIC_TIMER_INITIAL, 0x10000);
-
-        // Set up spurious IVT
-        let value = (1 << 8) | 0xFF;
-        lapic_write(LAPIC_SPURIOUS, value);
-
-        x86_64::instructions::interrupts::enable();
-    }
-}
-
-/// Write to LAPIC MMIO
-#[inline]
-fn lapic_write(offset: u32, value: u32) {
-    let base = 0xFFFFe08000000000;
-    unsafe {
-        ((base + offset as u64) as *mut u32)
-            .write_volatile(value);
+        // Enable Timer
+        lapic.0.enable_timer();
     }
 }
 
 /// Invoke EOI
 #[inline]
 pub fn eoi() {
-    lapic_write(LAPIC_EOI, 0);
+    unsafe {
+        LAPIC.lock().0.end_of_interrupt();
+    }
 }

@@ -9,8 +9,9 @@ lazy_static! {
     pub static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
         set_general_handler!(&mut idt, general_handler, 0..31);
-        idt[0x30].set_handler_fn(switch_task);
-        idt[0xFF].set_handler_fn(spurious);
+        idt[0x20].set_handler_fn(switch_task);
+        idt[0xF0].set_handler_fn(spurious);
+        idt[0xF1].set_handler_fn(error);
         idt
     };
 }
@@ -27,6 +28,11 @@ fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Opti
 
 // Spurious interrupt
 extern "x86-interrupt" fn spurious(_: InterruptStackFrame) {}
+
+// Error interrupt
+extern "x86-interrupt" fn error(_: InterruptStackFrame) {
+    crate::apic::eoi();
+}
 
 /// Init IDT
 pub fn init() {
