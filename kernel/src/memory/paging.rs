@@ -79,12 +79,12 @@ pub fn init() {
     }
 
     // Higher-half mapping (initrd):
-    // Physical: 0x2200000 ~ 0x4200000 (32MiB)
+    // Physical: 0x2200000 ~ 0x4200000 (16MiB)
     // Virtual: 0xffff800002000000
 
-    // 32MiB = 16 PDTE
+    // 16MiB = 8 PDTE
     let initrd_flags = PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE;
-    for i in 16..32 {
+    for i in 16..24 {
         let phys = 0x2200000 + ((i - 16) as u64 * 0x200000);
         pdt_high[i].set_addr(PhysAddr::new(phys), initrd_flags);
     }
