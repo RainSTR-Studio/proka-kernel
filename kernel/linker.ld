@@ -11,8 +11,8 @@ SECTIONS {
 
     /* Texts */
     .text : {
-	*(.header*)
-	*(.main*)
+        *(.header*)
+        *(.main*)
         *(.text*)
     }
 
@@ -28,6 +28,15 @@ SECTIONS {
 
     .rodata : {
         *(.rodata*)
+    }
+
+    /* Move to the next memory page */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
+    .gdata : {
+        __GDATA_START = .;
+        *(.gdata*)
+        __GDATA_END = .;
     }
 
     /* Move to the next memory page */
