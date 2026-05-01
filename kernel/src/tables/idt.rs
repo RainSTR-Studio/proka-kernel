@@ -1,12 +1,22 @@
 //! The IDT table
 use crate::println;
 use crate::scheduler::switch_task;
+use spin::Lazy;
 use x86_64::set_general_handler;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
+// Place IDT in .gdata section, initialize lazily
 #[unsafe(link_section = ".gdata")]
-pub static mut IDT: InterruptDescriptorTable = InterruptDescriptorTable::new();
+pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
+    let mut idt = InterruptDescriptorTable::new();
+    set_general_handler!(&mut idt, general_handler);
+    idt[0x20].set_handler_fn(switch_task);
+    idt[0xF0].set_handler_fn(spurious);
+    idt[0xF1].set_handler_fn(error);
+    idt
+});
 
+// General CPU exception handler for vector 0~31
 #[unsafe(link_section = ".gdata")]
 fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Option<u64>) {
     let errcode = if let Some(code) = error_code {
@@ -22,25 +32,17 @@ fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Opti
     loop {}
 }
 
-// Spurious interrupt
+// Spurious interrupt handler for LAPIC
 #[unsafe(link_section = ".gdata")]
 extern "x86-interrupt" fn spurious(_: InterruptStackFrame) {}
 
-// Error interrupt
+// Common interrupt handler with EOI acknowledge
 #[unsafe(link_section = ".gdata")]
 extern "x86-interrupt" fn error(_: InterruptStackFrame) {
     crate::apic::eoi();
 }
 
-/// Init IDT
+/// Initialize and load IDT
 pub fn init() {
-    // SAFETY: Update IDT won't destroy data
-    unsafe {
-        let mut idt = &mut *(&raw mut IDT);
-        set_general_handler!(&mut idt, general_handler, 0..31);
-        idt[0x20].set_handler_fn(switch_task);
-        idt[0xF0].set_handler_fn(spurious);
-        idt[0xF1].set_handler_fn(error);
-        idt.load();
-    }
+    IDT.load();
 }
