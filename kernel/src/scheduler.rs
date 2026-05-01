@@ -27,6 +27,7 @@ static IS_DRIVER: AtomicBool = AtomicBool::new(true);
 static CURRENT_ID: AtomicUsize = AtomicUsize::new(0);
 
 /// The task switcher
+#[unsafe(link_section = ".gdata")]
 pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
     // Switch to kernel page table IMMEDIATELY!!!
     unsafe {

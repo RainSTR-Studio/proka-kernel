@@ -1,8 +1,10 @@
 //! The paging module.
+use core::ptr::addr_of;
 use super::TOTAL_RAM;
-use x86_64::PhysAddr;
 use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::*;
+use x86_64::PhysAddr;
+use x86_64::{align_down, align_up};
 
 const PML4_ADDR: u64 = 0x100000;
 const PDPT_LOW_ADDR: u64 = 0x101000;
@@ -10,7 +12,13 @@ const PDPT_HIGH_ADDR: u64 = 0x102000;
 const PDT_LOW_ADDR: u64 = 0x103000;
 const PDT_HIGH_ADDR: u64 = 0x104000;
 const PT_LOW_ADDR: u64 = 0x105000;
-const PDT_LOW2_ADDR: u64 = 0x106000;
+const PDT_PROC_ADDR: u64 = 0x106000; // For process only
+const PDT_LOW2_ADDR: u64 = 0x107000;
+
+unsafe extern "C" {
+    static __GDATA_START: u8;
+    static __GDATA_END: u8;
+}
 
 /// Initialize page tables for higher-half kernel
 pub fn init() {
@@ -21,6 +29,7 @@ pub fn init() {
     let pdt_low = unsafe { &mut *(PDT_LOW_ADDR as *mut PageTable) };
     let pdt_high = unsafe { &mut *(PDT_HIGH_ADDR as *mut PageTable) };
     let pt_low = unsafe { &mut *(PT_LOW_ADDR as *mut PageTable) };
+    let pdt_proc = unsafe { &mut *(PDT_PROC_ADDR as *mut PageTable) };
 
     let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
 
@@ -65,7 +74,6 @@ pub fn init() {
         }
     }
 
-
     // Higher-half mapping (kernel):
     // Physical: 0x200000 ~ 0x2200000 (32MiB)
     // Virtual:  0xffff800000000000 ~
@@ -87,6 +95,19 @@ pub fn init() {
     for i in 16..24 {
         let phys = 0x2200000 + ((i - 16) as u64 * 0x200000);
         pdt_high[i].set_addr(PhysAddr::new(phys), initrd_flags);
+    }
+
+    // Higher half mapping (process-only)
+    // SAFETY: Read linker's variables is safe
+    let start = addr_of!(__GDATA_START) as u64;
+    let end = addr_of!(__GDATA_END) as u64;
+    let start_aligned = align_down(start, 0x200000);
+    let times = align_up(end - start_aligned, 0x200000) / 0x200000;
+    let pdt_index: usize = ((start_aligned >> 21) & 0x1FF) as usize;
+    let proc_flags = flags | PageTableFlags::GLOBAL;
+    let gdata_phys = start_aligned - 0xffff800000000000 + 0x200000;
+    for i in pdt_index..pdt_index + times as usize {
+        pdt_proc[i].set_addr(PhysAddr::new(gdata_phys), proc_flags);
     }
 
     // Map the framebuffer
