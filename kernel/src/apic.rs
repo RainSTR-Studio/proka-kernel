@@ -17,7 +17,7 @@ lazy_static! {
 
         // Set up timer
         lapic_cfg.timer_divide(TimerDivide::Div16);
-        lapic_cfg.timer_initial(0x1000);
+        lapic_cfg.timer_initial(10000);
         lapic_cfg.timer_mode(TimerMode::Periodic);
         lapic_cfg.timer_vector(0x20);
 
