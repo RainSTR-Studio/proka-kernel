@@ -10,6 +10,7 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
     set_general_handler!(&mut idt, general_handler);
+    idt[0x20].set_handler_fn(apic_calibrator);
     idt[0x30].set_handler_fn(switch_task);
     idt[0xF0].set_handler_fn(spurious);
     idt[0xF1].set_handler_fn(error);
@@ -30,6 +31,16 @@ fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Opti
         index, stack_frame, errcode
     );
     loop {}
+}
+
+// The APIC calibrator
+extern "x86-interrupt" fn apic_calibrator(_: InterruptStackFrame) {
+    use crate::apic::{PIC, COUNT};
+    use core::sync::atomic::Ordering;
+    
+    // Add the count in each interrupts
+    COUNT.fetch_add(1, Ordering::Relaxed);
+    unsafe { PIC.lock().notify_end_of_interrupt(0x20) }
 }
 
 // Spurious interrupt handler for LAPIC
