@@ -4,15 +4,18 @@ use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use spin::Mutex;
 use x86_64::{
-    PhysAddr,
     registers::control::{Cr3, Cr3Flags},
     structures::{
         idt::InterruptStackFrame,
         paging::{PhysFrame, Size4KiB},
     },
+    PhysAddr,
 };
 
-use crate::{print, process::{DRIVER_PROCESS, NORMAL_PROCESS}};
+use crate::{
+    print,
+    process::{DRIVER_PROCESS, NORMAL_PROCESS},
+};
 
 /// The normal process queue.
 pub static NORMAL_QUEUE: Mutex<Vec<usize>> = Mutex::new(Vec::new());
@@ -24,7 +27,7 @@ pub static DRIVER_QUEUE: Mutex<Vec<usize>> = Mutex::new(Vec::new());
 static IS_DRIVER: AtomicBool = AtomicBool::new(true);
 
 // Contains the current PID/DID.
-static CURRENT_ID: AtomicUsize = AtomicUsize::new(0);
+static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
 
 /// The task switcher
 #[unsafe(link_section = ".gdata")]
@@ -62,16 +65,22 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
         IS_DRIVER.store(false, Ordering::SeqCst);
 
         // So let's save its RIP and RSP
-        DRIVER_PROCESS.lock().process[current_id].rip = rip;
-        DRIVER_PROCESS.lock().process[current_id].rsp = rsp;
+        let mut guard = NORMAL_PROCESS.lock();
+        let proc = &mut guard.process[current_id];
+        proc.context.rip = rip;
+        proc.context.rsp = rsp;
+        drop(guard);
 
         to_driver(rflags)
     } else {
         IS_DRIVER.store(true, Ordering::SeqCst);
 
         // Do the save step as above
-        NORMAL_PROCESS.lock().process[current_id].rip = rip;
-        NORMAL_PROCESS.lock().process[current_id].rsp = rsp;
+        let mut guard = NORMAL_PROCESS.lock();
+        let proc = &mut guard.process[current_id];
+        proc.context.rip = rip;
+        proc.context.rsp = rsp;
+        drop(guard);
 
         to_normal(rflags)
     };
@@ -106,8 +115,8 @@ fn to_driver(rflags: u64) {
 
     // Now get its information
     let cr3 = PhysFrame::<Size4KiB>::containing_address(PhysAddr::new(proc.table_addr));
-    let rsp = proc.rsp;
-    let rip = proc.rip;
+    let rsp = proc.context.rsp;
+    let rip = proc.context.rip;
 
     // Update status and switch to target process's table
     // proc.status = Status::Running;
@@ -161,8 +170,8 @@ fn to_normal(rflags: u64) {
 
     // Get info
     let cr3 = PhysFrame::<Size4KiB>::containing_address(PhysAddr::new(proc.table_addr));
-    let rsp = proc.rsp;
-    let rip = proc.rip;
+    let rsp = proc.context.rsp;
+    let rip = proc.context.rip;
 
     // Update status and switch to CR3
     unsafe {

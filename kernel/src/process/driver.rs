@@ -1,13 +1,15 @@
 //! The driver process definition.
+extern crate alloc;
+use alloc::boxed::Box;
 use crate::memory::framealloc::FRAME_ALLOCATOR;
-use super::{Status, MAX_PS, Error};
+use super::{Status, MAX_PS, Error, Context};
 use lazy_static::lazy_static;
 use spin::Mutex;
 use x86_64::structures::paging::FrameAllocator;
 
 // Constants
 /// The RSP of drivers.
-pub const DRIVER_RSP: u64 = 0xffffc000001F0000;
+pub const DRIVER_RSP: u64 = 0x1F0000;
 
 lazy_static! {
     pub static ref DRIVER_PROCESS: Mutex<DriverProcessTable> =
@@ -33,19 +35,16 @@ impl DriverProcessTable {
 
 /// One process's info list.
 #[repr(C)]
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone)]
 pub struct DriverProcess {
     /// Assign is the current process exists.
     pub present: bool,
 
-    /// The current RIP of process.
-    pub rip: u64,
-
     /// The process status.
     pub status: Status,
 
-    /// The process stack pointer.
-    pub rsp: u64,
+    /// The process context.
+    pub context: Box<Context>,
 
     /// The process's page table.
     pub table_addr: u64,
@@ -62,9 +61,8 @@ impl DriverProcess {
         };
         Ok(Self {
             present: true,
-            rip: 0xffffc00000200000,
             status: Status::Ready,
-            rsp: DRIVER_RSP,
+            context: Box::new(Context::default()),
             table_addr: frame,
         })
     }

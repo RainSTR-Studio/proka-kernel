@@ -47,6 +47,15 @@ pub enum ProcType {
     Driver,
 }
 
+/// The process register content.
+#[repr(C)]
+#[derive(Debug, Default, Clone)]
+pub struct Context {
+    // TODO: Extend more registers
+    pub rsp: u64,
+    pub rip: u64,
+}
+
 /// Create a process and push it into the process list.
 ///
 /// # Note
@@ -75,7 +84,7 @@ fn create_normal(priority: u8) -> Result<(), Error> {
         if table.process[i].present != false {
             continue;
         }
-        table.process[i] = process;
+        table.process[i] = process.clone();
     }
 
     // TODO: Update scheduler queue
@@ -95,7 +104,7 @@ fn create_driver() -> Result<(), Error> {
         if table.process[i].present != false {
             continue;
         }
-        table.process[i] = process;
+        table.process[i] = process.clone();
     }
 
     // TODO: Update scheduler queue

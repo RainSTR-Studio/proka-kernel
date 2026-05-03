@@ -1,5 +1,7 @@
 //! The normal process definition.
-use super::{Error, Status, MAX_PS};
+extern crate alloc;
+use alloc::boxed::Box;
+use super::{Error, Status, Context, MAX_PS};
 use crate::memory::framealloc::FRAME_ALLOCATOR;
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -33,22 +35,19 @@ impl NormalProcessTable {
 
 /// One process's info list.
 #[repr(C)]
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone)]
 pub struct NormalProcess {
     /// Assign is the process present.
     pub present: bool,
 
-    /// The current RIP of this process.
-    pub rip: u64,
-
     /// The process status.
     pub status: Status,
 
-    /// The process stack pointer.
-    pub rsp: u64,
-
     /// The process priority.
     pub priority: u8,
+
+    /// The process context.
+    pub context: Box<Context>,
 
     /// The process's page table.
     pub table_addr: u64,
@@ -66,10 +65,9 @@ impl NormalProcess {
 
         Ok(Self {
             present: true,
-            rip: 0x200000,
             status: Status::Ready,
-            rsp: NORMAL_RSP,
             priority,
+            context: Box::new(Context::default()),
             table_addr: frame,
         })
     }
