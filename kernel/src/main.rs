@@ -30,10 +30,10 @@ static KERNEL_HEADER: Header = Header::default();
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".main")]
 pub extern "C" fn kernel_main() -> ! {
-    // Init IDT
-    proka_kernel::tables::idt::init();
     // Init GDT
     proka_kernel::tables::gdt::init();
+    // Init IDT
+    proka_kernel::tables::idt::init();
 
     // Print messages
     println!("[INFO] Successfully loaded kernel.");

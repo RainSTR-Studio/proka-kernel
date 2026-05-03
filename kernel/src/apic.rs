@@ -19,7 +19,7 @@ lazy_static! {
         lapic_cfg.timer_divide(TimerDivide::Div16);
         lapic_cfg.timer_initial(10000);
         lapic_cfg.timer_mode(TimerMode::Periodic);
-        lapic_cfg.timer_vector(0x20);
+        lapic_cfg.timer_vector(0x30);
 
         // Set up sprious and error handler
         lapic_cfg.spurious_vector(0xF0);

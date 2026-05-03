@@ -10,7 +10,7 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
     set_general_handler!(&mut idt, general_handler);
-    idt[0x20].set_handler_fn(switch_task);
+    idt[0x30].set_handler_fn(switch_task);
     idt[0xF0].set_handler_fn(spurious);
     idt[0xF1].set_handler_fn(error);
     idt
