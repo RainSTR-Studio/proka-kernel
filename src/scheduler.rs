@@ -1,5 +1,6 @@
 //! The scheduler.
 extern crate alloc;
+use crate::process::{DRIVER_PROCESS, NORMAL_PROCESS};
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use spin::Mutex;
@@ -10,11 +11,6 @@ use x86_64::{
         idt::InterruptStackFrame,
         paging::{PhysFrame, Size4KiB},
     },
-};
-
-use crate::{
-    print,
-    process::{DRIVER_PROCESS, NORMAL_PROCESS},
 };
 
 /// The normal process queue.
@@ -40,8 +36,6 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
             options(nomem, nostack, preserves_flags)
         )
     }
-
-    print!(".");
 
     // Get smth bruh
     let normal_empty = NORMAL_QUEUE.lock().is_empty();

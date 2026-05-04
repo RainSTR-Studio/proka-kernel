@@ -8,6 +8,7 @@ anaxa-builder = "0.5.0"
 glob = "0.3.0"
 
 [dependencies]
+hadris-fat = { version = "1.1.2", default-features = false, features = ["lfn", "read", "sync"] }
 lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
 log = "0.4.29"
 pic8259 = "0.11.0"

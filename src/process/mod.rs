@@ -49,11 +49,20 @@ pub enum ProcType {
 
 /// The process register content.
 #[repr(C)]
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Context {
     // TODO: Extend more registers
     pub rsp: u64,
     pub rip: u64,
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        Self {
+            rsp: 0x1FF000,
+            rip: 0x200000,
+        }
+    }
 }
 
 /// Create a process and push it into the process list.

@@ -62,6 +62,9 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::apic::init();
     success!("Completed APIC initialization.");
 
+    // Time to parse INITPRT!
+    proka_kernel::initprt::load_init();
+
     // Enable interrupt
     x86_64::instructions::interrupts::enable();
 
