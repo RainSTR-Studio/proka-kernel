@@ -1,6 +1,5 @@
 # Proka Kernel - A kernel for ProkaOS
 
-[![Kernel Tests](https://github.com/RainSTR-Studio/proka-kernel/actions/workflows/test.yml/badge.svg)](https://github.com/RainSTR-Studio/proka-kernel/actions/workflows/test.yml)
 [![Rust Nightly](https://img.shields.io/badge/rust-nightly-orange?style=flat-square&logo=rust)](https://www.rust-lang.org/)
 [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-yellow.svg?style=flat-square)](https://opensource.org/license/gpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/RainSTR-Studio/proka-kernel?style=flat-square)](https://github.com/RainSTR-Studio/proka-kernel/stargazers)
