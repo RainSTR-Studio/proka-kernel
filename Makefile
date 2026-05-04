@@ -65,6 +65,22 @@ menuconfig:
 fmt:
 	$(Q)cargo fmt
 
-clean:
+# Documentation targets
+doc:
+	@echo "[INFO] Building guide (mdBook)..."
+	$(Q)mdbook build
+	@echo "[INFO] Building API documentation (rustdoc)..."
+	$(Q)cargo doc --no-deps
+	$(Q)rm -rf book/api
+	$(Q)cp -r target/doc book/api
+	@echo "[INFO] Documentation has successfully built in book"
+
+docs-clean:
+	@echo "[INFO] Cleaning documentation..."
+	$(Q)mdbook clean
+	$(Q)rm -rf book
+	$(Q)cargo clean --doc
+
+clean: docs-clean
 	$(Q)cargo clean
 	$(Q)rm -rf $(OUT_DIR)
