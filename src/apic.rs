@@ -1,11 +1,11 @@
 //! The APIC module.
-use log::{trace, info};
-use lazy_static::lazy_static;
 use core::sync::atomic::{AtomicU32, Ordering};
+use lazy_static::lazy_static;
+use log::{info, trace};
+use pic8259::ChainedPics;
 use spin::{Mutex, Once};
 use x2apic::lapic::{LocalApic as LocalApicOut, LocalApicBuilder, TimerDivide, TimerMode};
 use x86_64::instructions::port::Port;
-use pic8259::ChainedPics;
 
 // Constants
 pub const XAPIC_BASE: u64 = 0xFFFFe08000000000;
@@ -98,7 +98,7 @@ pub fn init() {
         LAPIC_FREQ.call_once(|| freq);
 
         // Reset the LAPIC timer mode
-        let initial = freq / 16000;  // div=16
+        let initial = freq / 16000; // div=16
         lapic.0.set_timer_mode(TimerMode::Periodic);
         lapic.0.set_timer_initial(initial);
     }

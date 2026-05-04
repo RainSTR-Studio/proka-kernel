@@ -1,6 +1,6 @@
 //! The TSS module.
-use x86_64::structures::tss::TaskStateSegment;
 use x86_64::VirtAddr;
+use x86_64::structures::tss::TaskStateSegment;
 
 // Constants
 const IST1_STACK_TOP: u64 = 0xFFFF8000400FF000;

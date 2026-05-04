@@ -25,7 +25,7 @@ lazy_static! {
 
     /// The total RAM.
     ///
-    /// The first one is the whole memory, and the second 
+    /// The first one is the whole memory, and the second
     /// is the free-only memory.
     pub static ref TOTAL_RAM: Once<(u64, u64)> = {
         let ram = Once::new();
@@ -74,7 +74,6 @@ pub fn init() {
         total_ram.0 >> 20,
         total_ram.1 >> 20
     );
-
 
     // Use mapper to make some pages not writable:
     // 0x10000~0x1FFFF: The BootInfo

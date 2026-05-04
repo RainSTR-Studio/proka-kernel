@@ -61,7 +61,7 @@ pub struct Context {
 /// # Note
 /// Certain arguments are not required for specific process domains.
 ///
-/// If an unsupported process domain is provided, it will be ignored, 
+/// If an unsupported process domain is provided, it will be ignored,
 /// and process creation will continue normally.
 pub fn create(proctype: ProcType, priority: u8) -> Result<(), Error> {
     match proctype {
@@ -162,4 +162,3 @@ fn remove_driver(index: usize) -> Result<(), Error> {
     // TODO: Update scheduler queue
     Ok(())
 }
-

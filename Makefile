@@ -15,7 +15,7 @@ PKG_NAME := proka-kernel
 RUST_TARGET := x86_64-unknown-none
 
 # Build profile (dev, release)
-PROFILE ?= release
+PROFILE ?= dev
 # Map 'dev' to Cargo's 'debug' directory
 ifeq ($(PROFILE),dev)
     PROFILE_DIR := debug
@@ -37,17 +37,11 @@ RUSTFLAGS := -C relocation-model=static \
              -C force-frame-pointers=yes
 
 # Binary path relative to kernel directory
-BIN_PATH := target/$(RUST_TARGET)/$(PROFILE_DIR)/$(PKG_NAME)
+BIN_PATH ?= target/$(RUST_TARGET)/$(PROFILE_DIR)/$(PKG_NAME)
 
-.PHONY: all clean distclean menuconfig fmt clippy test debug release
+.PHONY: all clean menuconfig fmt clippy
 
-all: release
-
-debug: PROFILE=dev
-debug: $(OUTPUT)
-
-release: PROFILE=release
-release: $(OUTPUT)
+all: $(OUTPUT)
 
 $(OUTPUT): $(BIN_PATH)
 	$(Q)mkdir -p $(OUT_DIR)
@@ -63,9 +57,6 @@ $(BIN_PATH): .FORCE
 clippy:
 	$(Q)RUSTFLAGS="$(RUSTFLAGS)" cargo clippy --target $(RUST_TARGET) --all-features
 
-test:
-	$(Q)RUSTFLAGS="$(RUSTFLAGS)" cargo anaxa test --lib --target $(RUST_TARGET)
-
 .FORCE:
 
 menuconfig:
@@ -76,4 +67,4 @@ fmt:
 
 clean:
 	$(Q)cargo clean
-	$(Q) rm -rf $(OUT_DIR)
+	$(Q)rm -rf $(OUT_DIR)

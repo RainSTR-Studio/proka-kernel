@@ -3,9 +3,9 @@ pub mod pci;
 use lazy_static::lazy_static;
 use log::{debug, trace};
 use spin::Mutex;
-use x86_64::structures::paging::{PageTable, PageTableFlags};
 use x86_64::registers::model_specific::Msr;
-use x86_64::{align_down, PhysAddr};
+use x86_64::structures::paging::{PageTable, PageTableFlags};
+use x86_64::{PhysAddr, align_down};
 
 // Constants
 const PML4: u64 = 0x100000;
@@ -198,9 +198,7 @@ fn map_lapic() {
     let pdt = unsafe { &mut *(LAPIC_PDT as *mut PageTable) };
     let pt = unsafe { &mut *(LAPIC_PT as *mut PageTable) }; // Map
     let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
-    let pt_flags = flags
-        | PageTableFlags::NO_CACHE
-        | PageTableFlags::WRITE_THROUGH; // UC
+    let pt_flags = flags | PageTableFlags::NO_CACHE | PageTableFlags::WRITE_THROUGH; // UC
     pml4[449].set_addr(PhysAddr::new(LAPIC_PDPT), flags);
     pdpt[0].set_addr(PhysAddr::new(LAPIC_PDT), flags);
     pdt[0].set_addr(PhysAddr::new(LAPIC_PT), flags);

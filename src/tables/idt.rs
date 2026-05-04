@@ -35,9 +35,9 @@ fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Opti
 
 // The APIC calibrator
 extern "x86-interrupt" fn apic_calibrator(_: InterruptStackFrame) {
-    use crate::apic::{PIC, COUNT};
+    use crate::apic::{COUNT, PIC};
     use core::sync::atomic::Ordering;
-    
+
     // Add the count in each interrupts
     COUNT.fetch_add(1, Ordering::Relaxed);
     unsafe { PIC.lock().notify_end_of_interrupt(0x20) }

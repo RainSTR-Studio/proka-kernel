@@ -4,12 +4,12 @@ use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use spin::Mutex;
 use x86_64::{
+    PhysAddr,
     registers::control::{Cr3, Cr3Flags},
     structures::{
         idt::InterruptStackFrame,
         paging::{PhysFrame, Size4KiB},
     },
-    PhysAddr,
 };
 
 use crate::{

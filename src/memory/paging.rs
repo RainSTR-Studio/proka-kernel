@@ -1,9 +1,9 @@
 //! The paging module.
 use super::TOTAL_RAM;
 use core::ptr::addr_of;
+use x86_64::PhysAddr;
 use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::*;
-use x86_64::PhysAddr;
 use x86_64::{align_down, align_up};
 
 const PML4_ADDR: u64 = 0x100000;

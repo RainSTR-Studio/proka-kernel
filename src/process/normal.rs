@@ -1,8 +1,8 @@
 //! The normal process definition.
 extern crate alloc;
-use alloc::boxed::Box;
-use super::{Error, Status, Context, MAX_PS};
+use super::{Context, Error, MAX_PS, Status};
 use crate::memory::framealloc::FRAME_ALLOCATOR;
+use alloc::boxed::Box;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use x86_64::structures::paging::FrameAllocator;

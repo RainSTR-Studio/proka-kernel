@@ -11,6 +11,7 @@
 #![test_runner(crate::test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+pub mod apic;
 pub mod color;
 pub mod logger;
 pub mod memory;
@@ -18,7 +19,6 @@ pub mod mmio;
 pub mod output;
 pub mod panic;
 pub mod process;
+pub mod scheduler;
 pub mod tables;
 pub mod test;
-pub mod apic;
-pub mod scheduler;

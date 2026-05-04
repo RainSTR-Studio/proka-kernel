@@ -1,7 +1,7 @@
 //! The GDT table
-use spin::Lazy;
 use super::tss::TSS;
-use x86_64::registers::segmentation::{Segment, CS, DS, ES, FS, GS, SS};
+use spin::Lazy;
+use x86_64::registers::segmentation::{CS, DS, ES, FS, GS, SS, Segment};
 use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
 
 #[unsafe(link_section = ".gdata")]
@@ -21,7 +21,7 @@ pub static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
             kernel_data: kdata,
             user_code: ucode,
             user_data: udata,
-            tss
+            tss,
         },
     )
 });
@@ -53,7 +53,7 @@ pub fn init() {
         FS::set_reg(sel.kernel_data);
         GS::set_reg(sel.kernel_data);
         SS::set_reg(sel.kernel_data);
-        
+
         // Update TSS
         core::arch::asm!(
             "ltr {0:x}",

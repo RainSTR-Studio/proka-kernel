@@ -1,8 +1,8 @@
 //! The driver process definition.
 extern crate alloc;
-use alloc::boxed::Box;
+use super::{Context, Error, MAX_PS, Status};
 use crate::memory::framealloc::FRAME_ALLOCATOR;
-use super::{Status, MAX_PS, Error, Context};
+use alloc::boxed::Box;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use x86_64::structures::paging::FrameAllocator;
