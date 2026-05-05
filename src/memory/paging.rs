@@ -100,7 +100,7 @@ pub fn init() {
     // Virtual: 0xffff800002000000
     // Use 2MiB huge page, no fine 4K control needed
     let initrd_flags =
-        PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE | PageTableFlags::HUGE_PAGE;
+        PageTableFlags::PRESENT | PageTableFlags::HUGE_PAGE;
     for i_pdt in 16..24 {
         let base_phys = 0x2200000 + ((i_pdt - 16) as u64 * 0x200000);
         pdt_high[i_pdt].set_addr(PhysAddr::new(base_phys), initrd_flags);
