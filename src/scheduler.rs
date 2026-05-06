@@ -1,6 +1,9 @@
 //! The scheduler.
 extern crate alloc;
-use crate::process::{DRIVER_PROCESS, NORMAL_PROCESS};
+use crate::{
+    process::{DRIVER_PROCESS, NORMAL_PROCESS},
+    tables::gdt::GDT,
+};
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use spin::Mutex;
@@ -120,16 +123,19 @@ fn to_driver(rflags: u64) {
 
     // Update RSP and jump
     crate::apic::eoi();
+    let sel = GDT.1;
     unsafe {
         core::arch::asm!(
-            "push 0x10",   // SS
-            "push {0}",    // RSP
-            "push {1}",    // RFLAGS
-            "push 0x10",   // CS, PL=0
-            "push {2}",    // RIP
+            "push {0:x}",   // SS
+            "push {1}",    // RSP
+            "push {2}",    // RFLAGS
+            "push {3:x}",   // CS, PL=0
+            "push {4}",    // RIP
             "iretq",
+            in(reg) sel.kernel_data.0,
             in(reg) rsp,
             in(reg) rflags,
+            in(reg) sel.kernel_code.0,
             in(reg) rip,
             options(nomem, nostack, noreturn, preserves_flags)
         )
@@ -174,16 +180,19 @@ fn to_normal(rflags: u64) {
 
     // Finally, update RSP and jump
     crate::apic::eoi();
+    let sel = GDT.1;
     unsafe {
         core::arch::asm!(
-            "push 0x2b",     // SS
-            "push {0}",     // RSP
-            "push {1}",     // RFLAGS
-            "push 0x33",    // CS, PL=3
-            "push {2}",     // RIP
+            "push {0:x}",     // SS
+            "push {1}",       // RSP
+            "push {2}",       // RFLAGS
+            "push {3:x}",     // CS, PL=3
+            "push {4}",       // RIP
             "iretq",
+            in(reg) sel.user_data.0,
             in(reg) rsp,
             in(reg) rflags,
+            in(reg) sel.user_code.0,
             in(reg) rip,
             options(nomem, nostack, noreturn, preserves_flags)
         )

@@ -1,5 +1,2 @@
 [build]
 target-dir = "./target"
-
-[target.x86_64-unknown-none]
-runner = "bash ../scripts/test_runner.sh"

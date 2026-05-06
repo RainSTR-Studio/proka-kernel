@@ -256,15 +256,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pic8259"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62d9a86c292b165f757e47e7fd66855def189b2564609bc4203727b27c33db22"
-dependencies = [
- "x86_64",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -288,7 +279,6 @@ dependencies = [
  "hadris-fat",
  "lazy_static",
  "log",
- "pic8259",
  "proka-bootloader",
  "spin 0.10.0",
  "spinning_top",
