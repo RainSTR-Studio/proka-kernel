@@ -2,6 +2,7 @@
 use core::sync::atomic::AtomicU32;
 use spin::{Lazy, Mutex};
 use x2apic::lapic::{LocalApic as LocalApicOut, LocalApicBuilder, TimerDivide, TimerMode};
+use x86_64::instructions::port::Port;
 
 // Constants
 pub const XAPIC_BASE: u64 = 0xFFFFe08000000000;
@@ -41,6 +42,12 @@ unsafe impl Sync for LocalApic {}
 pub fn init() {
     // Disable interrupt to avoid something weird
     x86_64::instructions::interrupts::disable();
+
+    // First, close the 8259 PIC
+    unsafe {
+        Port::new(0x21).write(0xFFu8);
+        Port::new(0xA1).write(0xFFu8);
+    }
 
     // Init LAPIC
     let mut lapic = LAPIC.lock();
