@@ -3,6 +3,20 @@
 version = 4
 
 [[package]]
+name = "acpi"
+version = "6.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b763acdc1d85c36d61acf97a59938f23202d0e8efe45e8759de10c02db242744"
+dependencies = [
+ "bit_field",
+ "bitflags 2.11.0",
+ "byteorder",
+ "log",
+ "pci_types",
+ "spinning_top",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -82,6 +96,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "byteorder"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "cfg-if"
@@ -244,6 +264,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
+name = "pci_types"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0c2a105c657261a938ff68ee231c199a3d80eef33976004829de761ef5b1a9b"
+dependencies = [
+ "bit_field",
+ "bitflags 2.11.0",
+]
+
+[[package]]
 name = "petgraph"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -266,14 +296,15 @@ dependencies = [
 
 [[package]]
 name = "proka-bootloader"
-version = "0.4.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16fc7dab2a567e74097ead3d2af380b6eeec273155b2b22d2d11ebc34e0b559c"
+checksum = "a9283fbe9b730116a8bcc1e61fcb40eb0ceb1107d4da3159879ec7605c07521d"
 
 [[package]]
 name = "proka-kernel"
 version = "0.1.0"
 dependencies = [
+ "acpi",
  "anaxa-builder",
  "glob",
  "hadris-fat",
