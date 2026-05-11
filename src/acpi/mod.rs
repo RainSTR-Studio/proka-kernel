@@ -11,7 +11,7 @@ use spin::{Lazy, Mutex};
 use x86_64::{
     PhysAddr, align_up,
     instructions::port::Port,
-    structures::paging::{Mapper, PageTableFlags, PhysFrame, Size4KiB, mapper::MapToError},
+    structures::paging::{Mapper, PageTableFlags, PhysFrame, Size2MiB, mapper::MapToError},
 };
 
 /// The ACPI Root table.
@@ -40,18 +40,19 @@ impl Handler for AcpiHandler {
         let mut mapper = MAPPER.lock();
 
         // Align up the size
-        let size_aligned = align_up(size as u64, 4096) as usize;
-        let range = size_aligned >> 12;
+        let size_aligned = align_up(size as u64, 0x200000) as usize;
+        let range = size_aligned >> 21;
         let flags = PageTableFlags::PRESENT;
         for addr in physical_address..=physical_address + range {
             let phys = PhysAddr::new(addr as u64);
-            let frame = PhysFrame::<Size4KiB>::containing_address(phys);
+            let frame = PhysFrame::<Size2MiB>::containing_address(phys);
             match unsafe { mapper.identity_map(frame, flags, &mut *framealloc) } {
                 Ok(flusher) => flusher.flush(),
                 Err(MapToError::PageAlreadyMapped(_)) => (),
-                _ => panic!(
+                Err(e) => panic!(
                     "Mapping ACPI process NOT successfully!\n\
-                        Occurs in mapping page {physical_address}, size {size}."
+                    Occurs in mapping page {:08x}, size {}, problem is {:?}.",
+                    physical_address, size, e
                 ),
             }
         }
