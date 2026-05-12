@@ -1,25 +1,33 @@
 //! The frame allocator.
-use lazy_static::lazy_static;
-use proka_bootloader::get_bootinfo;
-use proka_bootloader::memory::{MemoryMap, MemoryType};
-use spin::Mutex;
+extern crate alloc;
+use alloc::{vec, vec::Vec};
+use log::debug;
+use proka_bootloader::{
+    get_bootinfo,
+    memory::{MemoryMap, MemoryType},
+};
+use spin::{Lazy, Mutex};
 use x86_64::{
     PhysAddr,
     structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB},
 };
 
-lazy_static! {
-    pub static ref FRAME_ALLOCATOR: Mutex<FrameAlloc> = {
-        let mut frame_allocator = FrameAlloc::default();
-        frame_allocator.init(get_bootinfo().memory());
-        Mutex::new(frame_allocator)
-    };
-}
+/// The global frame allocator
+pub static FRAME_ALLOCATOR: Lazy<Mutex<FrameAlloc>> = Lazy::new(|| {
+    let mut frame_allocator = FrameAlloc::default();
+    frame_allocator.init(get_bootinfo().memory());
+    Mutex::new(frame_allocator)
+});
+
+/// The bits to start allocation
+const USED_PAGE: usize = (66 << 20) >> 12;
+
 
 #[derive(Default)]
 pub struct FrameAlloc {
-    bitmap: &'static mut [u8],
+    bitmap: Vec<u8>,
     max_page: usize,
+    pos: usize,
 }
 
 impl FrameAlloc {
@@ -36,9 +44,8 @@ impl FrameAlloc {
         self.max_page = (max_phys_addr / 4096) as usize;
 
         // Init bitmap
-        self.bitmap =
-            unsafe { core::slice::from_raw_parts_mut(0xffff800001000000 as *mut u8, 8 << 20) };
-        self.bitmap.fill(0);
+        let bitmap_bytes = (self.max_page + 7) / 8;
+        self.bitmap = vec![0u8; bitmap_bytes];
 
         // Mark the unavailable memory
         for desc in map.entries {
@@ -51,11 +58,13 @@ impl FrameAlloc {
             }
         }
 
-        // Mark 0 ~ 52MiB as used (avoid allocating low memory)
-        let used_page = ((52 << 20) >> 12) as usize;
-        for pfn in 0..used_page {
+        // Mark 0 ~ 66MiB as used (avoid allocating low memory)
+        for pfn in 0..USED_PAGE {
             self.set_bit(pfn, 1);
         }
+
+        // Set up position
+        self.pos = USED_PAGE;
     }
 
     /// Mark a page frame (pfn) with the given value (0 or 1)
@@ -91,10 +100,16 @@ impl FrameAlloc {
 // Trait implementations
 unsafe impl FrameAllocator<Size4KiB> for FrameAlloc {
     fn allocate_frame(&mut self) -> Option<PhysFrame> {
-        for pfn in 0..self.max_page {
+        // Check: is current position out of maxpage
+        if self.pos >= self.max_page {
+            self.pos = USED_PAGE;
+        }
+
+        for pfn in self.pos..self.max_page {
             if self.get_bit(pfn) == 0 {
                 self.set_bit(pfn, 1);
                 let addr = PhysAddr::new((pfn << 12) as u64);
+                debug!("Allocated addr {:?}", addr);
                 return Some(PhysFrame::containing_address(addr));
             }
         }
@@ -107,6 +122,11 @@ impl FrameDeallocator<Size4KiB> for FrameAlloc {
         let physaddr = frame.start_address();
         let addr = physaddr.as_u64();
         let pfn = (addr >> 12) as usize;
+
+        // Check: Low-66MiB is NOT unallocatable
+        if pfn <= USED_PAGE {
+            return;
+        }
 
         self.set_bit(pfn, 0);
     }

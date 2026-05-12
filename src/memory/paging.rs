@@ -75,14 +75,14 @@ pub fn init() {
     }
 
     // Higher-half mapping (kernel):
-    // Physical: 0x200000 ~ 0x2200000 (32MiB)
+    // Physical: 0x200000 ~ 0x3200000 (48MiB)
     // Virtual:  0xffff800000000000 ~
     // Use 4KiB page granularity
     pml4[256].set_addr(PhysAddr::new(PDPT_HIGH_ADDR), flags);
     pdpt_high[0].set_addr(PhysAddr::new(PDT_HIGH_ADDR), flags);
 
     // Allocate PT pages sequentially with 'current'
-    for i_pdt in 0..16 {
+    for i_pdt in 0..24 {
         let pt = unsafe { &mut *(current as *mut PageTable) };
         let base_phys = 0x200000 + (i_pdt as u64 * 0x200000);
 
@@ -96,21 +96,21 @@ pub fn init() {
     }
 
     // Higher-half mapping (initrd):
-    // Physical: 0x2200000 ~ 0x3200000 (16MiB)
+    // Physical: 0x3200000 ~ 0x4200000 (16MiB)
     // Virtual: 0xffff800002000000
     // Use 2MiB huge page, no fine 4K control needed
     let initrd_flags = PageTableFlags::PRESENT | PageTableFlags::HUGE_PAGE;
-    for i_pdt in 16..24 {
-        let base_phys = 0x2200000 + ((i_pdt - 16) as u64 * 0x200000);
+    for i_pdt in 24..32 {
+        let base_phys = 0x3200000 + ((i_pdt - 24) as u64 * 0x200000);
         pdt_high[i_pdt].set_addr(PhysAddr::new(base_phys), initrd_flags);
     }
 
-    // Map global interrupt stack 0xFFFF800040000000 -> 0x3200000
+    // Map global interrupt stack 0xFFFF800040000000 -> 0x4200000
     // Fill PDPT entry for global stack PDT
     pdpt_high[1].set_addr(PhysAddr::new(PDT_GS_ADDR), global_flags);
     // Map 2MiB huge page with Global flag
     pdt_gs[0].set_addr(
-        PhysAddr::new(0x3200000),
+        PhysAddr::new(0x4200000),
         huge_flags | PageTableFlags::GLOBAL,
     );
 

@@ -1,10 +1,14 @@
 //! The heap allocator
+use spinning_top::RawSpinlock;
 use talc::{source::Claim, *};
 
-// Heap size from 0xffff800001800000
-const HEAP_BASE: u64 = 0xffff800001800000;
-const HEAP_SIZE: usize = 0x800000; // 8MiB
+/// The end to heap
+const HEAP_END: u64 = 0xffff800003000000;
 
 #[global_allocator]
-static TALC: TalcLock<spinning_top::RawSpinlock, Claim> =
-    TalcLock::new(unsafe { Claim::new(HEAP_BASE as *mut u8, HEAP_SIZE) });
+static TALC: TalcLock<RawSpinlock, Claim> = TalcLock::new(unsafe {
+    // Todo: Use linker script to tell its start
+    let start = 0xffff800000400000u64;
+    let size = (HEAP_END - start) as usize;
+    Claim::new(start as *mut u8, size)
+});
