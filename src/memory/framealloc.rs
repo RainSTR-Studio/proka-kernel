@@ -1,7 +1,6 @@
 //! The frame allocator.
 extern crate alloc;
 use alloc::{vec, vec::Vec};
-use log::debug;
 use proka_bootloader::{
     get_bootinfo,
     memory::{MemoryMap, MemoryType},
@@ -109,7 +108,7 @@ unsafe impl FrameAllocator<Size4KiB> for FrameAlloc {
             if self.get_bit(pfn) == 0 {
                 self.set_bit(pfn, 1);
                 let addr = PhysAddr::new((pfn << 12) as u64);
-                debug!("Allocated addr {:?}", addr);
+                self.pos += 1;
                 return Some(PhysFrame::containing_address(addr));
             }
         }
