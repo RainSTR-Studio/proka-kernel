@@ -53,6 +53,7 @@ pub fn init() {
         pdt_low[i].set_addr(PhysAddr::new(phys), huge_flags);
     }
 
+    // TODO: Move this identity mapping process to framealloc
     // Map the whole 256GiB memory range, use 'current' as page table alloc pointer
     let total_ram_bytes = TOTAL_RAM.get().unwrap().1;
     let mut current = PDT_LOW2_ADDR;

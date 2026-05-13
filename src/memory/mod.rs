@@ -80,4 +80,8 @@ pub fn init() {
             mapper.update_flags(page, flags).unwrap().flush();
         }
     }
+
+    // Pre-initialize the frame allocator
+    println!("[INFO] Initializing frame allocator (this may take some time)...");
+    self::framealloc::FRAME_ALLOCATOR.lock();
 }
