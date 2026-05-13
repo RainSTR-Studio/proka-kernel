@@ -3,18 +3,15 @@ use crate::output::font8x16::FONT8X16;
 use crate::{color, color::Color};
 use alloc::{vec, vec::Vec};
 use core::fmt::{self, Write};
-use lazy_static::lazy_static;
 use proka_bootloader::get_bootinfo;
-use spin::Mutex;
+use spin::{Lazy, Mutex};
 
 // Constants
 const FONT_W: u64 = 8;
 const FONT_H: u64 = 16;
 
 // Some statics which is global
-lazy_static! {
-    pub static ref CONSOLE: Mutex<Console> = Mutex::new(Console::init());
-}
+pub static CONSOLE: Lazy<Mutex<Console>> = Lazy::new(|| Mutex::new(Console::init()));
 
 /// The ANSI parse status
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

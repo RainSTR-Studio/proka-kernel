@@ -21,7 +21,6 @@ pub static FRAME_ALLOCATOR: Lazy<Mutex<FrameAlloc>> = Lazy::new(|| {
 /// The bits to start allocation
 const USED_PAGE: usize = (66 << 20) >> 12;
 
-
 #[derive(Default)]
 pub struct FrameAlloc {
     bitmap: Vec<u8>,

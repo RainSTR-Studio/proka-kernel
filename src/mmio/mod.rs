@@ -1,8 +1,7 @@
 //! The MMIO Manager.
 pub mod pci;
-use lazy_static::lazy_static;
 use log::{debug, trace};
-use spin::Mutex;
+use spin::{Lazy, Mutex};
 use x86_64::registers::model_specific::Msr;
 use x86_64::structures::paging::{PageTable, PageTableFlags};
 use x86_64::{PhysAddr, align_down};
@@ -18,21 +17,19 @@ const BASE: u64 = 0xffffe00001000000;
 pub static OFFSET_IDX: Mutex<u64> = Mutex::new(0);
 
 // The MMIO table
-lazy_static! {
-    pub static ref MMIO: Mutex<MmioTable> = {
-        let mut table = MmioTable::default();
+pub static MMIO: Lazy<Mutex<MmioTable>> = Lazy::new(|| {
+    let mut table = MmioTable::default();
 
-        // Because the class 0x3 (display) is mapped for
-        // 16MiB, so it's time to record it into table.
-        table.entries[0].virt = 0xffffe00000000000;
-        table.entries[0].length = 0x1000000;
+    // Because the class 0x3 (display) is mapped for
+    // 16MiB, so it's time to record it into table.
+    table.entries[0].virt = 0xffffe00000000000;
+    table.entries[0].length = 0x1000000;
 
-        // The physical address will be filled in runtime.
-        table.count += 1;
+    // The physical address will be filled in runtime.
+    table.count += 1;
 
-        Mutex::new(table)
-    };
-}
+    Mutex::new(table)
+});
 
 /// The main MMIO Table
 #[repr(C)]

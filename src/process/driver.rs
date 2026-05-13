@@ -3,32 +3,24 @@ extern crate alloc;
 use super::{Context, Error, MAX_PS, Status};
 use crate::memory::framealloc::FRAME_ALLOCATOR;
 use alloc::boxed::Box;
-use lazy_static::lazy_static;
-use spin::Mutex;
+use alloc::{vec, vec::Vec};
+use spin::{Lazy, Mutex};
 use x86_64::structures::paging::FrameAllocator;
 
-// Constants
-/// The RSP of drivers.
-pub const DRIVER_RSP: u64 = 0x1F0000;
-
-lazy_static! {
-    pub static ref DRIVER_PROCESS: Mutex<DriverProcessTable> =
-        Mutex::new(DriverProcessTable::default());
-}
+pub static DRIVER_PROCESS: Lazy<Mutex<DriverProcessTable>> =
+    Lazy::new(|| Mutex::new(DriverProcessTable::default()));
 
 /// The driver process list.
 #[repr(C)]
 #[derive(Debug)]
 pub struct DriverProcessTable {
-    pub process: &'static mut [DriverProcess],
+    pub process: Vec<DriverProcess>,
     pub count: u16,
 }
 
 impl DriverProcessTable {
     pub fn default() -> Self {
-        let process = unsafe {
-            core::slice::from_raw_parts_mut(0xffff800000e00000 as *mut DriverProcess, MAX_PS)
-        };
+        let process = vec![DriverProcess::default(); MAX_PS];
         Self { process, count: 0 }
     }
 }

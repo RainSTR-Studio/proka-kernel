@@ -168,7 +168,7 @@ dependencies = [
  "hadris-io",
  "hadris-macros",
  "parse-size",
- "spin 0.10.0",
+ "spin",
 ]
 
 [[package]]
@@ -213,15 +213,6 @@ checksum = "45a8a2b9cb3e0b0c1803dbb0758ffac5de2f425b23c28f518faabd9d805342ff"
 dependencies = [
  "equivalent",
  "hashbrown 0.16.1",
-]
-
-[[package]]
-name = "lazy_static"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
-dependencies = [
- "spin 0.9.8",
 ]
 
 [[package]]
@@ -308,10 +299,9 @@ dependencies = [
  "anaxa-builder",
  "glob",
  "hadris-fat",
- "lazy_static",
  "log",
  "proka-bootloader",
- "spin 0.10.0",
+ "spin",
  "spinning_top",
  "talc",
  "x2apic",
@@ -424,12 +414,6 @@ checksum = "6662b5879511e06e8999a8a235d848113e942c9124f211511b16466ee2995f26"
 dependencies = [
  "serde_core",
 ]
-
-[[package]]
-name = "spin"
-version = "0.9.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
 name = "spin"

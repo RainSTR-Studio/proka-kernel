@@ -3,10 +3,9 @@
 // According to the documentation of the [`acpi`] crate,
 // we first need to implement a [`Handler`] trait.
 
-use core::ptr::NonNull;
-
 use crate::memory::{MAPPER, framealloc::FRAME_ALLOCATOR};
 use acpi::{AcpiTables, Handle, Handler};
+use core::ptr::NonNull;
 use spin::{Lazy, Mutex};
 use x86_64::{
     PhysAddr, align_up,
@@ -17,10 +16,7 @@ use x86_64::{
 /// The ACPI Root table.
 pub static ACPI_TABLE: Lazy<Mutex<AcpiTables<AcpiHandler>>> = Lazy::new(|| {
     let addr = proka_bootloader::get_bootinfo().acpi() as usize;
-    let acpi = unsafe {
-        AcpiTables::from_rsdp(AcpiHandler, addr)
-            .expect("ACPI not initialized")
-    };
+    let acpi = unsafe { AcpiTables::from_rsdp(AcpiHandler, addr).expect("ACPI not initialized") };
     Mutex::new(acpi)
 });
 

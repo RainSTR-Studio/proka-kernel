@@ -3,32 +3,24 @@ extern crate alloc;
 use super::{Context, Error, MAX_PS, Status};
 use crate::memory::framealloc::FRAME_ALLOCATOR;
 use alloc::boxed::Box;
-use lazy_static::lazy_static;
-use spin::Mutex;
+use alloc::{vec, vec::Vec};
+use spin::{Lazy, Mutex};
 use x86_64::structures::paging::FrameAllocator;
 
-// Constants
-/// RSP address for all normal process.
-pub const NORMAL_RSP: u64 = 0x1FF000;
-
-lazy_static! {
-    pub static ref NORMAL_PROCESS: Mutex<NormalProcessTable> =
-        Mutex::new(NormalProcessTable::default());
-}
+pub static NORMAL_PROCESS: Lazy<Mutex<NormalProcessTable>> =
+    Lazy::new(|| Mutex::new(NormalProcessTable::default()));
 
 /// The normal process list.
 #[repr(C)]
 #[derive(Debug)]
 pub struct NormalProcessTable {
-    pub process: &'static mut [NormalProcess],
+    pub process: Vec<NormalProcess>,
     pub count: u16,
 }
 
 impl NormalProcessTable {
     pub fn default() -> Self {
-        let process = unsafe {
-            core::slice::from_raw_parts_mut(0xffff800000c00000 as *mut NormalProcess, MAX_PS)
-        };
+        let process = vec![NormalProcess::default(); MAX_PS];
         Self { process, count: 0 }
     }
 }
