@@ -20,11 +20,7 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
 // General CPU exception handler for vector 0~31
 #[unsafe(link_section = ".gdata")]
 fn general_handler(stack_frame: InterruptStackFrame, index: u8, error_code: Option<u64>) {
-    let errcode = if let Some(code) = error_code {
-        code
-    } else {
-        0xFFFF
-    };
+    let errcode = error_code.unwrap_or(0xFFFF);
     println!(
         "[ERROR] CPU Exception! index: {},\n\
         stack: {:#?}, \nerrcode: {}",

@@ -42,7 +42,7 @@ impl FrameAlloc {
         self.max_page = (max_phys_addr / 4096) as usize;
 
         // Init bitmap
-        let bitmap_bytes = (self.max_page + 7) / 8;
+        let bitmap_bytes = self.max_page.div_ceil(8);
         self.bitmap = vec![0u8; bitmap_bytes];
 
         // Mark the unavailable memory

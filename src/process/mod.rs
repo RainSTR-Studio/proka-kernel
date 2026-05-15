@@ -82,15 +82,12 @@ pub fn create(proctype: ProcType, priority: u8) -> Result<(), Error> {
 
 /// Create a normal process.
 fn create_normal(priority: u8) -> Result<(), Error> {
-    let process = match self::normal::NormalProcess::create(priority) {
-        Ok(proc) => proc,
-        Err(e) => return Err(e),
-    };
+    let process = self::normal::NormalProcess::create(priority)?;
 
     // Check which process is usable
     let mut table = NORMAL_PROCESS.lock();
     for i in 0..MAX_PS {
-        if table.process[i].present != false {
+        if table.process[i].present {
             continue;
         }
         table.process[i] = process.clone();
@@ -102,15 +99,12 @@ fn create_normal(priority: u8) -> Result<(), Error> {
 
 /// Create a driver process.
 fn create_driver() -> Result<(), Error> {
-    let process = match self::driver::DriverProcess::create() {
-        Ok(proc) => proc,
-        Err(e) => return Err(e),
-    };
+    let process = self::driver::DriverProcess::create()?;
 
     // Check which process is usable
     let mut table = DRIVER_PROCESS.lock();
     for i in 0..MAX_PS {
-        if table.process[i].present != false {
+        if table.process[i].present {
             continue;
         }
         table.process[i] = process.clone();

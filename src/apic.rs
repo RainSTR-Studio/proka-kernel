@@ -5,7 +5,7 @@ use x2apic::lapic::{LocalApic as LocalApicOut, LocalApicBuilder, TimerDivide, Ti
 use x86_64::instructions::port::Port;
 
 // Constants
-pub const XAPIC_BASE: u64 = 0xFFFFe08000000000;
+pub const XAPIC_BASE: u64 = 0xFFFFE08000000000;
 
 // Global statics
 /// The local APIC.
