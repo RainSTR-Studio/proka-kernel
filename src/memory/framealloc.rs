@@ -65,6 +65,61 @@ impl FrameAlloc {
         self.pos = USED_PAGE;
     }
 
+    /// Allocate a part of contiguous frame
+    pub fn allocate_contiguous(&mut self, n: usize) -> Option<PhysFrame> {
+        // Check: is current position out of maxpage
+        if self.pos >= self.max_page {
+            self.pos = USED_PAGE;
+        }
+
+        // Construct scanner
+        let scan = |s: usize| -> Option<usize> {
+            let mut cur = s;
+            while cur + n <= self.max_page {
+                let mut ok = true;
+                for i in 0..n {
+                    if self.get_bit(cur + i) == 1 {
+                        ok = false;
+                        break;
+                    }
+                }
+                if ok {
+                    return Some(cur);
+                }
+                cur += 1;
+            }
+            None
+        };
+
+        let start = scan(self.pos).or_else(|| scan(USED_PAGE))?;
+
+        // Contiguous set bit
+        for i in 0..n {
+            self.set_bit(start + i, 1);
+        }
+        self.pos = start + n;
+
+        Some(PhysFrame::containing_address(PhysAddr::new(
+            (start << 12) as u64,
+        )))
+    }
+
+    /// Deallocate a part of frame
+    pub fn deallocate_contiguous(&mut self, frame: PhysFrame, n: usize) {
+        let physaddr = frame.start_address();
+        let addr = physaddr.as_u64();
+        let pfn = (addr >> 12) as usize;
+
+        // Check: Low-66MiB is NOT unallocatable
+        if pfn <= USED_PAGE {
+            return;
+        }
+
+        for i in 0..n {
+            self.set_bit(pfn + i, 0);
+        }
+    }
+
     /// Mark a page frame (pfn) with the given value (0 or 1)
     fn set_bit(&mut self, pfn: usize, value: u8) {
         let byte_idx = pfn / 8;
@@ -98,34 +153,12 @@ impl FrameAlloc {
 // Trait implementations
 unsafe impl FrameAllocator<Size4KiB> for FrameAlloc {
     fn allocate_frame(&mut self) -> Option<PhysFrame> {
-        // Check: is current position out of maxpage
-        if self.pos >= self.max_page {
-            self.pos = USED_PAGE;
-        }
-
-        for pfn in self.pos..self.max_page {
-            if self.get_bit(pfn) == 0 {
-                self.set_bit(pfn, 1);
-                let addr = PhysAddr::new((pfn << 12) as u64);
-                self.pos += 1;
-                return Some(PhysFrame::containing_address(addr));
-            }
-        }
-        None
+        self.allocate_contiguous(1)
     }
 }
 
 impl FrameDeallocator<Size4KiB> for FrameAlloc {
     unsafe fn deallocate_frame(&mut self, frame: PhysFrame) {
-        let physaddr = frame.start_address();
-        let addr = physaddr.as_u64();
-        let pfn = (addr >> 12) as usize;
-
-        // Check: Low-66MiB is NOT unallocatable
-        if pfn <= USED_PAGE {
-            return;
-        }
-
-        self.set_bit(pfn, 0);
+        self.deallocate_contiguous(frame, 1)
     }
 }

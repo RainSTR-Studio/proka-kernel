@@ -54,6 +54,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "axfatfs"
+version = "0.1.0-pre.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4bf1c27753a96a0f835cca49e6fb354912107d018c905d13c7eff39be757eb5a"
+dependencies = [
+ "bitflags 2.11.0",
+ "log",
+]
+
+[[package]]
 name = "bit"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -78,36 +88,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "843867be96c8daad0d758b57df9392b6d8d271134fce549de6ce169ff98a92af"
 
 [[package]]
-name = "bytemuck"
-version = "1.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8efb64bd706a16a1bdde310ae86b351e4d21550d98d056f22f8a7f7a2183fec"
-dependencies = [
- "bytemuck_derive",
-]
-
-[[package]]
-name = "bytemuck_derive"
-version = "1.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9abbd1bc6865053c427f7198e6af43bfdedc55ab791faed4fbd361d789575ff"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "byteorder"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
-
-[[package]]
-name = "cfg-if"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "const_fn"
@@ -144,51 +128,6 @@ name = "glob"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
-
-[[package]]
-name = "hadris-common"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a9dba84a6cbcceae87e6ae05678baa5ee166ac67d81d200f7bfa407b0ed06db"
-dependencies = [
- "hadris-io",
- "noalloc",
- "zerocopy",
-]
-
-[[package]]
-name = "hadris-fat"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d2ed279d245466a344ff41aa792617ebda758c8427a317aec8c1c3cd44c4fb0"
-dependencies = [
- "bitflags 2.11.0",
- "bytemuck",
- "hadris-common",
- "hadris-io",
- "hadris-macros",
- "parse-size",
- "spin",
-]
-
-[[package]]
-name = "hadris-io"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0e6c5ab7e56eeef44f4aaee489bcec9fee52b329cfd1b4388799bb35ee69654"
-dependencies = [
- "bytemuck",
- "cfg-if",
-]
-
-[[package]]
-name = "hadris-macros"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c391784dcf01c2711219a7a614c71f62fe16284b00f96e8be9ed882f1b82e116"
-dependencies = [
- "proc-macro2",
-]
 
 [[package]]
 name = "hashbrown"
@@ -235,18 +174,6 @@ name = "memchr"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
-
-[[package]]
-name = "noalloc"
-version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a2537501480803dd22fbd79a39ea83318caba3ba936f7554f7139f4180faa94"
-
-[[package]]
-name = "parse-size"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "487f2ccd1e17ce8c1bfab3a65c89525af41cfad4c8659021a1e9a2aacd73b89b"
 
 [[package]]
 name = "paste"
@@ -297,8 +224,8 @@ version = "0.1.0"
 dependencies = [
  "acpi",
  "anaxa-builder",
+ "axfatfs",
  "glob",
- "hadris-fat",
  "log",
  "proka-bootloader",
  "spin",
@@ -595,24 +522,4 @@ dependencies = [
  "const_fn",
  "rustversion",
  "volatile",
-]
-
-[[package]]
-name = "zerocopy"
-version = "0.8.48"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eed437bf9d6692032087e337407a86f04cd8d6a16a37199ed57949d415bd68e9"
-dependencies = [
- "zerocopy-derive",
-]
-
-[[package]]
-name = "zerocopy-derive"
-version = "0.8.48"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70e3cd084b1788766f53af483dd21f93881ff30d7320490ec3ef7526d203bad4"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
