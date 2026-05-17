@@ -1,5 +1,4 @@
 //! The paging module.
-use super::TOTAL_RAM;
 use core::ptr::addr_of;
 use x86_64::PhysAddr;
 use x86_64::registers::control::{Cr3, Cr3Flags};
@@ -47,33 +46,13 @@ pub fn init() {
         pt_low[i].set_addr(PhysAddr::new((i * 0x1000) as u64), flags);
     }
 
-    // Map the remaining space with 2MiB huge page
+    // Map the remaining space with 2MiB huge page to 1GiB
     for i in 1..512 {
         let phys = (i as u64) * 0x200000;
         pdt_low[i].set_addr(PhysAddr::new(phys), huge_flags);
     }
 
-    // TODO: Move this identity mapping process to framealloc
-    // Map the whole 256GiB memory range, use 'current' as page table alloc pointer
-    let total_ram_bytes = TOTAL_RAM.get().unwrap().1;
     let mut current = PDT_LOW2_ADDR;
-    for i_pdpt in 1..256 {
-        let pdt = unsafe { &mut *(current as *mut PageTable) };
-        let base_phys = 0x40000000 + ((i_pdpt - 1) as u64 * 0x40000000);
-        for i_pdt in 0..512 {
-            let phys = base_phys + (i_pdt as u64 * 0x200000);
-            if phys >= total_ram_bytes {
-                break;
-            }
-            pdt[i_pdt].set_addr(PhysAddr::new(phys), huge_flags);
-        }
-        pdpt_low[i_pdpt].set_addr(PhysAddr::new(current), flags);
-        current += 0x1000;
-
-        if base_phys >= total_ram_bytes {
-            break;
-        }
-    }
 
     // Higher-half mapping (kernel):
     // Physical: 0x200000 ~ 0x3200000 (48MiB)

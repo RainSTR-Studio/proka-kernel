@@ -6,9 +6,9 @@ pub mod paging;
 use crate::println;
 use proka_bootloader::{get_bootinfo, memory::MemoryType};
 use spin::{Lazy, Mutex, Once};
-use x86_64::VirtAddr;
+use x86_64::{VirtAddr, PhysAddr};
 use x86_64::structures::paging::{
-    MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
+    MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB, Size2MiB,
     mapper::PageTableFrameMapping,
 };
 
@@ -83,5 +83,22 @@ pub fn init() {
 
     // Pre-initialize the frame allocator
     println!("[INFO] Initializing frame allocator (this may take some time)...");
-    self::framealloc::FRAME_ALLOCATOR.lock();
+    let mut framealloc = framealloc::FRAME_ALLOCATOR.lock();
+
+    // Map remaining address space
+    // Check: Is total RAM lower than 1GiB
+    let total_ram = TOTAL_RAM.get().unwrap().1;
+    if total_ram <= 0x40000000 {
+        println!("\x1b[33m[WARN] Your memory is lower than 1GiB, seems it's too low :/ \x1b[0m");
+        return;
+    }
+
+    // Calcutate range and do recursive mapping
+    let range = (total_ram - 0x40000000) / 0x200000;
+    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::HUGE_PAGE;
+    for i in 0..range {
+        let addr = PhysAddr::new(0x40000000 + i * 0x200000);
+        let frame = PhysFrame::<Size2MiB>::containing_address(addr);
+        unsafe { mapper.identity_map(frame, flags, &mut *framealloc).unwrap().flush() }
+    }
 }
