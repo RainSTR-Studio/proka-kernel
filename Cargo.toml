@@ -18,3 +18,13 @@ spinning_top = "0.3.0"
 talc = "5.0.3"
 x2apic = "0.5.0"
 x86_64 = "0.15.4"
+
+[profile.release]
+opt-level = "z"
+panic = "abort"
+debug = false
+debug-assertions = false
+overflow-checks = false
+codegen-units = 1
+incremental = false
+rpath = false
