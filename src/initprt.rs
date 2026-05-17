@@ -134,7 +134,7 @@ pub fn load_init() {
                 total += ext.size;
             }
         }
-        total
+        total as usize
     };
 
     // Construct a slice to contain that executable
@@ -142,8 +142,12 @@ pub fn load_init() {
     let base = FRAME_ALLOCATOR.lock().allocate_contiguous(pages).unwrap();
     let addr = base.start_address().as_u64();
     debug!("Init will put into {:08x}", addr);
-    let buf = unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, 128) };
+    let buf = unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, size) };
 
     // Read!
     init.read(buf).unwrap();
+
+    // Time to parse
+    let parser = unsafe { proka_exec::Parser::init(buf).unwrap() };
+    debug!("Parser: {:x?}", parser);
 }
