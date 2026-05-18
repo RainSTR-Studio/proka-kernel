@@ -1,8 +1,7 @@
 //! The INITPRT parser.
 use crate::memory::framealloc::FRAME_ALLOCATOR;
-use crate::println;
 use axfatfs::{Error, FileSystem, FsOptions, IoBase, Read, Seek, SeekFrom, Write};
-use log::debug;
+use log::{debug, trace};
 use x86_64::align_up;
 
 // Constants
@@ -120,10 +119,12 @@ pub fn load_init() {
     let fs = FileSystem::new(reader, FsOptions::new()).expect("Failed to load initprt");
     let root = fs.root_dir();
 
+    debug!("====== Begin of list of initprt in root: ======");
     for r in root.iter() {
         let entry = r.unwrap();
-        println!("{}", entry.file_name());
+        debug!("Object: {}", entry.file_name());
     }
+    debug!("====== End of list of initprt in root ======");
 
     // Open file...
     let mut init = root.open_file("/init").expect("/init not found");
@@ -141,7 +142,7 @@ pub fn load_init() {
     let pages = (align_up(size as u64, 4096) >> 12) as usize;
     let base = FRAME_ALLOCATOR.lock().allocate_contiguous(pages).unwrap();
     let addr = base.start_address().as_u64();
-    debug!("Init will put into {:08x}", addr);
+    debug!("Init will put into 0x{:08x}", addr);
     let buf = unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, size) };
 
     // Read!
@@ -149,5 +150,5 @@ pub fn load_init() {
 
     // Time to parse
     let parser = unsafe { proka_exec::Parser::init(buf).unwrap() };
-    debug!("Parser: {:x?}", parser);
+    trace!("Parser: {:x?}", parser);
 }
