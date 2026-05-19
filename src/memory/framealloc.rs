@@ -44,6 +44,7 @@ impl FrameAlloc {
         // Init bitmap
         let bitmap_bytes = self.max_page.div_ceil(8);
         self.bitmap = vec![0u8; bitmap_bytes];
+        self.bitmap.fill(0);
 
         // Mark the unavailable memory
         for desc in map.entries {

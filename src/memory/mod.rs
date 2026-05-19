@@ -56,7 +56,18 @@ unsafe impl PageTableFrameMapping for IdentityPageTableMapper {
 
 /// Memory manager initializator.
 pub fn init() {
-    // Enable new page table
+    // Before enabling new page table, we shall clear the place 
+    // where page table needed.
+    //
+    // Safety: This address is authorized as page table's addr
+    unsafe {
+        let target_addr = 0x100000;
+        let length = 0x1FF000 - target_addr;
+        let area = core::slice::from_raw_parts_mut(target_addr as *mut u8, length);
+        area.fill(0);
+    }
+
+    // Enable new page table then
     self::paging::init();
 
     // Print total memory
