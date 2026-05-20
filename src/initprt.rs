@@ -1,7 +1,7 @@
 //! The INITPRT parser.
 use crate::memory::framealloc::FRAME_ALLOCATOR;
 use axfatfs::{Error, FileSystem, FsOptions, IoBase, Read, Seek, SeekFrom, Write};
-use log::{debug, trace};
+use log::debug;
 use x86_64::align_up;
 
 // Constants
@@ -147,8 +147,4 @@ pub fn load_init() {
 
     // Read!
     init.read(buf).unwrap();
-
-    // Time to parse
-    let parser = unsafe { proka_exec::Parser::init(buf).unwrap() };
-    trace!("Parser: {:x?}", parser);
 }

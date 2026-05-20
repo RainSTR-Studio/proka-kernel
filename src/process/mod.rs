@@ -1,6 +1,13 @@
 //! The process system.
+extern crate alloc;
+use alloc::{vec, vec::Vec};
 pub mod driver;
 pub mod normal;
+use proka_exec::{Parser, header::ExecMode};
+
+use crate::memory::MAPPER;
+use crate::memory::framealloc::FRAME_ALLOCATOR;
+
 pub use self::driver::DRIVER_PROCESS;
 pub use self::normal::NORMAL_PROCESS;
 
@@ -34,6 +41,9 @@ pub enum Error {
 
     /// The index is invalid.
     InvalidIndex,
+
+    /// The PKE format is invalid.
+    InvalidFormat,
 }
 
 /// The type of processes.
@@ -65,14 +75,39 @@ impl Default for Context {
     }
 }
 
-/// Create a process and push it into the process list.
+/// Create a process and push it into the process list by passing a valid 
+/// PKE format data.
+/// 
+/// # Safety
+/// Caller must ensure that the data is already mapped.
 ///
 /// # Note
 /// Certain arguments are not required for specific process domains.
 ///
 /// If an unsupported process domain is provided, it will be ignored,
 /// and process creation will continue normally.
-pub fn create(proctype: ProcType, priority: u8) -> Result<(), Error> {
+pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
+    // First, parse the current data
+    // Check: is the current data a valid PKE format
+    let proctype: ProcType;
+    let mut section_info: Vec<(u32, u32)> = Vec::new(); // (addr, len)
+    let mut allocator = FRAME_ALLOCATOR.lock();
+    let mut mapper = MAPPER.lock();
+
+    // SAFETY: Caller has ensured that the slice is already mapped.
+    unsafe {
+        let parser = Parser::init(data)
+            .map_err(|_| Error::InvalidFormat)?;
+
+        // Decide the process type through the header info
+        proctype = match parser.header().mode {
+            ExecMode::UserApp => ProcType::Normal,
+            ExecMode::CoreDrv => ProcType::Driver
+        };
+
+        // Todo: Complete PKE loading
+    }
+
     match proctype {
         ProcType::Normal => create_normal(priority)?,
         ProcType::Driver => create_driver()?,
