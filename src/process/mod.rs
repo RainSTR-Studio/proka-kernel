@@ -1,12 +1,13 @@
 //! The process system.
 extern crate alloc;
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 pub mod driver;
 pub mod normal;
-use proka_exec::{Parser, header::ExecMode};
-
 use crate::memory::MAPPER;
 use crate::memory::framealloc::FRAME_ALLOCATOR;
+use log::trace;
+use proka_exec::{Parser, header::ExecMode};
+use x86_64::align_up;
 
 pub use self::driver::DRIVER_PROCESS;
 pub use self::normal::NORMAL_PROCESS;
@@ -75,9 +76,9 @@ impl Default for Context {
     }
 }
 
-/// Create a process and push it into the process list by passing a valid 
+/// Create a process and push it into the process list by passing a valid
 /// PKE format data.
-/// 
+///
 /// # Safety
 /// Caller must ensure that the data is already mapped.
 ///
@@ -90,22 +91,46 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     // First, parse the current data
     // Check: is the current data a valid PKE format
     let proctype: ProcType;
-    let mut section_info: Vec<(u32, u32)> = Vec::new(); // (addr, len)
+    let mut section_info: Vec<(u64, u32)> = Vec::new(); // (addr, len)
     let mut allocator = FRAME_ALLOCATOR.lock();
-    let mut mapper = MAPPER.lock();
+    let _mapper = MAPPER.lock();
 
     // SAFETY: Caller has ensured that the slice is already mapped.
     unsafe {
-        let parser = Parser::init(data)
-            .map_err(|_| Error::InvalidFormat)?;
+        let parser = Parser::init(data).map_err(|_| Error::InvalidFormat)?;
+        if !parser.validate() {
+            return Err(Error::InvalidFormat);
+        }
+        trace!("Process: data validation passed");
 
         // Decide the process type through the header info
         proctype = match parser.header().mode {
             ExecMode::UserApp => ProcType::Normal,
-            ExecMode::CoreDrv => ProcType::Driver
+            ExecMode::CoreDrv => ProcType::Driver,
         };
 
         // Todo: Complete PKE loading
+        for section in parser.sections() {
+            // Get the page needed
+            let len = section.length;
+            let pages = align_up(section.length as u64, 4096) / 4096;
+            let frame = if let Some(frame) = allocator.allocate_contiguous(pages as usize) {
+                trace!(
+                    "Allocated {:?} for storing data with pages {} (actually {})",
+                    frame, pages, len
+                );
+                frame
+            } else {
+                return Err(Error::MemoryNotEnough);
+            };
+            let addr = frame.start_address().as_u64();
+            section_info.push((addr as u64, len));
+
+            // Create up a slice that will copy into
+            let slice = core::slice::from_raw_parts_mut(addr as *mut u8, len as usize);
+            slice.copy_from_slice(&data[section.base as usize..(section.base + len) as usize]);
+            trace!("Slice length: {}, content: {:?}", slice.len(), slice);
+        }
     }
 
     match proctype {

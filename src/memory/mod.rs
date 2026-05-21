@@ -6,11 +6,11 @@ pub mod paging;
 use crate::println;
 use proka_bootloader::{get_bootinfo, memory::MemoryType};
 use spin::{Lazy, Mutex, Once};
-use x86_64::{VirtAddr, PhysAddr};
 use x86_64::structures::paging::{
-    MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB, Size2MiB,
+    MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size2MiB, Size4KiB,
     mapper::PageTableFrameMapping,
 };
+use x86_64::{PhysAddr, VirtAddr};
 
 // PML4 phys addr
 const PML4: u64 = 0x100000;
@@ -56,7 +56,7 @@ unsafe impl PageTableFrameMapping for IdentityPageTableMapper {
 
 /// Memory manager initializator.
 pub fn init() {
-    // Before enabling new page table, we shall clear the place 
+    // Before enabling new page table, we shall clear the place
     // where page table needed.
     //
     // Safety: This address is authorized as page table's addr
@@ -110,6 +110,11 @@ pub fn init() {
     for i in 0..range {
         let addr = PhysAddr::new(0x40000000 + i * 0x200000);
         let frame = PhysFrame::<Size2MiB>::containing_address(addr);
-        unsafe { mapper.identity_map(frame, flags, &mut *framealloc).unwrap().flush() }
+        unsafe {
+            mapper
+                .identity_map(frame, flags, &mut *framealloc)
+                .unwrap()
+                .flush()
+        }
     }
 }

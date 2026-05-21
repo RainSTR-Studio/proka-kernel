@@ -130,10 +130,8 @@ pub fn load_init() {
     let mut init = root.open_file("/init").expect("/init not found");
     let size = {
         let mut total = 0;
-        for res in init.extents() {
-            if let Ok(ext) = res {
-                total += ext.size;
-            }
+        for ext in init.extents().flatten() {
+            total += ext.size;
         }
         total as usize
     };
