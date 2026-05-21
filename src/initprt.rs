@@ -145,4 +145,9 @@ pub fn load_init() {
 
     // Read!
     init.read(buf).unwrap();
+
+    // Then createup a process
+    // TODO: Turn panic into internal shell
+    // SAFETY: buffer already mapped and read
+    unsafe { crate::process::create(buf, 0).unwrap() }
 }

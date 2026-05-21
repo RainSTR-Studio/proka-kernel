@@ -5,7 +5,8 @@ pub mod driver;
 pub mod normal;
 use crate::memory::MAPPER;
 use crate::memory::framealloc::FRAME_ALLOCATOR;
-use log::trace;
+use crate::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
+use log::{error, trace, warn};
 use proka_exec::{Parser, header::ExecMode};
 use x86_64::align_up;
 
@@ -76,6 +77,15 @@ impl Default for Context {
     }
 }
 
+/// Data about a section.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct SectionData {
+    pub addr: u64,
+    pub pages: u64,
+    pub executable: bool,
+}
+
 /// Create a process and push it into the process list by passing a valid
 /// PKE format data.
 ///
@@ -91,7 +101,7 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     // First, parse the current data
     // Check: is the current data a valid PKE format
     let proctype: ProcType;
-    let mut section_info: Vec<(u64, u32)> = Vec::new(); // (addr, len)
+    let mut section_info: Vec<SectionData> = Vec::new(); // (addr, pages)
     let mut allocator = FRAME_ALLOCATOR.lock();
     let _mapper = MAPPER.lock();
 
@@ -99,6 +109,7 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     unsafe {
         let parser = Parser::init(data).map_err(|_| Error::InvalidFormat)?;
         if !parser.validate() {
+            warn!("Validation not pasded, abortinng process creation...");
             return Err(Error::InvalidFormat);
         }
         trace!("Process: data validation passed");
@@ -111,6 +122,12 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
 
         // Todo: Complete PKE loading
         for section in parser.sections() {
+            // Check is current section loadable
+            if !section.is_loadable {
+                trace!("This section is not loadable, passing...");
+                continue;
+            }
+
             // Get the page needed
             let len = section.length;
             let pages = align_up(section.length as u64, 4096) / 4096;
@@ -121,10 +138,16 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
                 );
                 frame
             } else {
+                error!("Memory not enough");
                 return Err(Error::MemoryNotEnough);
             };
             let addr = frame.start_address().as_u64();
-            section_info.push((addr as u64, len));
+
+            // Construct and push into data
+            let info = SectionData {
+                addr, pages, executable: section.is_execable
+            };
+            section_info.push(info);
 
             // Create up a slice that will copy into
             let slice = core::slice::from_raw_parts_mut(addr as *mut u8, len as usize);
@@ -146,14 +169,18 @@ fn create_normal(priority: u8) -> Result<(), Error> {
 
     // Check which process is usable
     let mut table = NORMAL_PROCESS.lock();
+    let mut pid: usize = 0;
     for i in 0..MAX_PS {
-        if table.process[i].present {
-            continue;
+        if !table.process[i].present {
+            table.process[i] = process.clone();
+            pid = i;
+            break;
         }
-        table.process[i] = process.clone();
+        continue;
     }
 
-    // TODO: Update scheduler queue
+    // Push into queue and return
+    NORMAL_QUEUE.lock().push(pid);
     Ok(())
 }
 
@@ -163,14 +190,18 @@ fn create_driver() -> Result<(), Error> {
 
     // Check which process is usable
     let mut table = DRIVER_PROCESS.lock();
+    let mut did: usize = 0;
     for i in 0..MAX_PS {
-        if table.process[i].present {
-            continue;
+        if !table.process[i].present {
+            table.process[i] = process.clone();
+            did = i;
+            break;
         }
-        table.process[i] = process.clone();
+        continue;
     }
 
-    // TODO: Update scheduler queue
+    // Push into queue and return
+    DRIVER_QUEUE.lock().push(did);
     Ok(())
 }
 
@@ -203,7 +234,7 @@ fn remove_normal(index: usize) -> Result<(), Error> {
 
     proc.remove();
 
-    // TODO: Update scheduler queue
+    NORMAL_QUEUE.lock().retain(|item| *item != index);
     Ok(())
 }
 
@@ -222,6 +253,6 @@ fn remove_driver(index: usize) -> Result<(), Error> {
 
     proc.remove();
 
-    // TODO: Update scheduler queue
+    DRIVER_QUEUE.lock().retain(|item| *item != index);
     Ok(())
 }
