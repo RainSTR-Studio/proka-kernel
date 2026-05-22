@@ -59,7 +59,9 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
 
     // Decide run process or driver.
     if IS_DRIVER.load(Ordering::Relaxed) {
-        IS_DRIVER.store(false, Ordering::SeqCst);
+        if !normal_empty {
+            IS_DRIVER.store(false, Ordering::Relaxed);
+        }
 
         // So let's save its RIP and RSP
         let mut guard = NORMAL_PROCESS.lock();
@@ -70,7 +72,9 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
 
         to_driver(rflags)
     } else {
-        IS_DRIVER.store(true, Ordering::SeqCst);
+        if !driver_empty {
+            IS_DRIVER.store(true, Ordering::Relaxed);
+        }
 
         // Do the save step as above
         let mut guard = NORMAL_PROCESS.lock();

@@ -138,7 +138,10 @@ pub fn load_init() {
 
     // Construct a slice to contain that executable
     let pages = (align_up(size as u64, 4096) >> 12) as usize;
-    let base = FRAME_ALLOCATOR.lock().allocate_contiguous(pages).unwrap();
+    let base = FRAME_ALLOCATOR
+        .lock()
+        .allocate_contiguous(pages)
+        .expect("Failed to alloc a frame to store data");
     let addr = base.start_address().as_u64();
     debug!("Init will put into 0x{:08x}", addr);
     let buf = unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, size) };

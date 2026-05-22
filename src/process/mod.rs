@@ -2,14 +2,14 @@
 extern crate alloc;
 use alloc::vec::Vec;
 use x86_64::structures::paging::{
-    FrameAllocator, MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
+    MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
 };
 pub mod driver;
 pub mod normal;
-use crate::memory::framealloc::FRAME_ALLOCATOR;
 use crate::memory::IdentityPageTableMapper;
+use crate::memory::framealloc::FRAME_ALLOCATOR;
 use crate::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
-use log::{error, trace, warn};
+use log::{debug, error, trace, warn};
 use proka_exec::{Parser, header::ExecMode};
 use x86_64::{PhysAddr, VirtAddr, align_up};
 
@@ -77,7 +77,7 @@ pub struct Context {
 impl Default for Context {
     fn default() -> Self {
         Self {
-            rsp: 0x1FF000,
+            rsp: 0x3F000,
             rip: 0x200000,
         }
     }
@@ -163,9 +163,12 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
             trace!("Slice length: {}, content: {:?}", slice.len(), slice);
         }
 
+        trace!("Section iteration has completed.");
+
         // After collecting info, its time to make up a page table.
         // But first, we need to make up an PML4
-        pml4 = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_frame() {
+        pml4 = if let Some(frame) = allocator.allocate_contiguous(1) {
+            trace!("Allocated frame {:?} for proc PML4", frame);
             frame.start_address().as_u64()
         } else {
             return Err(Error::MemoryNotEnough);
@@ -174,24 +177,31 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
         let mut proc_mapper = MappedPageTable::new(pml4_table, IdentityPageTableMapper);
 
         // Time to allocate 2MiB for stack
-        let stack_base = if let Some(frame) = allocator.allocate_contiguous(512) {
+        const STACK_PAGES: usize = 64; // Pages of stack needed
+        let stack_base = if let Some(frame) = allocator.allocate_contiguous(STACK_PAGES) {
+            trace!("Allocated frame {:?} for proc stack", frame);
             frame.start_address().as_u64()
         } else {
             return Err(Error::MemoryNotEnough);
         };
-            
-        for i in 0..512 {
+
+        for i in 0..STACK_PAGES as u64 {
             let virt_addr = VirtAddr::new(i * 0x1000);
             let page = Page::<Size4KiB>::containing_address(virt_addr);
             let phys_addr = PhysAddr::new(i * 0x1000 + stack_base);
             let frame = PhysFrame::<Size4KiB>::containing_address(phys_addr);
             let flags =
                 PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+            trace!("Mapping frame: {:?}, Page: {:?}...", frame, page);
             proc_mapper
                 .map_to(page, frame, flags, &mut *allocator)
-                .map_err(|_| Error::PageError)?
+                .map_err(|e| {
+                    warn!("Failed to map within error \"{:?}\"", e);
+                    Error::PageError
+                })?
                 .ignore();
         }
+        trace!("Stack mapping has been completed.");
     }
 
     match proctype {
@@ -216,6 +226,7 @@ fn create_normal(frame: u64, priority: u8) -> Result<(), Error> {
         }
         continue;
     }
+    debug!("Allocated PID {} for this new process", pid);
 
     // Push into queue and return
     NORMAL_QUEUE.lock().push(pid);
@@ -237,6 +248,7 @@ fn create_driver(frame: u64) -> Result<(), Error> {
         }
         continue;
     }
+    debug!("Allocated DID {} for this new process", did);
 
     // Push into queue and return
     DRIVER_QUEUE.lock().push(did);
