@@ -1,11 +1,9 @@
 //! The normal process definition.
 extern crate alloc;
 use super::{Context, Error, MAX_PS, Status};
-use crate::memory::framealloc::FRAME_ALLOCATOR;
 use alloc::boxed::Box;
 use alloc::{vec, vec::Vec};
 use spin::{Lazy, Mutex};
-use x86_64::structures::paging::FrameAllocator;
 
 pub static NORMAL_PROCESS: Lazy<Mutex<NormalProcessTable>> =
     Lazy::new(|| Mutex::new(NormalProcessTable::default()));
@@ -48,13 +46,7 @@ pub struct NormalProcess {
 impl NormalProcess {
     /// Create a process.
     #[inline]
-    pub fn create(priority: u8) -> Result<Self, Error> {
-        let frame = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_frame() {
-            frame.start_address().as_u64()
-        } else {
-            return Err(Error::MemoryNotEnough);
-        };
-
+    pub fn create(frame: u64, priority: u8) -> Result<Self, Error> {
         Ok(Self {
             present: true,
             status: Status::Ready,

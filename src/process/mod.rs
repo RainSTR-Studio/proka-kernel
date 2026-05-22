@@ -1,14 +1,17 @@
 //! The process system.
 extern crate alloc;
 use alloc::vec::Vec;
+use x86_64::structures::paging::{
+    FrameAllocator, MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
+};
 pub mod driver;
 pub mod normal;
-use crate::memory::MAPPER;
 use crate::memory::framealloc::FRAME_ALLOCATOR;
+use crate::memory::IdentityPageTableMapper;
 use crate::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
 use log::{error, trace, warn};
 use proka_exec::{Parser, header::ExecMode};
-use x86_64::align_up;
+use x86_64::{PhysAddr, VirtAddr, align_up};
 
 pub use self::driver::DRIVER_PROCESS;
 pub use self::normal::NORMAL_PROCESS;
@@ -46,6 +49,9 @@ pub enum Error {
 
     /// The PKE format is invalid.
     InvalidFormat,
+
+    /// An error about page table.
+    PageError,
 }
 
 /// The type of processes.
@@ -101,9 +107,9 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     // First, parse the current data
     // Check: is the current data a valid PKE format
     let proctype: ProcType;
+    let pml4: u64;
     let mut section_info: Vec<SectionData> = Vec::new(); // (addr, pages)
     let mut allocator = FRAME_ALLOCATOR.lock();
-    let _mapper = MAPPER.lock();
 
     // SAFETY: Caller has ensured that the slice is already mapped.
     unsafe {
@@ -145,7 +151,9 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
 
             // Construct and push into data
             let info = SectionData {
-                addr, pages, executable: section.is_execable
+                addr,
+                pages,
+                executable: section.is_execable,
             };
             section_info.push(info);
 
@@ -154,18 +162,48 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
             slice.copy_from_slice(&data[section.base as usize..(section.base + len) as usize]);
             trace!("Slice length: {}, content: {:?}", slice.len(), slice);
         }
+
+        // After collecting info, its time to make up a page table.
+        // But first, we need to make up an PML4
+        pml4 = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_frame() {
+            frame.start_address().as_u64()
+        } else {
+            return Err(Error::MemoryNotEnough);
+        };
+        let pml4_table = &mut *(pml4 as *mut PageTable);
+        let mut proc_mapper = MappedPageTable::new(pml4_table, IdentityPageTableMapper);
+
+        // Time to allocate 2MiB for stack
+        let stack_base = if let Some(frame) = allocator.allocate_contiguous(512) {
+            frame.start_address().as_u64()
+        } else {
+            return Err(Error::MemoryNotEnough);
+        };
+            
+        for i in 0..512 {
+            let virt_addr = VirtAddr::new(i * 0x1000);
+            let page = Page::<Size4KiB>::containing_address(virt_addr);
+            let phys_addr = PhysAddr::new(i * 0x1000 + stack_base);
+            let frame = PhysFrame::<Size4KiB>::containing_address(phys_addr);
+            let flags =
+                PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+            proc_mapper
+                .map_to(page, frame, flags, &mut *allocator)
+                .map_err(|_| Error::PageError)?
+                .ignore();
+        }
     }
 
     match proctype {
-        ProcType::Normal => create_normal(priority)?,
-        ProcType::Driver => create_driver()?,
+        ProcType::Normal => create_normal(pml4, priority)?,
+        ProcType::Driver => create_driver(pml4)?,
     }
     Ok(())
 }
 
 /// Create a normal process.
-fn create_normal(priority: u8) -> Result<(), Error> {
-    let process = self::normal::NormalProcess::create(priority)?;
+fn create_normal(frame: u64, priority: u8) -> Result<(), Error> {
+    let process = self::normal::NormalProcess::create(frame, priority)?;
 
     // Check which process is usable
     let mut table = NORMAL_PROCESS.lock();
@@ -185,8 +223,8 @@ fn create_normal(priority: u8) -> Result<(), Error> {
 }
 
 /// Create a driver process.
-fn create_driver() -> Result<(), Error> {
-    let process = self::driver::DriverProcess::create()?;
+fn create_driver(frame: u64) -> Result<(), Error> {
+    let process = self::driver::DriverProcess::create(frame)?;
 
     // Check which process is usable
     let mut table = DRIVER_PROCESS.lock();
