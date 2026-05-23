@@ -16,6 +16,7 @@ proka-exec = "0.3.0"
 spin = "0.10.0"
 spinning_top = "0.3.0"
 talc = "5.0.3"
+uart_16550 = "0.4.0"
 x2apic = "0.5.0"
 x86_64 = "0.15.4"
 
