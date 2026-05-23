@@ -19,7 +19,7 @@ pub static FRAME_ALLOCATOR: Lazy<Mutex<FrameAlloc>> = Lazy::new(|| {
 });
 
 /// The bits to start allocation
-const USED_PAGE: usize = (66 << 20) >> 12;
+const USED_PAGE: usize = (72 << 20) >> 12;
 
 #[derive(Default)]
 pub struct FrameAlloc {
@@ -57,7 +57,7 @@ impl FrameAlloc {
             }
         }
 
-        // Mark 0 ~ 66MiB as used (avoid allocating low memory)
+        // Mark kernel used memory as used (avoid allocating low memory)
         for pfn in 0..USED_PAGE {
             self.set_bit(pfn, 1);
         }
@@ -111,7 +111,7 @@ impl FrameAlloc {
         let addr = physaddr.as_u64();
         let pfn = (addr >> 12) as usize;
 
-        // Check: Low-66MiB is NOT unallocatable
+        // Check: Low-kernel memory is NOT unallocatable
         if pfn <= USED_PAGE {
             return;
         }

@@ -13,7 +13,8 @@ const PDT_HIGH_ADDR: u64 = 0x104000;
 const PT_LOW_ADDR: u64 = 0x105000;
 const PDT_PROC_ADDR: u64 = 0x106000; // For process only
 const PDT_GS_ADDR: u64 = 0x107000; // Global interrupt stack PDT (resolve conflict)
-const PDT_LOW2_ADDR: u64 = 0x108000;
+const PDT_GRW_ADDR: u64 = 0x108000; // Global Read-Write area
+const PDT_LOW2_ADDR: u64 = 0x109000;
 
 unsafe extern "C" {
     static __GDATA_START: u8;
@@ -31,6 +32,7 @@ pub fn init() {
     let pt_low = unsafe { &mut *(PT_LOW_ADDR as *mut PageTable) };
     let pdt_proc = unsafe { &mut *(PDT_PROC_ADDR as *mut PageTable) };
     let pdt_gs = unsafe { &mut *(PDT_GS_ADDR as *mut PageTable) };
+    let pdt_grw = unsafe { &mut *(PDT_GRW_ADDR as *mut PageTable) };
 
     let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
     let global_flags = flags | PageTableFlags::GLOBAL;
@@ -92,6 +94,23 @@ pub fn init() {
     pdt_gs[0].set_addr(
         PhysAddr::new(0x4200000),
         huge_flags | PageTableFlags::GLOBAL,
+    );
+
+    // Map global read-write data to 0xFFFF800080000000 -> 0x4400000~0x4600000
+    // Fill PDPT[2] for global data
+    pdpt_high[2].set_addr(PhysAddr::new(PDT_GRW_ADDR), global_flags);
+    // Will divide into 2 forms
+    // 0xFFFF800080000000~0xFFFF800080200000 is for both
+    // kernel and drivers
+    pdt_grw[0].set_addr(
+        PhysAddr::new(0x4400000),
+        huge_flags | PageTableFlags::GLOBAL | PageTableFlags::NO_EXECUTE,
+    );
+    // 0xFFFF800080200000~0xFFFF800080400000 is for among
+    // kernel, drivers and user programs.
+    pdt_grw[1].set_addr(
+        PhysAddr::new(0x4600000),
+        huge_flags | PageTableFlags::GLOBAL | PageTableFlags::USER_ACCESSIBLE | PageTableFlags::NO_EXECUTE,
     );
 
     // Higher half mapping (process-only)

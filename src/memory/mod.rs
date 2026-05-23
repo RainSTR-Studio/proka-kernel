@@ -117,4 +117,7 @@ pub fn init() {
                 .flush()
         }
     }
+
+    // Do clean up, which will erase last boot data
+    // Being erased since address 0x4200000
 }
