@@ -14,7 +14,7 @@ const PDT_HIGH_ADDR: u64 = 0x104000;
 const PT_LOW_ADDR: u64 = 0x105000;
 
 // Process specific
-pub const PDPT_HPROC_ADDR: u64 = 0x106000;  // Process-specified high addr
+pub const PDPT_HPROC_ADDR: u64 = 0x106000; // Process-specified high addr
 const PDT_PROC_ADDR: u64 = 0x107000;
 const PDT_GS_ADDR: u64 = 0x108000; // Global interrupt stack PDT (resolve conflict)
 const PDT_GRW_ADDR: u64 = 0x109000; // Global Read-Write area
@@ -120,7 +120,10 @@ pub fn init() {
     // kernel, drivers and user programs.
     pdt_grw[1].set_addr(
         PhysAddr::new(0x4600000),
-        huge_flags | PageTableFlags::GLOBAL | PageTableFlags::USER_ACCESSIBLE | PageTableFlags::NO_EXECUTE,
+        huge_flags
+            | PageTableFlags::GLOBAL
+            | PageTableFlags::USER_ACCESSIBLE
+            | PageTableFlags::NO_EXECUTE,
     );
 
     // Higher half mapping (process-only)
@@ -147,7 +150,8 @@ pub fn init() {
     let pt_index: usize = ((start_aligned >> 12) & 0x1FF) as usize;
 
     // Flags
-    let proc_flags = PageTableFlags::PRESENT | PageTableFlags::GLOBAL | PageTableFlags::USER_ACCESSIBLE;
+    let proc_flags =
+        PageTableFlags::PRESENT | PageTableFlags::GLOBAL | PageTableFlags::USER_ACCESSIBLE;
     // Convert virt to phys
     let gdata_phys = start_aligned - va_base + 0x200000;
 

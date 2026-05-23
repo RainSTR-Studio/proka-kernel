@@ -1,4 +1,5 @@
 //! The color format definition.
+//! Originally by moyanj <me@moyanjdc.top>
 
 /// The basic color storer
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

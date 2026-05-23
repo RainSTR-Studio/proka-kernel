@@ -1,6 +1,7 @@
+//! The kernel-builtin output system.
 extern crate alloc;
 use crate::output::font8x16::FONT8X16;
-use crate::{color, color::Color};
+use crate::output::{color, color::Color};
 use alloc::{vec, vec::Vec};
 use core::fmt::{self, Write};
 use proka_bootloader::get_bootinfo;

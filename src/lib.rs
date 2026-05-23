@@ -13,7 +13,6 @@
 
 pub mod acpi;
 pub mod apic;
-pub mod color;
 pub mod initprt;
 pub mod logger;
 pub mod memory;

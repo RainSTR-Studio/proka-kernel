@@ -7,8 +7,8 @@ use x86_64::structures::paging::{
 pub mod driver;
 pub mod normal;
 use crate::memory::IdentityPageTableMapper;
-use crate::memory::{PML4_ADDR, PDPT_HPROC_ADDR};
 use crate::memory::framealloc::FRAME_ALLOCATOR;
+use crate::memory::{PDPT_HPROC_ADDR, PML4_ADDR};
 use crate::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
 use log::{debug, error, trace, warn};
 use proka_exec::{Parser, header::ExecMode};
@@ -110,107 +110,115 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     let proctype: ProcType;
     let pml4: u64;
     let mut section_info: Vec<SectionData> = Vec::new(); // (addr, pages)
-    let mut allocator = FRAME_ALLOCATOR.lock();
 
-    // SAFETY: Caller has ensured that the slice is already mapped.
-    unsafe {
-        let parser = Parser::init(data).map_err(|_| Error::InvalidFormat)?;
-        if !parser.validate() {
-            warn!("Validation not pasded, abortinng process creation...");
-            return Err(Error::InvalidFormat);
-        }
-        trace!("Process: data validation passed");
+    // SAFETY: Caller ensured the data was mapped and accessable
+    let parser = unsafe { Parser::init(data).map_err(|_| Error::InvalidFormat)? };
+    if !parser.validate() {
+        warn!("Validation not passed, aborting process creation...");
+        return Err(Error::InvalidFormat);
+    }
+    trace!("Process: data validation passed");
 
-        // Decide the process type through the header info
-        proctype = match parser.header().mode {
-            ExecMode::UserApp => ProcType::Normal,
-            ExecMode::CoreDrv => ProcType::Driver,
-        };
+    // Decide the process type through the header info
+    proctype = match parser.header().mode {
+        ExecMode::UserApp => ProcType::Normal,
+        ExecMode::CoreDrv => ProcType::Driver,
+    };
 
-        // Todo: Complete PKE loading
-        for section in parser.sections() {
-            // Check is current section loadable
-            if !section.is_loadable {
-                trace!("This section is not loadable, passing...");
-                continue;
-            }
-
-            // Get the page needed
-            let len = section.length;
-            let pages = align_up(section.length as u64, 4096) / 4096;
-            let frame = if let Some(frame) = allocator.allocate_contiguous(pages as usize) {
-                trace!(
-                    "Allocated {:?} for storing data with pages {} (actually {})",
-                    frame, pages, len
-                );
-                frame
-            } else {
-                error!("Memory not enough");
-                return Err(Error::MemoryNotEnough);
-            };
-            let addr = frame.start_address().as_u64();
-
-            // Construct and push into data
-            let info = SectionData {
-                addr,
-                pages,
-                executable: section.is_execable,
-            };
-            section_info.push(info);
-
-            // Create up a slice that will copy into
-            let slice = core::slice::from_raw_parts_mut(addr as *mut u8, len as usize);
-            slice.copy_from_slice(&data[section.base as usize..(section.base + len) as usize]);
-            trace!("Slice length: {}, content: {:?}", slice.len(), slice);
+    // Todo: Complete PKE loading
+    for section in parser.sections() {
+        // Check is current section loadable
+        if !section.is_loadable {
+            trace!("This section is not loadable, passing...");
+            continue;
         }
 
-        trace!("Section iteration has completed.");
-
-        // After collecting info, its time to make up a page table.
-        // But first, we need to make up an PML4
-        pml4 = if let Some(frame) = allocator.allocate_contiguous(1) {
-            trace!("Allocated frame {:?} for proc PML4", frame);
-            frame.start_address().as_u64()
+        // Get the page needed
+        let len = section.length;
+        let pages = align_up(section.length as u64, 4096) / 4096;
+        let frame = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(pages as usize)
+        {
+            trace!(
+                "Allocated {:?} for storing data with pages {} (actually {})",
+                frame, pages, len
+            );
+            frame
         } else {
+            error!("Memory not enough");
             return Err(Error::MemoryNotEnough);
         };
+        let addr = frame.start_address().as_u64();
 
-        // Copy kernel's PML4 to do more handling
+        // Construct and push into data
+        let info = SectionData {
+            addr,
+            pages,
+            executable: section.is_execable,
+        };
+        section_info.push(info);
+
+        // Create up a slice that will copy into
+        // SAFETY: This address is alreadt mapped and writable
+        let slice = unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, len as usize) };
+        slice.copy_from_slice(&data[section.base as usize..(section.base + len) as usize]);
+        trace!("Slice length: {}, content: {:?}", slice.len(), slice);
+    }
+
+    trace!("Section iteration has completed.");
+
+    // After collecting info, its time to make up a page table.
+    // But first, we need to make up an PML4
+    pml4 = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(1) {
+        trace!("Allocated frame {:?} for proc PML4", frame);
+        frame.start_address().as_u64()
+    } else {
+        return Err(Error::MemoryNotEnough);
+    };
+
+    // Copy kernel's PML4 to do more handling
+    // SAFETY: This address of PML4 is exist and target was allocated
+    let pml4_table = unsafe {
         core::ptr::copy(PML4_ADDR as *const PageTable, pml4 as *mut PageTable, 1);
-        let pml4_table = &mut *(pml4 as *mut PageTable);
-        for i in 0..256 {
-            pml4_table[i].set_unused();
-        }
-        pml4_table[256].set_addr(PhysAddr::new(PDPT_HPROC_ADDR), PageTableFlags::PRESENT | PageTableFlags::WRITABLE);
-        let mut proc_mapper = MappedPageTable::new(pml4_table, IdentityPageTableMapper);
+        &mut *(pml4 as *mut PageTable)
+    };
+    for i in 0..256 {
+        pml4_table[i].set_unused();
+    }
+    pml4_table[256].set_addr(
+        PhysAddr::new(PDPT_HPROC_ADDR),
+        PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+    );
+    let mut proc_mapper = unsafe { MappedPageTable::new(pml4_table, IdentityPageTableMapper) };
 
-        // Time to allocate 2MiB for stack
-        const STACK_PAGES: usize = 64; // Pages of stack needed
-        let stack_base = if let Some(frame) = allocator.allocate_contiguous(STACK_PAGES) {
-            trace!("Allocated frame {:?} for proc stack", frame);
-            frame.start_address().as_u64()
-        } else {
-            return Err(Error::MemoryNotEnough);
-        };
+    // Time to allocate 2MiB for stack
+    const STACK_PAGES: usize = 128; // Pages of stack needed
+    let stack_base = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(STACK_PAGES) {
+        trace!("Allocated frame {:?} for proc stack", frame);
+        frame.start_address().as_u64()
+    } else {
+        return Err(Error::MemoryNotEnough);
+    };
 
-        for i in 0..STACK_PAGES as u64 {
-            let virt_addr = VirtAddr::new(i * 0x1000);
-            let page = Page::<Size4KiB>::containing_address(virt_addr);
-            let phys_addr = PhysAddr::new(i * 0x1000 + stack_base);
-            let frame = PhysFrame::<Size4KiB>::containing_address(phys_addr);
-            let flags =
-                PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
-            trace!("Mapping frame: {:?}, Page: {:?}...", frame, page);
+    for i in 0..STACK_PAGES as u64 {
+        let virt_addr = VirtAddr::new(i * 0x1000);
+        let page = Page::<Size4KiB>::containing_address(virt_addr);
+        let phys_addr = PhysAddr::new(i * 0x1000 + stack_base);
+        let frame = PhysFrame::<Size4KiB>::containing_address(phys_addr);
+        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+        trace!("Mapping frame: {:?}, Page: {:?}...", frame, page);
+
+        // SAFETY: All frame are allocated by allocator and it's currently not in use
+        unsafe {
             proc_mapper
-                .map_to(page, frame, flags, &mut *allocator)
+                .map_to(page, frame, flags, &mut *FRAME_ALLOCATOR.lock())
                 .map_err(|e| {
                     warn!("Failed to map within error \"{:?}\"", e);
                     Error::PageError
                 })?
                 .ignore();
         }
-        trace!("Stack mapping has been completed.");
     }
+    trace!("Stack mapping has been completed.");
 
     match proctype {
         ProcType::Normal => create_normal(pml4, priority)?,

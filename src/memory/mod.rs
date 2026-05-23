@@ -4,6 +4,7 @@ pub mod heap;
 pub mod paging;
 
 use crate::println;
+pub use paging::{PDPT_HPROC_ADDR, PML4_ADDR};
 use proka_bootloader::{get_bootinfo, memory::MemoryType};
 use spin::{Lazy, Mutex, Once};
 use x86_64::structures::paging::{
@@ -11,7 +12,6 @@ use x86_64::structures::paging::{
     mapper::PageTableFrameMapping,
 };
 use x86_64::{PhysAddr, VirtAddr};
-pub use paging::{PML4_ADDR, PDPT_HPROC_ADDR};
 
 // PML4 phys addr
 const PML4: u64 = 0x100000;

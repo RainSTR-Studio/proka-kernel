@@ -220,9 +220,9 @@ checksum = "da2b2725ab2b18b6c2507fbd68dd7de110b0acedfb2913bf506b4530eac67a6e"
 
 [[package]]
 name = "proka-exec"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bd8f8c25e50b1a5bf36375cb7a5d3977c289f37a74a21e4814b514fcf02ce4c"
+checksum = "b8102107c703933922aba3e7b5d2515c26cbc2364a6ecd138ce571bc69865108"
 
 [[package]]
 name = "proka-kernel"
