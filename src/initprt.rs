@@ -2,8 +2,8 @@
 use crate::memory::framealloc::FRAME_ALLOCATOR;
 use axfatfs::{Error, FileSystem, FsOptions, IoBase, Read, Seek, SeekFrom, Write};
 use log::debug;
-use x86_64::align_up;
 use proka_exec::{Parser, header::ExecMode};
+use x86_64::align_up;
 
 // Constants
 pub const INITPRT_BASE: u64 = 0xffff800003000000; // loaded
@@ -152,7 +152,7 @@ pub fn load_init() {
 
     // Temporary initialize parser to check is mode correct
     // SAFETY: buffer already mapped
-    unsafe {
+    {
         let parser = Parser::init(buf).expect("/init is corrupted");
         let mode = parser.header().mode;
         if mode != ExecMode::UserApp {

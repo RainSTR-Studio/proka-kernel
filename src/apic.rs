@@ -56,6 +56,7 @@ pub fn init() {
 
 /// Invoke EOI
 #[inline]
+#[unsafe(link_section = ".gdata")]
 pub fn eoi() {
     unsafe {
         LAPIC.lock().0.end_of_interrupt();

@@ -70,5 +70,7 @@ pub extern "C" fn kernel_main() -> ! {
     // Enable interrupt
     // x86_64::instructions::interrupts::enable();
 
-    loop {}
+    loop {
+        x86_64::instructions::hlt();
+    }
 }

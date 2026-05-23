@@ -85,7 +85,6 @@ impl Default for Context {
 }
 
 /// Data about a section.
-#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 struct SectionData {
     pub addr: u64,
@@ -106,13 +105,12 @@ struct SectionData {
 /// and process creation will continue normally.
 pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     // First, parse the current data
-    // Check: is the current data a valid PKE format
     let proctype: ProcType;
     let pml4: u64;
     let mut section_info: Vec<SectionData> = Vec::new(); // (addr, pages)
+    let parser = Parser::init(data).map_err(|_| Error::InvalidFormat)?;
 
-    // SAFETY: Caller ensured the data was mapped and accessable
-    let parser = unsafe { Parser::init(data).map_err(|_| Error::InvalidFormat)? };
+    // Check: Is this is a valid PKE format
     if !parser.validate() {
         warn!("Validation not passed, aborting process creation...");
         return Err(Error::InvalidFormat);
@@ -191,7 +189,7 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     let mut proc_mapper = unsafe { MappedPageTable::new(pml4_table, IdentityPageTableMapper) };
 
     // Time to allocate 2MiB for stack
-    const STACK_PAGES: usize = 128; // Pages of stack needed
+    const STACK_PAGES: usize = 64;  // Pages of stack needed
     let stack_base = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(STACK_PAGES) {
         trace!("Allocated frame {:?} for proc stack", frame);
         frame.start_address().as_u64()
@@ -220,6 +218,37 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     }
     trace!("Stack mapping has been completed.");
 
+    // Then, let's put each sections by order...
+    let mut current_page: u64 = 0;
+    for info in section_info {
+        for i in 0..info.pages {
+            let virt_addr = VirtAddr::new(0x200000 + (current_page + i) * 0x1000);
+            let page = Page::<Size4KiB>::containing_address(virt_addr);
+            let phys_addr = PhysAddr::new(info.addr + i * 0x1000);
+            let frame = PhysFrame::<Size4KiB>::containing_address(phys_addr);
+            let flags = if info.executable {
+                PageTableFlags::PRESENT
+            } else {
+                PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE
+            };
+            trace!("Mapping frame: {:?}, Page: {:?}", frame, page);
+
+            // SAFETY: All frame are allocated and not in use
+            unsafe {
+                proc_mapper
+                    .map_to(page, frame, flags, &mut *FRAME_ALLOCATOR.lock())
+                    .map_err(|e| {
+                        warn!("Failed to map with error \"{:?}\"", e);
+                        Error::PageError
+                    })?
+                    .ignore();
+            }
+
+            // Add the current page counter...
+            current_page += 1;
+        }
+    }
+
     match proctype {
         ProcType::Normal => create_normal(pml4, priority)?,
         ProcType::Driver => create_driver(pml4)?,
@@ -242,7 +271,7 @@ fn create_normal(frame: u64, priority: u8) -> Result<(), Error> {
         }
         continue;
     }
-    debug!("Allocated PID {} for this new process", pid);
+    debug!("Allocated PID {} for this new normal process", pid);
 
     // Push into queue and return
     NORMAL_QUEUE.lock().push(pid);
@@ -264,7 +293,7 @@ fn create_driver(frame: u64) -> Result<(), Error> {
         }
         continue;
     }
-    debug!("Allocated DID {} for this new process", did);
+    debug!("Allocated DID {} for this new driver process", did);
 
     // Push into queue and return
     DRIVER_QUEUE.lock().push(did);

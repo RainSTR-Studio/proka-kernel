@@ -6,15 +6,9 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use log::{debug, trace};
 use spin::Mutex;
-use x86_64::{
-    PhysAddr,
-    registers::control::{Cr3, Cr3Flags},
-    structures::{
-        idt::InterruptStackFrame,
-        paging::{PhysFrame, Size4KiB},
-    },
-};
+use x86_64::structures::idt::InterruptStackFrame;
 
 /// The normal process queue.
 pub static NORMAL_QUEUE: Mutex<Vec<usize>> = Mutex::new(Vec::new());
@@ -47,6 +41,9 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
     let rsp = stack_frame.stack_pointer.as_u64();
     let rflags = stack_frame.cpu_flags.bits();
 
+    // Debug only bruh
+    debug!("Switched into proc switcher");
+
     // Check is queue is empty.
     if normal_empty && driver_empty {
         crate::apic::eoi();
@@ -59,12 +56,17 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
 
     // Decide run process or driver.
     if IS_DRIVER.load(Ordering::Relaxed) {
-        if !normal_empty {
-            IS_DRIVER.store(false, Ordering::Relaxed);
+        // Now we are running driver.
+        IS_DRIVER.store(false, Ordering::Relaxed);
+
+        // Check: Is current queue empty
+        if driver_empty {
+            crate::apic::eoi();
+            return;
         }
 
         // So let's save its RIP and RSP
-        let mut guard = NORMAL_PROCESS.lock();
+        let mut guard = DRIVER_PROCESS.lock();
         let proc = &mut guard.process[current_id];
         proc.context.rip = rip;
         proc.context.rsp = rsp;
@@ -72,8 +74,13 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
 
         to_driver(rflags)
     } else {
-        if !driver_empty {
-            IS_DRIVER.store(true, Ordering::Relaxed);
+        // Now we are running normal process.
+        IS_DRIVER.store(true, Ordering::Relaxed);
+
+        // Check: Is current list empty
+        if normal_empty {
+            crate::apic::eoi();
+            return;
         }
 
         // Do the save step as above
@@ -88,6 +95,7 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
 }
 
 // Switch to next driver.
+#[unsafe(link_section = ".gdata")]
 fn to_driver(rflags: u64) {
     // Get current driver process.
     let dpt = DRIVER_PROCESS.lock();
@@ -110,19 +118,25 @@ fn to_driver(rflags: u64) {
     }
 
     // Save its current DID and update queue
-    CURRENT_ID.store(did, Ordering::SeqCst);
+    CURRENT_ID.store(did, Ordering::Relaxed);
     queue.remove(0);
     queue.push(did);
 
     // Now get its information
-    let cr3 = PhysFrame::<Size4KiB>::containing_address(PhysAddr::new(proc.table_addr));
+    let cr3 = proc.table_addr;
     let rsp = proc.context.rsp;
     let rip = proc.context.rip;
+    trace!("Updating CR3 with frame {:?}", cr3);
 
     // Update status and switch to target process's table
     // proc.status = Status::Running;
     unsafe {
-        Cr3::write(cr3, Cr3Flags::empty());
+        core::arch::asm!(
+            "mov rax, {0}",
+            "mov cr3, rax",
+            in(reg) cr3,
+            options(nomem, nostack, preserves_flags)
+        )
     }
 
     // Update RSP and jump
@@ -146,6 +160,7 @@ fn to_driver(rflags: u64) {
     }
 }
 
+#[unsafe(link_section = ".gdata")]
 fn to_normal(rflags: u64) {
     // Get current normal process
     let npt = NORMAL_PROCESS.lock();
@@ -168,18 +183,24 @@ fn to_normal(rflags: u64) {
     }
 
     // Save its current id and update queue
-    CURRENT_ID.store(pid, Ordering::SeqCst);
+    CURRENT_ID.store(pid, Ordering::Relaxed);
     queue.remove(0);
     queue.push(pid);
 
     // Get info
-    let cr3 = PhysFrame::<Size4KiB>::containing_address(PhysAddr::new(proc.table_addr));
+    let cr3 = proc.table_addr;
     let rsp = proc.context.rsp;
     let rip = proc.context.rip;
+    trace!("Updating CR3 with frame {:?}", cr3);
 
     // Update status and switch to CR3
     unsafe {
-        Cr3::write(cr3, Cr3Flags::empty());
+        core::arch::asm!(
+            "mov rax, {0}",
+            "mov cr3, rax",
+            in(reg) cr3,
+            options(nomem, nostack, preserves_flags)
+        )
     }
 
     // Finally, update RSP and jump
