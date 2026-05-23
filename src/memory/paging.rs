@@ -5,16 +5,20 @@ use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::*;
 use x86_64::{align_down, align_up};
 
-const PML4_ADDR: u64 = 0x100000;
+// Kernel specific
+pub const PML4_ADDR: u64 = 0x100000;
 const PDPT_LOW_ADDR: u64 = 0x101000;
 const PDPT_HIGH_ADDR: u64 = 0x102000;
 const PDT_LOW_ADDR: u64 = 0x103000;
 const PDT_HIGH_ADDR: u64 = 0x104000;
 const PT_LOW_ADDR: u64 = 0x105000;
-const PDT_PROC_ADDR: u64 = 0x106000; // For process only
-const PDT_GS_ADDR: u64 = 0x107000; // Global interrupt stack PDT (resolve conflict)
-const PDT_GRW_ADDR: u64 = 0x108000; // Global Read-Write area
-const PDT_LOW2_ADDR: u64 = 0x109000;
+
+// Process specific
+pub const PDPT_HPROC_ADDR: u64 = 0x106000;  // Process-specified high addr
+const PDT_PROC_ADDR: u64 = 0x107000;
+const PDT_GS_ADDR: u64 = 0x108000; // Global interrupt stack PDT (resolve conflict)
+const PDT_GRW_ADDR: u64 = 0x109000; // Global Read-Write area
+const PDT_LOW2_ADDR: u64 = 0x10a000;
 
 unsafe extern "C" {
     static __GDATA_START: u8;
@@ -24,12 +28,16 @@ unsafe extern "C" {
 /// Initialize page tables for higher-half kernel
 pub fn init() {
     // Init page table
+    // Kernel specific
     let pml4 = unsafe { &mut *(PML4_ADDR as *mut PageTable) };
     let pdpt_low = unsafe { &mut *(PDPT_LOW_ADDR as *mut PageTable) };
     let pdpt_high = unsafe { &mut *(PDPT_HIGH_ADDR as *mut PageTable) };
     let pdt_low = unsafe { &mut *(PDT_LOW_ADDR as *mut PageTable) };
     let pdt_high = unsafe { &mut *(PDT_HIGH_ADDR as *mut PageTable) };
     let pt_low = unsafe { &mut *(PT_LOW_ADDR as *mut PageTable) };
+
+    // Process specific
+    let pdpt_hproc = unsafe { &mut *(PDPT_HPROC_ADDR as *mut PageTable) };
     let pdt_proc = unsafe { &mut *(PDT_PROC_ADDR as *mut PageTable) };
     let pdt_gs = unsafe { &mut *(PDT_GS_ADDR as *mut PageTable) };
     let pdt_grw = unsafe { &mut *(PDT_GRW_ADDR as *mut PageTable) };
@@ -90,6 +98,7 @@ pub fn init() {
     // Map global interrupt stack 0xFFFF800040000000 -> 0x4200000
     // Fill PDPT entry for global stack PDT
     pdpt_high[1].set_addr(PhysAddr::new(PDT_GS_ADDR), global_flags);
+    pdpt_hproc[1].set_addr(PhysAddr::new(PDT_GS_ADDR), global_flags);
     // Map 2MiB huge page with Global flag
     pdt_gs[0].set_addr(
         PhysAddr::new(0x4200000),
@@ -99,6 +108,7 @@ pub fn init() {
     // Map global read-write data to 0xFFFF800080000000 -> 0x4400000~0x4600000
     // Fill PDPT[2] for global data
     pdpt_high[2].set_addr(PhysAddr::new(PDT_GRW_ADDR), global_flags);
+    pdpt_hproc[2].set_addr(PhysAddr::new(PDT_GRW_ADDR), global_flags);
     // Will divide into 2 forms
     // 0xFFFF800080000000~0xFFFF800080200000 is for both
     // kernel and drivers
@@ -137,7 +147,7 @@ pub fn init() {
     let pt_index: usize = ((start_aligned >> 12) & 0x1FF) as usize;
 
     // Flags
-    let proc_flags = flags | PageTableFlags::GLOBAL;
+    let proc_flags = PageTableFlags::PRESENT | PageTableFlags::GLOBAL | PageTableFlags::USER_ACCESSIBLE;
     // Convert virt to phys
     let gdata_phys = start_aligned - va_base + 0x200000;
 
@@ -154,6 +164,9 @@ pub fn init() {
         pdt_proc[i_pdt].set_addr(PhysAddr::new(current), flags);
         current += 0x1000;
     }
+
+    // Map to high-only process PDPT
+    pdpt_hproc[0].set_addr(PhysAddr::new(PDT_PROC_ADDR), flags);
 
     // Map the framebuffer
     // At here, we just use the old page tables

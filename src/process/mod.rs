@@ -7,6 +7,7 @@ use x86_64::structures::paging::{
 pub mod driver;
 pub mod normal;
 use crate::memory::IdentityPageTableMapper;
+use crate::memory::{PML4_ADDR, PDPT_HPROC_ADDR};
 use crate::memory::framealloc::FRAME_ALLOCATOR;
 use crate::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
 use log::{debug, error, trace, warn};
@@ -173,7 +174,14 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
         } else {
             return Err(Error::MemoryNotEnough);
         };
+
+        // Copy kernel's PML4 to do more handling
+        core::ptr::copy(PML4_ADDR as *const PageTable, pml4 as *mut PageTable, 1);
         let pml4_table = &mut *(pml4 as *mut PageTable);
+        for i in 0..256 {
+            pml4_table[i].set_unused();
+        }
+        pml4_table[256].set_addr(PhysAddr::new(PDPT_HPROC_ADDR), PageTableFlags::PRESENT | PageTableFlags::WRITABLE);
         let mut proc_mapper = MappedPageTable::new(pml4_table, IdentityPageTableMapper);
 
         // Time to allocate 2MiB for stack

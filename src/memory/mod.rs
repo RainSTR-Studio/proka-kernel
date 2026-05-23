@@ -11,6 +11,7 @@ use x86_64::structures::paging::{
     mapper::PageTableFrameMapping,
 };
 use x86_64::{PhysAddr, VirtAddr};
+pub use paging::{PML4_ADDR, PDPT_HPROC_ADDR};
 
 // PML4 phys addr
 const PML4: u64 = 0x100000;
