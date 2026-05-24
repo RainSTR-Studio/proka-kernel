@@ -189,7 +189,7 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     let mut proc_mapper = unsafe { MappedPageTable::new(pml4_table, IdentityPageTableMapper) };
 
     // Time to allocate 2MiB for stack
-    const STACK_PAGES: usize = 64;  // Pages of stack needed
+    const STACK_PAGES: usize = 64; // Pages of stack needed
     let stack_base = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(STACK_PAGES) {
         trace!("Allocated frame {:?} for proc stack", frame);
         frame.start_address().as_u64()
@@ -202,7 +202,14 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
         let page = Page::<Size4KiB>::containing_address(virt_addr);
         let phys_addr = PhysAddr::new(i * 0x1000 + stack_base);
         let frame = PhysFrame::<Size4KiB>::containing_address(phys_addr);
-        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+        let flags = if proctype == ProcType::Driver {
+            PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE
+        } else {
+            PageTableFlags::PRESENT
+                | PageTableFlags::WRITABLE
+                | PageTableFlags::NO_EXECUTE
+                | PageTableFlags::USER_ACCESSIBLE
+        };
         trace!("Mapping frame: {:?}, Page: {:?}...", frame, page);
 
         // SAFETY: All frame are allocated by allocator and it's currently not in use

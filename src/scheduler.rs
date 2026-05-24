@@ -6,7 +6,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use log::{debug, trace};
+use log::{debug, trace, warn};
 use spin::Mutex;
 use x86_64::structures::idt::InterruptStackFrame;
 
@@ -57,17 +57,43 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
     // Decide run process or driver.
     if IS_DRIVER.load(Ordering::Relaxed) {
         // Now we are running driver.
-        IS_DRIVER.store(false, Ordering::Relaxed);
-
-        // Check: Is current queue empty
-        if driver_empty {
-            crate::apic::eoi();
-            return;
+        // Check: Is next proc area queue empty
+        if !normal_empty {
+            IS_DRIVER.store(false, Ordering::Relaxed);
+        } else {
+            warn!("The normal process queue is EMPTY!! Will not switch to normal proc area");
         }
 
         // So let's save its RIP and RSP
         let mut guard = DRIVER_PROCESS.lock();
         let proc = &mut guard.process[current_id];
+
+        // Check: Is driver empty
+        if driver_empty {
+            // The current ID is not changed, so we can
+            // still use it to switch back...
+            let cr3 = proc.table_addr;
+            drop(guard);
+            crate::apic::eoi();
+
+            // Check: is cr3 empty
+            if cr3 == 0 {
+                return;
+            }
+
+            // Switch table
+            unsafe {
+                core::arch::asm!(
+                    "mov rax, {0}",
+                    "mov cr3, rax",
+                    in(reg) cr3,
+                    options(nomem, nostack, preserves_flags)
+                )
+            }
+
+            return;
+        }
+
         proc.context.rip = rip;
         proc.context.rsp = rsp;
         drop(guard);
@@ -75,17 +101,42 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
         to_driver(rflags)
     } else {
         // Now we are running normal process.
-        IS_DRIVER.store(true, Ordering::Relaxed);
-
-        // Check: Is current list empty
-        if normal_empty {
-            crate::apic::eoi();
-            return;
+        // Check: Is next proc area queue empty
+        if !driver_empty {
+            IS_DRIVER.store(true, Ordering::Relaxed);
+        } else {
+            warn!("The driver process is empty!!! Will not switch to driver proc area");
         }
 
         // Do the save step as above
         let mut guard = NORMAL_PROCESS.lock();
         let proc = &mut guard.process[current_id];
+
+        // Check: Is normal list empty
+        if normal_empty {
+            // Current ID still usable, because it wasn't changed
+            let cr3 = proc.table_addr;
+            drop(guard);
+            crate::apic::eoi();
+
+            // Check: is cr3 empty
+            if cr3 == 0 {
+                return;
+            }
+
+            // Switch table
+            unsafe {
+                core::arch::asm!(
+                    "mov rax, {0}",
+                    "mov cr3, rax",
+                    in(reg) cr3,
+                    options(nomem, nostack, preserves_flags)
+                )
+            }
+
+            return;
+        }
+
         proc.context.rip = rip;
         proc.context.rsp = rsp;
         drop(guard);
@@ -126,7 +177,11 @@ fn to_driver(rflags: u64) {
     let cr3 = proc.table_addr;
     let rsp = proc.context.rsp;
     let rip = proc.context.rip;
-    trace!("Updating CR3 with frame {:?}", cr3);
+    trace!("Updating CR3 with frame {:08x}", cr3);
+
+    // Drop locks
+    drop(dpt);
+    drop(queue);
 
     // Update status and switch to target process's table
     // proc.status = Status::Running;
@@ -137,10 +192,10 @@ fn to_driver(rflags: u64) {
         core::arch::asm!(
             "mov rax, {0}",
             "mov cr3, rax",
-            "push {1:x}",   // SS
+            "push {1:r}",   // SS
             "push {2}",     // RSP
             "push {3}",     // RFLAGS
-            "push {4:x}",   // CS, PL=0
+            "push {4:r}",   // CS, PL=0
             "push {5}",     // RIP
             "iretq",
             in(reg) cr3,
@@ -185,7 +240,11 @@ fn to_normal(rflags: u64) {
     let cr3 = proc.table_addr;
     let rsp = proc.context.rsp;
     let rip = proc.context.rip;
-    trace!("Updating CR3 with frame {:?}", cr3);
+    trace!("Updating CR3 with frame {:08x}", cr3);
+
+    // Drop locks
+    drop(npt);
+    drop(queue);
 
     // Update status and switch to CR3
     // Finally, update RSP and jump
@@ -195,10 +254,10 @@ fn to_normal(rflags: u64) {
         core::arch::asm!(
             "mov rax, {0}",
             "mov cr3, rax",
-            "push {1:x}",     // SS
+            "push {1:r}",     // SS
             "push {2}",       // RSP
             "push {3}",       // RFLAGS
-            "push {4:x}",     // CS, PL=3
+            "push {4:r}",     // CS, PL=3
             "push {5}",       // RIP
             "iretq",
             in(reg) cr3,

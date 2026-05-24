@@ -1,19 +1,19 @@
 //! The handler about IDT
 //!
 //! This code is originally by moyanj <me@moyanjdc.top>
+use crate::apic::eoi;
+use crate::println;
 #[allow(unused)]
 use core::arch::asm;
-use crate::println;
-use crate::apic::eoi;
 use x86_64::{
+    VirtAddr,
     registers::control::Cr2,
     structures::idt::{InterruptStackFrame, PageFaultErrorCode},
-    VirtAddr,
 };
 
 macro_rules! exception {
     ($name:ident, $msg:expr) => {
-	#[unsafe(link_section = ".gdata")]
+        #[unsafe(link_section = ".gdata")]
         pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame) {
             // Switch to kernel page table
             unsafe {
@@ -23,7 +23,7 @@ macro_rules! exception {
                     options(nomem, nostack, preserves_flags),
                 )
             }
-            
+
             // Do next...
             println!("EXCEPTION: {}\n{:#?}", $msg, stack_frame);
             hlt_loop() // TODO: Replace it to recovor logic
@@ -33,7 +33,7 @@ macro_rules! exception {
 
 macro_rules! exception_with_error_code {
     ($name:ident, $msg:expr) => {
-	#[unsafe(link_section = ".gdata")]
+        #[unsafe(link_section = ".gdata")]
         pub extern "x86-interrupt" fn $name(
             stack_frame: InterruptStackFrame,
             error_code: u64, // Uses u64 as error code
@@ -49,9 +49,7 @@ macro_rules! exception_with_error_code {
 
             println!(
                 "[ERROR] CPU EXCEPTION! {} [ERR: {:#x}]\n{:#?}",
-                $msg,
-                error_code,
-                stack_frame
+                $msg, error_code, stack_frame
             );
             hlt_loop()
         }
@@ -79,10 +77,7 @@ exception_with_error_code!(control_protection, "CONTROL PROTECTION EXCEPTION");
 // Special handler -------------------------------------------------
 // #DF handler
 #[unsafe(link_section = ".gdata")]
-pub extern "x86-interrupt" fn double_fault(
-    stack_frame: InterruptStackFrame,
-    error_code: u64,
-) -> ! {
+pub extern "x86-interrupt" fn double_fault(stack_frame: InterruptStackFrame, error_code: u64) -> ! {
     // Switch to kernel table
     unsafe {
         asm!(
@@ -90,13 +85,12 @@ pub extern "x86-interrupt" fn double_fault(
             "mov cr3, rax",
             options(nomem, nostack, preserves_flags)
         )
-    }    
+    }
 
     // Must mark as never return
     println!(
         "[ERROR] CRITICAL: DOUBLE FAULT [ERR: {:#x}]\n{:#?}",
-        error_code,
-        stack_frame
+        error_code, stack_frame
     );
     panic!("SYSTEM PANIC"); // Stop system safely
 }
@@ -115,7 +109,6 @@ pub extern "x86-interrupt" fn pagefault(
         )
     }
 
-
     let fault_address = match Cr2::read() {
         Ok(addr) => addr,
         Err(_) => VirtAddr::zero(),
@@ -125,9 +118,7 @@ pub extern "x86-interrupt" fn pagefault(
         "EXCEPTION: PAGE FAULT at {:#x}\n
         Error Code: {:?}\n
         Frame: {:#?}",
-        fault_address,
-        error_code,
-        stack_frame
+        fault_address, error_code, stack_frame
     );
     // TODO: Exception recovery logic
     hlt_loop()

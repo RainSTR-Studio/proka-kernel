@@ -1,13 +1,12 @@
 //! The serial output module.
-use spin::{Mutex, Lazy};
+use spin::{Lazy, Mutex};
 use uart_16550::SerialPort;
 
-    pub static SERIAL1: Lazy<Mutex<SerialPort>> = Lazy::new(|| {
-        let mut serial_port = unsafe { SerialPort::new(0x3F8) };
-        serial_port.init();
-        Mutex::new(serial_port)
-    });
-
+pub static SERIAL1: Lazy<Mutex<SerialPort>> = Lazy::new(|| {
+    let mut serial_port = unsafe { SerialPort::new(0x3F8) };
+    serial_port.init();
+    Mutex::new(serial_port)
+});
 
 /* The functions and macros in debug mode */
 #[doc(hidden)]

@@ -10,7 +10,7 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     // New table
     let mut idt = InterruptDescriptorTable::new();
-    
+
     // CPU exception handler
     idt.divide_error.set_handler_fn(divide_error);
     idt.debug.set_handler_fn(debug);
@@ -18,17 +18,20 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     idt.overflow.set_handler_fn(overflow);
     idt.bound_range_exceeded.set_handler_fn(bound_range);
     idt.invalid_opcode.set_handler_fn(invalid_opcode);
-    idt.device_not_available.set_handler_fn(device_not_available);
+    idt.device_not_available
+        .set_handler_fn(device_not_available);
     idt.double_fault.set_handler_fn(double_fault);
     idt.invalid_tss.set_handler_fn(invalid_tss);
     idt.segment_not_present.set_handler_fn(segment_not_present);
     idt.stack_segment_fault.set_handler_fn(stack_segment);
-    idt.general_protection_fault.set_handler_fn(general_protection);
+    idt.general_protection_fault
+        .set_handler_fn(general_protection);
     idt.page_fault.set_handler_fn(pagefault);
     idt.x87_floating_point.set_handler_fn(x87_floating_point);
     idt.alignment_check.set_handler_fn(alignment_check);
     idt.machine_check.set_handler_fn(machine_check);
-    idt.cp_protection_exception.set_handler_fn(control_protection);
+    idt.cp_protection_exception
+        .set_handler_fn(control_protection);
 
     // LAPIC interrupts
     idt[0x20].set_handler_fn(apic_calibrator);
@@ -37,7 +40,6 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     idt[0xF1].set_handler_fn(error);
     idt
 });
-
 
 // The APIC calibrator
 extern "x86-interrupt" fn apic_calibrator(_: InterruptStackFrame) {
