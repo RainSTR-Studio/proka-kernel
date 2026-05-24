@@ -130,26 +130,20 @@ fn to_driver(rflags: u64) {
 
     // Update status and switch to target process's table
     // proc.status = Status::Running;
-    unsafe {
-        core::arch::asm!(
-            "mov rax, {0}",
-            "mov cr3, rax",
-            in(reg) cr3,
-            options(nomem, nostack, preserves_flags)
-        )
-    }
-
     // Update RSP and jump
     crate::apic::eoi();
     let sel = GDT.1;
     unsafe {
         core::arch::asm!(
-            "push {0:x}",   // SS
-            "push {1}",    // RSP
-            "push {2}",    // RFLAGS
-            "push {3:x}",   // CS, PL=0
-            "push {4}",    // RIP
+            "mov rax, {0}",
+            "mov cr3, rax",
+            "push {1:x}",   // SS
+            "push {2}",     // RSP
+            "push {3}",     // RFLAGS
+            "push {4:x}",   // CS, PL=0
+            "push {5}",     // RIP
             "iretq",
+            in(reg) cr3,
             in(reg) sel.kernel_data.0,
             in(reg) rsp,
             in(reg) rflags,
@@ -194,26 +188,20 @@ fn to_normal(rflags: u64) {
     trace!("Updating CR3 with frame {:?}", cr3);
 
     // Update status and switch to CR3
-    unsafe {
-        core::arch::asm!(
-            "mov rax, {0}",
-            "mov cr3, rax",
-            in(reg) cr3,
-            options(nomem, nostack, preserves_flags)
-        )
-    }
-
     // Finally, update RSP and jump
     crate::apic::eoi();
     let sel = GDT.1;
     unsafe {
         core::arch::asm!(
-            "push {0:x}",     // SS
-            "push {1}",       // RSP
-            "push {2}",       // RFLAGS
-            "push {3:x}",     // CS, PL=3
-            "push {4}",       // RIP
+            "mov rax, {0}",
+            "mov cr3, rax",
+            "push {1:x}",     // SS
+            "push {2}",       // RSP
+            "push {3}",       // RFLAGS
+            "push {4:x}",     // CS, PL=3
+            "push {5}",       // RIP
             "iretq",
+            in(reg) cr3,
             in(reg) sel.user_data.0,
             in(reg) rsp,
             in(reg) rflags,
