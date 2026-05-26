@@ -234,9 +234,21 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
             let phys_addr = PhysAddr::new(info.addr + i * 0x1000);
             let frame = PhysFrame::<Size4KiB>::containing_address(phys_addr);
             let flags = if info.executable {
-                PageTableFlags::PRESENT
+                // For ring3/userapp, we still need add user accessable
+                let basic = PageTableFlags::PRESENT;
+                if proctype == ProcType::Normal {
+                    basic | PageTableFlags::USER_ACCESSIBLE
+                } else {
+                    basic
+                }
             } else {
-                PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE
+                let basic =
+                    PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+                if proctype == ProcType::Normal {
+                    basic | PageTableFlags::USER_ACCESSIBLE
+                } else {
+                    basic
+                }
             };
             trace!("Mapping frame: {:?}, Page: {:?}", frame, page);
 

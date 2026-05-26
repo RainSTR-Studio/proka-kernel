@@ -25,7 +25,24 @@ static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
 /// The task switcher
 #[unsafe(link_section = ".gdata")]
 pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
-    // Switch to kernel page table IMMEDIATELY!!!
+    // First, we should save the stack info before switching stack...
+    const TARGET_ADDR: u64 = 0xFFFF8000801FF000; // Mapped, writable
+    unsafe {
+        // Copy then
+        core::arch::asm!(
+            "mov rsi, {src}",
+            "mov rdi, {dst}",
+            "mov rcx, {count:r}",
+            "cld",
+            "rep movsb",
+            src = in(reg) &stack_frame as *const InterruptStackFrame,
+            dst = in(reg) TARGET_ADDR,
+            count = in(reg) 1,
+            options(nomem, nostack, preserves_flags)
+        )
+    }
+
+    // Switch to kernel page table then
     unsafe {
         core::arch::asm!(
             "mov rax, 0x100000", // Fixed addr, safe
@@ -33,6 +50,11 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
             options(nomem, nostack, preserves_flags)
         )
     }
+
+    // Update to new stack frame
+    // SAFETY: Target already mapped and usable
+    let stack_frame = unsafe { &*(TARGET_ADDR as *const InterruptStackFrame) };
+    trace!("{:?}", stack_frame);
 
     // Get smth bruh
     let normal_empty = NORMAL_QUEUE.lock().is_empty();
