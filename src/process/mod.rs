@@ -123,7 +123,7 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
         ExecMode::CoreDrv => ProcType::Driver,
     };
 
-    // Todo: Complete PKE loading
+    // Do PKE loading
     for section in parser.sections() {
         // Check is current section loadable
         if !section.is_loadable {

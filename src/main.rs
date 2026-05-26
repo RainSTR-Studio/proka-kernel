@@ -68,7 +68,7 @@ pub extern "C" fn kernel_main() -> ! {
     success!("Initprt's staff load completed.");
 
     // Enable interrupt
-    // x86_64::instructions::interrupts::enable();
+    x86_64::instructions::interrupts::enable();
 
     loop {
         x86_64::instructions::hlt();

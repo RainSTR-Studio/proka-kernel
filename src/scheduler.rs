@@ -5,8 +5,8 @@ use crate::{
     tables::gdt::GDT,
 };
 use alloc::vec::Vec;
+use log::trace;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use log::{debug, trace, warn};
 use spin::Mutex;
 use x86_64::structures::idt::InterruptStackFrame;
 
@@ -28,6 +28,8 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
     // First, we should save the stack info before switching stack...
     const TARGET_ADDR: u64 = 0xFFFF8000801FF000; // Mapped, writable
     unsafe {
+        const SIZE: usize = core::mem::size_of::<InterruptStackFrame>();
+
         // Copy then
         core::arch::asm!(
             "mov rsi, {src}",
@@ -35,15 +37,13 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
             "mov rcx, {count:r}",
             "cld",
             "rep movsb",
-            src = in(reg) &stack_frame as *const InterruptStackFrame,
+            src = in(reg) &stack_frame as *const InterruptStackFrame as usize,
             dst = in(reg) TARGET_ADDR,
-            count = in(reg) 1,
+            count = in(reg) SIZE,
             options(nomem, nostack, preserves_flags)
-        )
-    }
+        );
 
-    // Switch to kernel page table then
-    unsafe {
+        // Switch to kernel page table then
         core::arch::asm!(
             "mov rax, 0x100000", // Fixed addr, safe
             "mov cr3, rax",
@@ -54,7 +54,7 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
     // Update to new stack frame
     // SAFETY: Target already mapped and usable
     let stack_frame = unsafe { &*(TARGET_ADDR as *const InterruptStackFrame) };
-    trace!("{:?}", stack_frame);
+    trace!("Stack frame: {:?}", stack_frame);   // idk why, remove this will boom
 
     // Get smth bruh
     let normal_empty = NORMAL_QUEUE.lock().is_empty();
@@ -62,9 +62,6 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
     let rip = stack_frame.instruction_pointer.as_u64();
     let rsp = stack_frame.stack_pointer.as_u64();
     let rflags = stack_frame.cpu_flags.bits();
-
-    // Debug only bruh
-    debug!("Switched into proc switcher");
 
     // Check is queue is empty.
     if normal_empty && driver_empty {
@@ -82,8 +79,6 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
         // Check: Is next proc area queue empty
         if !normal_empty {
             IS_DRIVER.store(false, Ordering::Relaxed);
-        } else {
-            warn!("The normal process queue is EMPTY!! Will not switch to normal proc area");
         }
 
         // So let's save its RIP and RSP
@@ -126,8 +121,6 @@ pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
         // Check: Is next proc area queue empty
         if !driver_empty {
             IS_DRIVER.store(true, Ordering::Relaxed);
-        } else {
-            warn!("The driver process is empty!!! Will not switch to driver proc area");
         }
 
         // Do the save step as above
@@ -199,7 +192,6 @@ fn to_driver(rflags: u64) {
     let cr3 = proc.table_addr;
     let rsp = proc.context.rsp;
     let rip = proc.context.rip;
-    trace!("Updating CR3 with frame {:08x}", cr3);
 
     // Drop locks
     drop(dpt);
@@ -262,7 +254,6 @@ fn to_normal(rflags: u64) {
     let cr3 = proc.table_addr;
     let rsp = proc.context.rsp;
     let rip = proc.context.rip;
-    trace!("Updating CR3 with frame {:08x}", cr3);
 
     // Drop locks
     drop(npt);

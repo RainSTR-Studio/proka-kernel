@@ -115,9 +115,7 @@ pub extern "x86-interrupt" fn pagefault(
     };
 
     println!(
-        "EXCEPTION: PAGE FAULT at {:#x}\n
-        Error Code: {:?}\n
-        Frame: {:#?}",
+        "\x1b[31m[ERROR] EXCEPTION: PAGE FAULT at {:#x}\nError Code: {:?}\nFrame: {:#?}\x1b[0m",
         fault_address, error_code, stack_frame
     );
     // TODO: Exception recovery logic
