@@ -41,7 +41,7 @@ macro_rules! serial_println {
 /* The macros and function not in debug mode (empty) */
 #[doc(hidden)]
 #[cfg(not(debug_assertions))]
-pub fn _print(args: ::core::fmt::Arguments) {}
+pub fn _print(_args: ::core::fmt::Arguments) {}
 
 #[macro_export]
 #[cfg(not(debug_assertions))]

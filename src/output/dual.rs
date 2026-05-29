@@ -6,9 +6,7 @@ use crate::output::serial::_print as serial_print;
 macro_rules! print {
     ($($arg:tt)*) => {
         {
-            // For release mode, serial is not needed
-            // Instead, it will slow down the print speed.
-            #[cfg(debug_assertions)]
+            // For release mode, serial is optimized out
             $crate::output::dual::_dual_print_serial(format_args!($($arg)*));
 
             // This will always print to console
@@ -36,7 +34,6 @@ pub fn _dual_print_console(args: core::fmt::Arguments) {
 
 // Inner function: print to serial port
 #[doc(hidden)]
-#[cfg(debug_assertions)]
 pub fn _dual_print_serial(args: core::fmt::Arguments) {
     serial_print(args);
 }

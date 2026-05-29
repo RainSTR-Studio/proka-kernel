@@ -25,7 +25,10 @@ macro_rules! exception {
             }
 
             // Do next...
-            println!("EXCEPTION: {}\n{:#?}", $msg, stack_frame);
+            println!(
+                "\x1b[31m[ERROR] CPU EXCEPTION: {}\n{:#?}\x1b[0m",
+                $msg, stack_frame
+            );
             hlt_loop() // TODO: Replace it to recovor logic
         }
     };
@@ -48,7 +51,7 @@ macro_rules! exception_with_error_code {
             }
 
             println!(
-                "[ERROR] CPU EXCEPTION! {} [ERR: {:#x}]\n{:#?}",
+                "\x1b[31m[ERROR] CPU EXCEPTION! {} [ERR: {:#x}]\n{:#?}\x1b[0m",
                 $msg, error_code, stack_frame
             );
             hlt_loop()

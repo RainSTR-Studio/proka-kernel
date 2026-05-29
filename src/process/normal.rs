@@ -1,7 +1,6 @@
 //! The normal process definition.
 extern crate alloc;
 use super::{Context, Error, MAX_PS, Status};
-use alloc::boxed::Box;
 use alloc::{vec, vec::Vec};
 use spin::{Lazy, Mutex};
 
@@ -37,7 +36,7 @@ pub struct NormalProcess {
     pub priority: u8,
 
     /// The process context.
-    pub context: Box<Context>,
+    pub context: Context,
 
     /// The process's page table.
     pub table_addr: u64,
@@ -51,7 +50,7 @@ impl NormalProcess {
             present: true,
             status: Status::Ready,
             priority,
-            context: Box::new(Context::default()),
+            context: Context::default(),
             table_addr: frame,
         })
     }

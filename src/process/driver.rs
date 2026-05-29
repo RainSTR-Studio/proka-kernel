@@ -1,7 +1,6 @@
 //! The driver process definition.
 extern crate alloc;
 use super::{Context, Error, MAX_PS, Status};
-use alloc::boxed::Box;
 use alloc::{vec, vec::Vec};
 use spin::{Lazy, Mutex};
 
@@ -34,7 +33,7 @@ pub struct DriverProcess {
     pub status: Status,
 
     /// The process context.
-    pub context: Box<Context>,
+    pub context: Context,
 
     /// The process's page table.
     pub table_addr: u64,
@@ -47,7 +46,7 @@ impl DriverProcess {
         Ok(Self {
             present: true,
             status: Status::Ready,
-            context: Box::new(Context::default()),
+            context: Context::default(),
             table_addr: frame,
         })
     }
