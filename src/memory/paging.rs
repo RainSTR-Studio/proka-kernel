@@ -43,7 +43,6 @@ pub fn init() {
     let pdt_grw = unsafe { &mut *(PDT_GRW_ADDR as *mut PageTable) };
 
     let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
-    let global_flags = flags | PageTableFlags::GLOBAL;
     let huge_flags = flags | PageTableFlags::HUGE_PAGE;
 
     // Identity mapping 0x00000 ~ 0x200000 (2MiB)
@@ -97,18 +96,18 @@ pub fn init() {
 
     // Map global interrupt stack 0xFFFF800040000000 -> 0x4200000
     // Fill PDPT entry for global stack PDT
-    pdpt_high[1].set_addr(PhysAddr::new(PDT_GS_ADDR), global_flags);
-    pdpt_hproc[1].set_addr(PhysAddr::new(PDT_GS_ADDR), global_flags);
+    pdpt_high[1].set_addr(PhysAddr::new(PDT_GS_ADDR), flags);
+    pdpt_hproc[1].set_addr(PhysAddr::new(PDT_GS_ADDR), flags);
     // Map 2MiB huge page with Global flag
     pdt_gs[0].set_addr(
         PhysAddr::new(0x4200000),
-        huge_flags | PageTableFlags::GLOBAL,
+        huge_flags | PageTableFlags::GLOBAL | PageTableFlags::NO_EXECUTE,
     );
 
     // Map global read-write data to 0xFFFF800080000000 -> 0x4400000~0x4600000
     // Fill PDPT[2] for global data
-    pdpt_high[2].set_addr(PhysAddr::new(PDT_GRW_ADDR), global_flags);
-    pdpt_hproc[2].set_addr(PhysAddr::new(PDT_GRW_ADDR), global_flags);
+    pdpt_high[2].set_addr(PhysAddr::new(PDT_GRW_ADDR), flags);
+    pdpt_hproc[2].set_addr(PhysAddr::new(PDT_GRW_ADDR), flags);
     // Will divide into 2 forms
     // 0xFFFF800080000000~0xFFFF800080200000 is for both
     // kernel and drivers

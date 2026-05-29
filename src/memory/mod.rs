@@ -3,15 +3,19 @@ pub mod framealloc;
 pub mod heap;
 pub mod paging;
 
+// Uses
 use crate::println;
 pub use paging::{PDPT_HPROC_ADDR, PML4_ADDR};
 use proka_bootloader::{get_bootinfo, memory::MemoryType};
 use spin::{Lazy, Mutex, Once};
-use x86_64::structures::paging::{
-    MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size2MiB, Size4KiB,
-    mapper::PageTableFrameMapping,
+use x86_64::{
+    PhysAddr, VirtAddr,
+    registers::model_specific::{Efer, EferFlags},
+    structures::paging::{
+        MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size2MiB, Size4KiB,
+        mapper::PageTableFrameMapping,
+    },
 };
-use x86_64::{PhysAddr, VirtAddr};
 
 // PML4 phys addr
 const PML4: u64 = 0x100000;
@@ -57,16 +61,21 @@ unsafe impl PageTableFrameMapping for IdentityPageTableMapper {
 
 /// Memory manager initializator.
 pub fn init() {
-    // Before enabling new page table, we shall clear the place
-    // where page table needed.
-    //
+    // Before enabling new page table, we shall clear the place where page table needed.
     // Safety: This address is authorized as page table's addr
     unsafe {
         let target_addr = 0x100000;
-        let length = 0x1FF000 - target_addr;
+        let length = 0x1FFFFF - target_addr;
         let area = core::slice::from_raw_parts_mut(target_addr as *mut u8, length);
         area.fill(0);
+
+        // Also, we need to update EFER to support no execute bits
+        let flags = Efer::read();
+        Efer::write(flags | EferFlags::NO_EXECUTE_ENABLE);
     }
+
+    // Print EFER flags
+    println!("[INFO] EFER flags: {:?}", Efer::read());
 
     // Enable new page table then
     self::paging::init();

@@ -2,10 +2,10 @@
 extern crate alloc;
 use crate::{
     process::{DRIVER_PROCESS, NORMAL_PROCESS},
+    serial_println,
     tables::gdt::GDT,
 };
 use alloc::vec::Vec;
-use log::trace;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use spin::Mutex;
 use x86_64::structures::idt::InterruptStackFrame;
@@ -24,37 +24,32 @@ static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
 
 /// The task switcher
 #[unsafe(link_section = ".gdata")]
-pub extern "x86-interrupt" fn switch_task(stack_frame: InterruptStackFrame) {
+pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
     // First, we should save the stack info before switching stack...
     const TARGET_ADDR: u64 = 0xFFFF8000801FF000; // Mapped, writable
     unsafe {
         const SIZE: usize = core::mem::size_of::<InterruptStackFrame>();
 
-        // Copy then
+        // Copy and switch to kernel page table then
         core::arch::asm!(
             "mov rsi, {src}",
             "mov rdi, {dst}",
             "mov rcx, {count:r}",
             "cld",
             "rep movsb",
-            src = in(reg) &stack_frame as *const InterruptStackFrame as usize,
+            "mov rax, 0x100000", // Fixed addr, safe
+            "mov cr3, rax",
+            src = in(reg) &stack as *const InterruptStackFrame as usize,
             dst = in(reg) TARGET_ADDR,
             count = in(reg) SIZE,
             options(nomem, nostack, preserves_flags)
         );
-
-        // Switch to kernel page table then
-        core::arch::asm!(
-            "mov rax, 0x100000", // Fixed addr, safe
-            "mov cr3, rax",
-            options(nomem, nostack, preserves_flags)
-        )
     }
 
     // Update to new stack frame
     // SAFETY: Target already mapped and usable
     let stack_frame = unsafe { &*(TARGET_ADDR as *const InterruptStackFrame) };
-    trace!("Stack frame: {:?}", stack_frame);   // idk why, remove this will boom
+    serial_println!("\x1b[34m[DEBUG] Stack frame: {:?}\x1b[0m", stack_frame);
 
     // Get smth bruh
     let normal_empty = NORMAL_QUEUE.lock().is_empty();
