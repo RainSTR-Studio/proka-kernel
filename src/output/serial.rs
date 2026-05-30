@@ -10,7 +10,6 @@ pub static SERIAL1: Lazy<Mutex<SerialPort>> = Lazy::new(|| {
 
 /* The functions and macros in debug mode */
 #[doc(hidden)]
-#[cfg(debug_assertions)]
 pub fn _print(args: ::core::fmt::Arguments) {
     use core::fmt::Write;
     SERIAL1
@@ -39,10 +38,6 @@ macro_rules! serial_println {
 }
 
 /* The macros and function not in debug mode (empty) */
-#[doc(hidden)]
-#[cfg(not(debug_assertions))]
-pub fn _print(_args: ::core::fmt::Arguments) {}
-
 #[macro_export]
 #[cfg(not(debug_assertions))]
 macro_rules! serial_print {

@@ -1,8 +1,8 @@
 //! The scheduler.
 extern crate alloc;
 use crate::{
-    process::{DRIVER_PROCESS, NORMAL_PROCESS},
     serial_println,
+    process::{DRIVER_PROCESS, NORMAL_PROCESS},
     tables::gdt::GDT,
 };
 use alloc::vec::Vec;
@@ -22,11 +22,24 @@ static IS_DRIVER: AtomicBool = AtomicBool::new(true);
 // Contains the current PID/DID.
 static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
 
+/// Public target addr
+const TARGET_ADDR: u64 = 0xFFFF8000801FF000;
+
+/// Contents of the segment selector
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct Stack {
+    pub cs: u64,
+    pub ss: u64,
+    pub rsp: u64,
+    pub rip: u64,
+    pub rflags: u64,
+}
+
 /// The task switcher
 #[unsafe(link_section = ".gdata")]
 pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
     // First, we should save the stack info before switching stack...
-    const TARGET_ADDR: u64 = 0xFFFF8000801FF000; // Mapped, writable
     unsafe {
         const SIZE: usize = core::mem::size_of::<InterruptStackFrame>();
 
@@ -42,7 +55,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             src = in(reg) &stack as *const InterruptStackFrame as usize,
             dst = in(reg) TARGET_ADDR,
             count = in(reg) SIZE,
-            options(nomem, nostack, preserves_flags)
         );
     }
 
@@ -99,7 +111,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
                     "mov rax, {0}",
                     "mov cr3, rax",
                     in(reg) cr3,
-                    options(nomem, nostack, preserves_flags)
                 )
             }
 
@@ -110,6 +121,8 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         proc.context.rsp = rsp;
         drop(guard);
 
+        // Switch to new stack and jump
+        unsafe { core::arch::asm!("mov rsp, 0xFFFF8000401FF000", "mov rbp, rsp",) }
         to_driver(rflags)
     } else {
         // Now we are running normal process.
@@ -140,7 +153,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
                     "mov rax, {0}",
                     "mov cr3, rax",
                     in(reg) cr3,
-                    options(nomem, nostack, preserves_flags)
                 )
             }
 
@@ -151,6 +163,8 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         proc.context.rsp = rsp;
         drop(guard);
 
+        // Switch to normal table
+        unsafe { core::arch::asm!("mov rsp, 0xFFFF8000401FF000", "mov rbp, rsp") }
         to_normal(rflags)
     };
 }
@@ -195,25 +209,42 @@ fn to_driver(rflags: u64) {
     // Update status and switch to target process's table
     // proc.status = Status::Running;
     // Update RSP and jump
-    crate::apic::eoi();
-    let sel = GDT.1;
+    let selector = GDT.1;
+    let seg = Stack {
+        cs: selector.kernel_code.0 as u64,
+        ss: selector.kernel_data.0 as u64,
+        rsp,
+        rip,
+        rflags,
+    };
+
     unsafe {
+        // Copy before switching table
+        core::ptr::copy(&seg as *const Stack, TARGET_ADDR as *mut Stack, 1);
+        crate::apic::eoi();
+
+        // Then switch table
         core::arch::asm!(
             "mov rax, {0}",
             "mov cr3, rax",
-            "push {1:r}",   // SS
-            "push {2}",     // RSP
-            "push {3}",     // RFLAGS
-            "push {4:r}",   // CS, PL=0
-            "push {5}",     // RIP
-            "iretq",
             in(reg) cr3,
-            in(reg) sel.kernel_data.0,
-            in(reg) rsp,
-            in(reg) rflags,
-            in(reg) sel.kernel_code.0,
-            in(reg) rip,
-            options(nomem, nostack, noreturn, preserves_flags)
+        );
+
+        // Return
+        let sel = &*(TARGET_ADDR as *const Stack);
+        core::arch::asm!(
+            "push {0}",     // SS
+            "push {1}",     // RSP
+            "push {2}",     // RFLAGS
+            "push {3}",     // CS, PL=0
+            "push {4}",     // RIP
+            "iretq",
+            in(reg) sel.ss,
+            in(reg) sel.rsp,
+            in(reg) sel.rflags,
+            in(reg) sel.cs,
+            in(reg) sel.rip,
+            options(noreturn)
         )
     }
 }
@@ -256,25 +287,43 @@ fn to_normal(rflags: u64) {
 
     // Update status and switch to CR3
     // Finally, update RSP and jump
-    crate::apic::eoi();
-    let sel = GDT.1;
+    let selector = GDT.1;
+    let seg = Stack {
+        cs: selector.user_code.0 as u64,
+        ss: selector.user_data.0 as u64,
+        rsp,
+        rip,
+        rflags,
+    };
+
     unsafe {
+        // Copy
+        core::ptr::copy(&seg as *const Stack, TARGET_ADDR as *mut Stack, 1);
+        crate::apic::eoi();
+
+        // Switch
         core::arch::asm!(
             "mov rax, {0}",
             "mov cr3, rax",
-            "push {1:r}",     // SS
-            "push {2}",       // RSP
-            "push {3}",       // RFLAGS
-            "push {4:r}",     // CS, PL=3
-            "push {5}",       // RIP
-            "iretq",
             in(reg) cr3,
-            in(reg) sel.user_data.0,
-            in(reg) rsp,
-            in(reg) rflags,
-            in(reg) sel.user_code.0,
-            in(reg) rip,
-            options(nomem, nostack, noreturn, preserves_flags)
+            options(nostack, preserves_flags)
+        );
+
+        // Return
+        let sel = &*(TARGET_ADDR as *const Stack);
+        core::arch::asm!(
+            "push {0}",       // SS
+            "push {1}",       // RSP
+            "push {2}",       // RFLAGS
+            "push {3}",       // CS, PL=3
+            "push {4}",       // RIP
+            "iretq",
+            in(reg) sel.ss,
+            in(reg) sel.rsp,
+            in(reg) sel.rflags,
+            in(reg) sel.cs,
+            in(reg) sel.rip,
+            options(noreturn)
         )
     }
 }
