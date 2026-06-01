@@ -112,23 +112,33 @@ impl Write for InitprtReader {
  * Then, the functions begins...
  */
 
-/// Load "/init" as the normal process program.
-pub fn load_init() {
+/// Load all of the file which is in initprt and essential.
+pub fn init() {
+    // Load init, as userapp mode...
+    load("/init", ExecMode::UserApp);
+}
+
+/// Load proka exec file as the normal process program.
+fn load(file: &str, mode: ExecMode) {
     // In this fn, we just use the most simple way to load
     // the initprt's contents.
     let reader = InitprtReader::init();
     let fs = FileSystem::new(reader, FsOptions::new()).expect("Failed to load initprt");
     let root = fs.root_dir();
 
-    debug!("====== Begin of list of initprt in root: ======");
-    for r in root.iter() {
-        let entry = r.unwrap();
-        debug!("Object: {}", entry.file_name());
+    // Debug only...
+    #[cfg(debug_assertions)]
+    {
+        debug!("====== Begin of list of initprt in root: ======");
+        for r in root.iter() {
+            let entry = r.unwrap();
+            debug!("Object: {}", entry.file_name());
+        }
+        debug!("====== End of list of initprt in root ======");
     }
-    debug!("====== End of list of initprt in root ======");
 
     // Open file...
-    let mut init = root.open_file("/init").expect("/init not found");
+    let mut init = root.open_file(file).expect("file not found");
     let size = {
         let mut total = 0;
         for ext in init.extents().flatten() {
@@ -153,10 +163,13 @@ pub fn load_init() {
     // Temporary initialize parser to check is mode correct
     // SAFETY: buffer already mapped
     {
-        let parser = Parser::init(buf).expect("/init is corrupted");
-        let mode = parser.header().mode;
-        if mode != ExecMode::UserApp {
-            panic!("The mode of /init is incorrect (expected \"userapp\", found \"coredrv\")");
+        let parser = Parser::init(buf).expect("{} is corrupted");
+        let filemode = parser.header().mode;
+        if filemode != mode {
+            panic!(
+                "The mode of {} is incorrect (expected \"{:?}\", found \"{:?}\")",
+                file, mode, filemode
+            );
         }
     }
 

@@ -64,7 +64,7 @@ pub extern "C" fn kernel_main() -> ! {
 
     // Time to parse INITPRT!
     info!("Loading initprt's content to prepare for system running...");
-    proka_kernel::initprt::load_init();
+    proka_kernel::initprt::init();
     success!("Initprt's staff load completed.");
 
     // Enable interrupt

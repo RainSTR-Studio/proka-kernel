@@ -1,8 +1,8 @@
 //! The scheduler.
 extern crate alloc;
 use crate::{
-    serial_println,
     process::{DRIVER_PROCESS, NORMAL_PROCESS},
+    serial_println,
     tables::gdt::GDT,
 };
 use alloc::vec::Vec;
