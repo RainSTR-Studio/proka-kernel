@@ -1,4 +1,5 @@
 //! The ACPI module
+pub mod power;
 
 // According to the documentation of the [`acpi`] crate,
 // we first need to implement a [`Handler`] trait.
@@ -6,7 +7,7 @@
 use crate::memory::{MAPPER, framealloc::FRAME_ALLOCATOR};
 use acpi::{AcpiTables, Handle, Handler};
 use core::ptr::NonNull;
-use spin::{Lazy, Mutex};
+use spin::Lazy;
 use x86_64::{
     PhysAddr, align_up,
     instructions::port::Port,
@@ -14,10 +15,10 @@ use x86_64::{
 };
 
 /// The ACPI Root table.
-pub static ACPI_TABLE: Lazy<Mutex<AcpiTables<AcpiHandler>>> = Lazy::new(|| {
+pub static ACPI_TABLE: Lazy<AcpiTables<AcpiHandler>> = Lazy::new(|| {
     let addr = proka_bootloader::get_bootinfo().acpi() as usize;
     let acpi = unsafe { AcpiTables::from_rsdp(AcpiHandler, addr).expect("ACPI not initialized") };
-    Mutex::new(acpi)
+    acpi
 });
 
 /// The ACPI handler.
@@ -159,4 +160,10 @@ impl Handler for AcpiHandler {
     fn release(&self, _mutex: Handle) {}
     fn stall(&self, _microseconds: u64) {}
     fn sleep(&self, _milliseconds: u64) {}
+}
+
+/// ACPI initializator.
+pub fn init() {
+    // FADT init
+    self::power::init();
 }

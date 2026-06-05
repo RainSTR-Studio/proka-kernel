@@ -4,5 +4,8 @@
     "anaxa",
     "check",
     "--message-format=json"
-  ]
+  ],
+  "rust-analyzer.check.targets": "x86_64-unknown-none",
+  "rust-analyzer.cargo.target": "x86_64-unknown-none",
+  "makefile.configureOnOpen": false
 }
