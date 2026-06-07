@@ -7,38 +7,60 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 // Place IDT in .gdata section, initialize lazily
 // All exception handler are in `crate::handler`.
 #[unsafe(link_section = ".gdata")]
-pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
+pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| unsafe {
     // New table
     let mut idt = InterruptDescriptorTable::new();
 
     // CPU exception handler
-    // TODO: Specify stack IST index for each interrupts
-    idt.divide_error.set_handler_fn(divide_error);
-    idt.debug.set_handler_fn(debug);
-    idt.non_maskable_interrupt.set_handler_fn(nmi);
-    idt.overflow.set_handler_fn(overflow);
-    idt.bound_range_exceeded.set_handler_fn(bound_range);
-    idt.invalid_opcode.set_handler_fn(invalid_opcode);
+    idt.divide_error
+        .set_handler_fn(divide_error)
+        .set_stack_index(0);
+    idt.debug.set_handler_fn(debug).set_stack_index(0);
+    idt.non_maskable_interrupt
+        .set_handler_fn(nmi)
+        .set_stack_index(1);
+    idt.overflow.set_handler_fn(overflow).set_stack_index(0);
+    idt.bound_range_exceeded
+        .set_handler_fn(bound_range)
+        .set_stack_index(0);
+    idt.invalid_opcode
+        .set_handler_fn(invalid_opcode)
+        .set_stack_index(0);
     idt.device_not_available
-        .set_handler_fn(device_not_available);
-    idt.double_fault.set_handler_fn(double_fault);
-    idt.invalid_tss.set_handler_fn(invalid_tss);
-    idt.segment_not_present.set_handler_fn(segment_not_present);
-    idt.stack_segment_fault.set_handler_fn(stack_segment);
+        .set_handler_fn(device_not_available)
+        .set_stack_index(0);
+    idt.double_fault
+        .set_handler_fn(double_fault)
+        .set_stack_index(1);
+    idt.invalid_tss
+        .set_handler_fn(invalid_tss)
+        .set_stack_index(0);
+    idt.segment_not_present
+        .set_handler_fn(segment_not_present)
+        .set_stack_index(0);
+    idt.stack_segment_fault
+        .set_handler_fn(stack_segment)
+        .set_stack_index(0);
     idt.general_protection_fault
-        .set_handler_fn(general_protection);
-    idt.page_fault.set_handler_fn(pagefault);
-    idt.x87_floating_point.set_handler_fn(x87_floating_point);
-    idt.alignment_check.set_handler_fn(alignment_check);
-    idt.machine_check.set_handler_fn(machine_check);
+        .set_handler_fn(general_protection)
+        .set_stack_index(0);
+    idt.page_fault.set_handler_fn(pagefault).set_stack_index(0);
+    idt.x87_floating_point
+        .set_handler_fn(x87_floating_point)
+        .set_stack_index(0);
+    idt.alignment_check
+        .set_handler_fn(alignment_check)
+        .set_stack_index(0);
+    idt.machine_check
+        .set_handler_fn(machine_check)
+        .set_stack_index(1);
     idt.cp_protection_exception
-        .set_handler_fn(control_protection);
+        .set_handler_fn(control_protection)
+        .set_stack_index(0);
 
     // LAPIC interrupts
     idt[0x20].set_handler_fn(apic_calibrator);
-    unsafe {
-        idt[0x30].set_handler_fn(switch_task).set_stack_index(0);
-    }
+    idt[0x30].set_handler_fn(switch_task).set_stack_index(0);
     idt[0xF0].set_handler_fn(spurious);
     idt[0xF1].set_handler_fn(error);
     idt
