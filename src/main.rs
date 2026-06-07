@@ -73,6 +73,7 @@ pub extern "C" fn kernel_main() -> ! {
     success!("Initprt's staff load completed.");
 
     // Enable interrupt
+    success!("All kernel staff load done, let's use driver!");
     x86_64::instructions::interrupts::enable();
 
     loop {

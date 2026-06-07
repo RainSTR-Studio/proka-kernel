@@ -41,34 +41,21 @@ struct Stack {
 pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
     // First, we should save the stack info before switching stack...
     unsafe {
-        const SIZE: usize = core::mem::size_of::<InterruptStackFrame>();
-
-        // Copy and switch to kernel page table then
         core::arch::asm!(
-            "mov rsi, {src}",
-            "mov rdi, {dst}",
-            "mov rcx, {count:r}",
-            "cld",
-            "rep movsb",
             "mov rax, 0x100000", // Fixed addr, safe
             "mov cr3, rax",
-            src = in(reg) &stack as *const InterruptStackFrame as usize,
-            dst = in(reg) TARGET_ADDR,
-            count = in(reg) SIZE,
         );
     }
 
-    // Update to new stack frame
-    // SAFETY: Target already mapped and usable
-    let stack_frame = unsafe { &*(TARGET_ADDR as *const InterruptStackFrame) };
-    serial_println!("\x1b[34m[DEBUG] Stack frame: {:?}\x1b[0m", stack_frame);
+    // Print stack...
+    serial_println!("\x1b[34m[DEBUG] Stack frame: {:?}\x1b[0m", stack);
 
     // Get smth bruh
     let normal_empty = NORMAL_QUEUE.lock().is_empty();
     let driver_empty = DRIVER_QUEUE.lock().is_empty();
-    let rip = stack_frame.instruction_pointer.as_u64();
-    let rsp = stack_frame.stack_pointer.as_u64();
-    let rflags = stack_frame.cpu_flags.bits();
+    let rip = stack.instruction_pointer.as_u64();
+    let rsp = stack.stack_pointer.as_u64();
+    let rflags = stack.cpu_flags.bits();
 
     // Check is queue is empty.
     if normal_empty && driver_empty {
@@ -121,8 +108,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         proc.context.rsp = rsp;
         drop(guard);
 
-        // Switch to new stack and jump
-        unsafe { core::arch::asm!("mov rsp, 0xFFFF8000401FF000", "mov rbp, rsp",) }
         to_driver(rflags)
     } else {
         // Now we are running normal process.
@@ -163,8 +148,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         proc.context.rsp = rsp;
         drop(guard);
 
-        // Switch to normal table
-        unsafe { core::arch::asm!("mov rsp, 0xFFFF8000401FF000", "mov rbp, rsp") }
         to_normal(rflags)
     };
 }

@@ -12,6 +12,7 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
 
     // CPU exception handler
+    // TODO: Specify stack IST index for each interrupts
     idt.divide_error.set_handler_fn(divide_error);
     idt.debug.set_handler_fn(debug);
     idt.non_maskable_interrupt.set_handler_fn(nmi);
@@ -35,7 +36,9 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
 
     // LAPIC interrupts
     idt[0x20].set_handler_fn(apic_calibrator);
-    idt[0x30].set_handler_fn(switch_task);
+    unsafe {
+        idt[0x30].set_handler_fn(switch_task).set_stack_index(0);
+    }
     idt[0xF0].set_handler_fn(spurious);
     idt[0xF1].set_handler_fn(error);
     idt

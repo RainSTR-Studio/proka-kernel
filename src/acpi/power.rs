@@ -1,7 +1,7 @@
 //! The power system which is based on ACPI.
 use super::ACPI_TABLE;
-use acpi::sdt::fadt::Fadt;
 use acpi::address::AddressSpace;
+use acpi::sdt::fadt::Fadt;
 use log::{debug, warn};
 use spin::Lazy;
 use x86_64::instructions::port::Port;
@@ -64,10 +64,7 @@ pub fn reboot() -> ! {
 
     // Use ACPI reboot method first...
     // Get FADT's reset value
-    let reg = FADT
-        .reset_register()
-        .map_err(|_| hard_reboot())
-        .unwrap(); // Won't panic!
+    let reg = FADT.reset_register().map_err(|_| hard_reboot()).unwrap(); // Won't panic!
     let val = FADT.reset_value;
 
     // Check: Is value invalid
