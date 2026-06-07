@@ -165,5 +165,5 @@ impl Handler for AcpiHandler {
 /// ACPI initializator.
 pub fn init() {
     // FADT init
-    self::power::init();
+    self::power::init().expect("Failed to enable ACPI");
 }
