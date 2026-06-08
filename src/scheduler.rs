@@ -22,11 +22,7 @@ static IS_DRIVER: AtomicBool = AtomicBool::new(true);
 // Contains the current PID/DID.
 static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
 
-/// Public target addr
-const TARGET_ADDR: u64 = 0xFFFF8000801FF000;
-
 /// Contents of the segment selector
-#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 struct Stack {
     pub cs: u64,
@@ -193,7 +189,7 @@ fn to_driver(rflags: u64) {
     // proc.status = Status::Running;
     // Update RSP and jump
     let selector = GDT.1;
-    let seg = Stack {
+    let sel = Stack {
         cs: selector.kernel_code.0 as u64,
         ss: selector.kernel_data.0 as u64,
         rsp,
@@ -202,31 +198,25 @@ fn to_driver(rflags: u64) {
     };
 
     unsafe {
-        // Copy before switching table
-        core::ptr::copy(&seg as *const Stack, TARGET_ADDR as *mut Stack, 1);
+        // Send EOI
         crate::apic::eoi();
 
-        // Then switch table
+        // Switch table and return
         core::arch::asm!(
-            "mov rax, {0}",
+            "push {ss}",        // SS
+            "push {rsp}",       // RSP
+            "push {rflags}",    // RFLAGS
+            "push {cs}",        // CS, PL=0
+            "push {rip}",       // RIP
+            "mov rax, {cr3}",
             "mov cr3, rax",
-            in(reg) cr3,
-        );
-
-        // Return
-        let sel = &*(TARGET_ADDR as *const Stack);
-        core::arch::asm!(
-            "push {0}",     // SS
-            "push {1}",     // RSP
-            "push {2}",     // RFLAGS
-            "push {3}",     // CS, PL=0
-            "push {4}",     // RIP
             "iretq",
-            in(reg) sel.ss,
-            in(reg) sel.rsp,
-            in(reg) sel.rflags,
-            in(reg) sel.cs,
-            in(reg) sel.rip,
+            ss = in(reg) sel.ss,
+            rsp = in(reg) sel.rsp,
+            rflags = in(reg) sel.rflags,
+            cs = in(reg) sel.cs,
+            rip = in(reg) sel.rip,
+            cr3 = in(reg) cr3,
             options(noreturn)
         )
     }
@@ -271,7 +261,7 @@ fn to_normal(rflags: u64) {
     // Update status and switch to CR3
     // Finally, update RSP and jump
     let selector = GDT.1;
-    let seg = Stack {
+    let sel = Stack {
         cs: selector.user_code.0 as u64,
         ss: selector.user_data.0 as u64,
         rsp,
@@ -280,32 +270,25 @@ fn to_normal(rflags: u64) {
     };
 
     unsafe {
-        // Copy
-        core::ptr::copy(&seg as *const Stack, TARGET_ADDR as *mut Stack, 1);
+        // Send EOI
         crate::apic::eoi();
 
-        // Switch
-        core::arch::asm!(
-            "mov rax, {0}",
-            "mov cr3, rax",
-            in(reg) cr3,
-            options(nostack, preserves_flags)
-        );
-
         // Return
-        let sel = &*(TARGET_ADDR as *const Stack);
         core::arch::asm!(
-            "push {0}",       // SS
-            "push {1}",       // RSP
-            "push {2}",       // RFLAGS
-            "push {3}",       // CS, PL=3
-            "push {4}",       // RIP
+            "push {ss}",        // SS
+            "push {rsp}",       // RSP
+            "push {rflags}",    // RFLAGS
+            "push {cs}",        // CS, PL=3
+            "push {rip}",       // RIP
+            "mov rax, {cr3}",
+            "mov cr3, rax",
             "iretq",
-            in(reg) sel.ss,
-            in(reg) sel.rsp,
-            in(reg) sel.rflags,
-            in(reg) sel.cs,
-            in(reg) sel.rip,
+            ss = in(reg) sel.ss,
+            rsp = in(reg) sel.rsp,
+            rflags = in(reg) sel.rflags,
+            cs = in(reg) sel.cs,
+            rip = in(reg) sel.rip,
+            cr3 = in(reg) cr3,
             options(noreturn)
         )
     }
