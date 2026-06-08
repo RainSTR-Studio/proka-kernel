@@ -2,7 +2,6 @@
 extern crate alloc;
 use crate::{
     process::{DRIVER_PROCESS, NORMAL_PROCESS},
-    serial_println,
     tables::gdt::GDT,
 };
 use alloc::vec::Vec;
@@ -40,11 +39,9 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         core::arch::asm!(
             "mov rax, 0x100000", // Fixed addr, safe
             "mov cr3, rax",
+            "mfence",
         );
     }
-
-    // Print stack...
-    serial_println!("\x1b[34m[DEBUG] Stack frame: {:?}\x1b[0m", stack);
 
     // Get smth bruh
     let normal_empty = NORMAL_QUEUE.lock().is_empty();
@@ -210,6 +207,7 @@ fn to_driver(rflags: u64) {
             "push {rip}",       // RIP
             "mov rax, {cr3}",
             "mov cr3, rax",
+            "mov rbp, {rsp}",
             "iretq",
             ss = in(reg) sel.ss,
             rsp = in(reg) sel.rsp,
@@ -282,6 +280,7 @@ fn to_normal(rflags: u64) {
             "push {rip}",       // RIP
             "mov rax, {cr3}",
             "mov cr3, rax",
+            "mov rbp, {rsp}",
             "iretq",
             ss = in(reg) sel.ss,
             rsp = in(reg) sel.rsp,
