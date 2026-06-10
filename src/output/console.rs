@@ -44,7 +44,7 @@ unsafe impl Sync for Console {}
 
 impl Console {
     pub fn init() -> Self {
-        let framebuffer = get_bootinfo().framebuffer();
+        let framebuffer = unsafe { get_bootinfo().framebuffer() };
         Self {
             address: framebuffer.address() as *mut u8,
             width: framebuffer.width(),

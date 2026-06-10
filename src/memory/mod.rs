@@ -34,7 +34,7 @@ pub static MAPPER: Lazy<Mutex<MappedPageTable<'static, IdentityPageTableMapper>>
 pub static TOTAL_RAM: Lazy<Once<(u64, u64)>> = Lazy::new(|| {
     let ram = Once::new();
     ram.call_once(|| {
-        let memory_map = get_bootinfo().memory();
+        let memory_map = unsafe { get_bootinfo().memory() };
         let total_free_ram: u64 = memory_map
             .entries
             .iter()

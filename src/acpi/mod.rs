@@ -15,9 +15,9 @@ use x86_64::{
 };
 
 /// The ACPI Root table.
-pub static ACPI_TABLE: Lazy<AcpiTables<AcpiHandler>> = Lazy::new(|| {
+pub static ACPI_TABLE: Lazy<AcpiTables<AcpiHandler>> = Lazy::new(|| unsafe {
     let addr = proka_bootloader::get_bootinfo().acpi() as usize;
-    let acpi = unsafe { AcpiTables::from_rsdp(AcpiHandler, addr).expect("ACPI not initialized") };
+    let acpi = AcpiTables::from_rsdp(AcpiHandler, addr).expect("ACPI not initialized");
     acpi
 });
 
@@ -155,7 +155,6 @@ impl Handler for AcpiHandler {
 
     fn write_pci_u32(&self, _address: acpi::PciAddress, _offset: u16, _value: u32) {}
     fn write_pci_u16(&self, _address: acpi::PciAddress, _offset: u16, _value: u16) {}
-
     fn write_pci_u8(&self, _address: acpi::PciAddress, _offset: u16, _value: u8) {}
     fn release(&self, _mutex: Handle) {}
     fn stall(&self, _microseconds: u64) {}

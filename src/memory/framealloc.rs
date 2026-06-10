@@ -14,7 +14,7 @@ use x86_64::{
 /// The global frame allocator
 pub static FRAME_ALLOCATOR: Lazy<Mutex<FrameAlloc>> = Lazy::new(|| {
     let mut frame_allocator = FrameAlloc::default();
-    frame_allocator.init(get_bootinfo().memory());
+    frame_allocator.init(unsafe { get_bootinfo().memory() });
     Mutex::new(frame_allocator)
 });
 

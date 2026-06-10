@@ -39,7 +39,7 @@ pub extern "C" fn kernel_main() -> ! {
     println!("[INFO] Successfully loaded kernel.");
 
     // Copyrights
-    println!("\x1b[36m[INFO] Proka Kernel v0.1.0");
+    println!("\x1b[36m[INFO] Proka Kernel v{}", proka_kernel::VERSION);
     println!("[INFO] Copyright (C) RainSTR Studio 2026, All rights reserved.\x1b[0m");
 
     println!("[INFO] Begin to initialize kernel staff...");

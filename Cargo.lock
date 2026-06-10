@@ -214,9 +214,9 @@ dependencies = [
 
 [[package]]
 name = "proka-bootloader"
-version = "0.5.2"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da2b2725ab2b18b6c2507fbd68dd7de110b0acedfb2913bf506b4530eac67a6e"
+checksum = "b7e7e858c0201474d33da626e783d0a2838b3fd22fb08e5cf490d1c65b9f03c7"
 
 [[package]]
 name = "proka-exec"
@@ -226,7 +226,7 @@ checksum = "930aea16190cee5269298a52c18b920197616b64967c346b25b7e6e16ca17e17"
 
 [[package]]
 name = "proka-kernel"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "acpi",
  "anaxa-builder",
