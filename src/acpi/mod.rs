@@ -26,6 +26,7 @@ pub static ACPI_TABLE: Lazy<AcpiTables<AcpiHandler>> = Lazy::new(|| unsafe {
 pub struct AcpiHandler;
 
 // Implementations
+// TODO: Implement more method
 impl Handler for AcpiHandler {
     unsafe fn map_physical_region<T>(
         &self,

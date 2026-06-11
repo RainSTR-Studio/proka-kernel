@@ -46,6 +46,12 @@ SECTIONS {
         *(.bss*)
     }
 
+    /* Move to the next memory page */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
+    /* Kernel heap since here... */
+    __HEAP_START = .;
+
     /DISCARD/ : {
         *(.comment*)
         *(.note*)

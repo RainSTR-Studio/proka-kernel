@@ -1,3 +1,4 @@
+//! The log system.
 use crate::println;
 use log::{Log, Metadata, Record};
 
