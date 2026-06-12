@@ -5,7 +5,7 @@ pub mod power;
 // we first need to implement a [`Handler`] trait.
 
 use crate::memory::{MAPPER, framealloc::FRAME_ALLOCATOR};
-use acpi::{AcpiTables, Handle, Handler};
+use acpi::{AcpiTables, Handle, Handler as AcpiHandler};
 use core::ptr::NonNull;
 use spin::Lazy;
 use x86_64::{
@@ -15,19 +15,19 @@ use x86_64::{
 };
 
 /// The ACPI Root table.
-pub static ACPI_TABLE: Lazy<AcpiTables<AcpiHandler>> = Lazy::new(|| unsafe {
+pub static ACPI_TABLE: Lazy<AcpiTables<Handler>> = Lazy::new(|| unsafe {
     let addr = proka_bootloader::get_bootinfo().acpi() as usize;
-    let acpi = AcpiTables::from_rsdp(AcpiHandler, addr).expect("ACPI not initialized");
+    let acpi = AcpiTables::from_rsdp(Handler, addr).expect("ACPI not initialized");
     acpi
 });
 
 /// The ACPI handler.
 #[derive(Debug, Clone, Copy)]
-pub struct AcpiHandler;
+pub struct Handler;
 
 // Implementations
 // TODO: Implement more method
-impl Handler for AcpiHandler {
+impl AcpiHandler for Handler {
     unsafe fn map_physical_region<T>(
         &self,
         physical_address: usize,
@@ -60,7 +60,7 @@ impl Handler for AcpiHandler {
             virtual_start: NonNull::new(physical_address as *mut T).unwrap(),
             region_length: size,
             mapped_length: size,
-            handler: AcpiHandler,
+            handler: Handler,
         }
     }
 
