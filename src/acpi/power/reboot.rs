@@ -1,4 +1,5 @@
 //! The power system which is based on ACPI.
+use crate::tables::idt::IDT_EMPTY;
 use super::FADT;
 use acpi::address::AddressSpace;
 use log::{debug, warn};
@@ -10,7 +11,7 @@ pub fn reboot() -> ! {
     let hard_reboot = || -> ! {
         // For unexpected situations, it will use this.
         warn!(
-            "Failed to use ACPI to perform shutdown, will use old port method to trigger hard reboot..."
+            "Failed to use ACPI to perform reboot, will use old port method to trigger hard reboot..."
         );
 
         // Port consts
@@ -24,7 +25,11 @@ pub fn reboot() -> ! {
             }
         }
 
-        loop {}
+        // Commonly, the PC has shut down.
+        // But if CPU still at here, we shall cause triple fault...
+        warn!("Port force reboot failed, have to use triple fault...");
+        IDT_EMPTY.load();
+        unsafe { core::arch::asm!("int3", options(noreturn)) }
     };
 
     // Use ACPI reboot method first...

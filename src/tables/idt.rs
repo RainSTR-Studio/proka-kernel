@@ -66,6 +66,10 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| unsafe {
     idt
 });
 
+/// The empty IDT
+#[unsafe(link_section = ".gdata")]
+pub static IDT_EMPTY: InterruptDescriptorTable = InterruptDescriptorTable::new();
+
 // The APIC calibrator
 extern "x86-interrupt" fn apic_calibrator(_: InterruptStackFrame) {
     use crate::apic::COUNT;
