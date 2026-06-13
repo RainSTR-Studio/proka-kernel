@@ -5,7 +5,7 @@ pub mod power;
 // we first need to implement a [`Handler`] trait.
 
 use crate::memory::{MAPPER, framealloc::FRAME_ALLOCATOR};
-use acpi::{AcpiTables, Handle, Handler as AcpiHandler};
+use acpi::{AcpiTables, Handle, Handler, platform::AcpiPlatform};
 use core::ptr::NonNull;
 use spin::Lazy;
 use x86_64::{
@@ -15,19 +15,20 @@ use x86_64::{
 };
 
 /// The ACPI Root table.
-pub static ACPI_TABLE: Lazy<AcpiTables<Handler>> = Lazy::new(|| unsafe {
+pub static ACPI_PLATFORM: Lazy<AcpiPlatform<AcpiHandler>> = Lazy::new(|| unsafe {
     let addr = proka_bootloader::get_bootinfo().acpi() as usize;
-    let acpi = AcpiTables::from_rsdp(Handler, addr).expect("ACPI not initialized");
-    acpi
+    let acpi = AcpiTables::from_rsdp(AcpiHandler, addr).expect("ACPI table init failed");
+    let platform = AcpiPlatform::new(acpi, AcpiHandler).expect("Failed to init ACPI platform");
+    platform
 });
 
 /// The ACPI handler.
 #[derive(Debug, Clone, Copy)]
-pub struct Handler;
+pub struct AcpiHandler;
 
 // Implementations
 // TODO: Implement more method
-impl AcpiHandler for Handler {
+impl Handler for AcpiHandler {
     unsafe fn map_physical_region<T>(
         &self,
         physical_address: usize,
@@ -60,7 +61,7 @@ impl AcpiHandler for Handler {
             virtual_start: NonNull::new(physical_address as *mut T).unwrap(),
             region_length: size,
             mapped_length: size,
-            handler: Handler,
+            handler: AcpiHandler,
         }
     }
 
@@ -164,6 +165,5 @@ impl AcpiHandler for Handler {
 
 /// ACPI initializator.
 pub fn init() {
-    // FADT init
-    self::power::init().expect("Failed to enable ACPI");
+
 }

@@ -1,9 +1,17 @@
 //! The power system which is based on ACPI.
 use crate::tables::idt::IDT_EMPTY;
-use super::FADT;
+use super::ACPI_PLATFORM;
 use acpi::address::AddressSpace;
+use acpi::sdt::fadt::Fadt;
+use spin::Lazy;
 use log::{debug, warn};
 use x86_64::instructions::port::Port;
+
+/// The FADT table.
+static FADT: Lazy<Fadt> = Lazy::new(|| {
+    let fadt = ACPI_PLATFORM.tables.find_table::<Fadt>().unwrap();
+    *fadt
+});
 
 /// Reboot function.
 pub fn reboot() -> ! {
