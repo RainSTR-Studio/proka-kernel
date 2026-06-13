@@ -226,7 +226,7 @@ checksum = "930aea16190cee5269298a52c18b920197616b64967c346b25b7e6e16ca17e17"
 
 [[package]]
 name = "proka-kernel"
-version = "0.1.1"
+version = "0.2.1"
 dependencies = [
  "acpi",
  "anaxa-builder",

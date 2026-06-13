@@ -182,7 +182,7 @@ impl Handler for AcpiHandler {
 /// ACPI initializator.
 pub fn init() {
     // Enable AML interpreter
-    AMLINT.initialize_namespace();
+    // AMLINT.initialize_namespace();    // Something wrong in this init on my machine, so I just skip it. Maybe I can try to fix it in the future.
 
     // Enable ACPI mode
     ACPI_PLATFORM
