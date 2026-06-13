@@ -1,5 +1,5 @@
 //! Proka Kernel - A kernel for ProkaOS
-//! Copyright (C) RainSTR Studio 2025, All Rights Reserved.
+//! Copyright (C) RainSTR Studio 2025. Licensed under GNU GPLv3.
 //!
 //! Well, welcome to the main entry of Proka Kernel!!
 //!
@@ -40,7 +40,7 @@ pub extern "C" fn kernel_main() -> ! {
 
     // Copyrights
     println!("\x1b[36m[INFO] Proka Kernel v{}", proka_kernel::VERSION);
-    println!("[INFO] Copyright (C) RainSTR Studio 2026, All rights reserved.\x1b[0m");
+    println!("[INFO] Copyright (C) RainSTR Studio 2026. Licensed under GNU GPLv3.\x1b[0m");
 
     println!("[INFO] Begin to initialize kernel staff...");
 

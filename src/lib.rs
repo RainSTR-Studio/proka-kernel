@@ -1,5 +1,5 @@
 //! # Proka Kernel - A kernel for ProkaOS
-//! Copyright (C) RainSTR Studio 2025, All rights reserved.
+//! Copyright (C) RainSTR Studio 2025. Licensed under GNU GPLv3.
 //!
 //! This provides the public functions, and they will help you
 //! to use the kernel functions easily.
