@@ -13,7 +13,7 @@ use x86_64::{
     registers::model_specific::{Efer, EferFlags},
     structures::paging::{
         MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size2MiB, Size4KiB,
-        mapper::PageTableFrameMapping,
+        mapper::{MapToError, PageTableFrameMapping},
     },
 };
 
@@ -106,6 +106,23 @@ pub fn init() {
     println!("[INFO] Initializing frame allocator (this may take some time)...");
     let mut framealloc = framealloc::FRAME_ALLOCATOR.lock();
 
+    // Map 0xfe000000-0xfeffffff
+    let flags = PageTableFlags::PRESENT
+        | PageTableFlags::WRITABLE
+        | PageTableFlags::NO_CACHE
+        | PageTableFlags::HUGE_PAGE;
+    for i in 0..8 {
+        let addr = PhysAddr::new(0xfe000000 + i * 0x200000);
+        let frame = PhysFrame::<Size2MiB>::containing_address(addr);
+        unsafe {
+            match mapper.identity_map(frame, flags, &mut *framealloc) {
+                Ok(m) => m.flush(),
+                Err(MapToError::PageAlreadyMapped(_)) => (),
+                Err(e) => panic!("map failed {:?}", e),
+            }
+        }
+    }
+
     // Map remaining address space
     // Check: Is total RAM lower than 1GiB
     let total_ram = TOTAL_RAM.get().unwrap().1;
@@ -121,13 +138,11 @@ pub fn init() {
         let addr = PhysAddr::new(0x40000000 + i * 0x200000);
         let frame = PhysFrame::<Size2MiB>::containing_address(addr);
         unsafe {
-            mapper
-                .identity_map(frame, flags, &mut *framealloc)
-                .unwrap()
-                .flush()
+            match mapper.identity_map(frame, flags, &mut *framealloc) {
+                Ok(m) => m.flush(),
+                Err(MapToError::PageAlreadyMapped(_)) => (),
+                Err(e) => panic!("map failed {:?}", e),
+            }
         }
     }
-
-    // Do clean up, which will erase last boot data
-    // Being erased since address 0x4200000
 }

@@ -52,11 +52,6 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::logger::init();
     info!("Initialized log system.");
 
-    // Init ACPI
-    info!("Starting to initialize ACPI...");
-    proka_kernel::acpi::init();
-    success!("Completed ACPI initialization process.");
-
     // Start do MMIO mapping
     info!("Starting the MMIO mapping process...");
     proka_kernel::mmio::init();
@@ -66,6 +61,11 @@ pub extern "C" fn kernel_main() -> ! {
     info!("Initializing APIC...");
     proka_kernel::apic::init();
     success!("Completed APIC initialization.");
+
+    // Init ACPI
+    info!("Starting to initialize ACPI...");
+    proka_kernel::acpi::init();
+    success!("Completed ACPI initialization process.");
 
     // Time to parse INITPRT!
     info!("Loading initprt's content to prepare for system running...");

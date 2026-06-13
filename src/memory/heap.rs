@@ -5,7 +5,7 @@ use spinning_top::RawSpinlock;
 use talc::{source::Claim, *};
 
 /// The end to heap
-const HEAP_END: u64 = 0xffff800003000000;
+const HEAP_END: u64 = 0xffff800002e00000;
 
 // Extern
 unsafe extern "C" {

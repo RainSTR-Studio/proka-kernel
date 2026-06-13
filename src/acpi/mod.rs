@@ -181,11 +181,11 @@ impl Handler for AcpiHandler {
 
 /// ACPI initializator.
 pub fn init() {
+    // Enable AML interpreter
+    AMLINT.initialize_namespace();
+
     // Enable ACPI mode
     ACPI_PLATFORM
         .enter_acpi_mode()
         .expect("Failed to enable ACPI mode");
-
-    // Enable AML interpreter
-    //AMLINT.initialize_namespace();
 }
