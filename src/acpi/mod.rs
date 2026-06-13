@@ -5,7 +5,7 @@ pub mod power;
 // we first need to implement a [`Handler`] trait.
 
 use crate::memory::{MAPPER, framealloc::FRAME_ALLOCATOR};
-use acpi::{AcpiTables, Handle, Handler, platform::AcpiPlatform};
+use acpi::{AcpiTables, Handle, Handler, aml::Interpreter, platform::AcpiPlatform};
 use core::ptr::NonNull;
 use spin::Lazy;
 use x86_64::{
@@ -20,6 +20,12 @@ pub static ACPI_PLATFORM: Lazy<AcpiPlatform<AcpiHandler>> = Lazy::new(|| unsafe 
     let acpi = AcpiTables::from_rsdp(AcpiHandler, addr).expect("ACPI table init failed");
     let platform = AcpiPlatform::new(acpi, AcpiHandler).expect("Failed to init ACPI platform");
     platform
+});
+
+/// The AML interpreter.
+pub static AMLINT: Lazy<Interpreter<AcpiHandler>> = Lazy::new(|| {
+    let interpreter = Interpreter::new_from_platform(&ACPI_PLATFORM);
+    interpreter.expect("Failed to load AML interpreter")
 });
 
 /// The ACPI handler.
@@ -155,15 +161,31 @@ impl Handler for AcpiHandler {
         acpi::Handle(0)
     }
 
+    fn stall(&self, microseconds: u64) {
+        for _ in 0..microseconds {
+            core::hint::spin_loop()
+        }
+    }
+
+    fn sleep(&self, milliseconds: u64) {
+        for _ in 0..milliseconds {
+            core::hint::spin_loop()
+        }
+    }
+
     fn write_pci_u32(&self, _address: acpi::PciAddress, _offset: u16, _value: u32) {}
     fn write_pci_u16(&self, _address: acpi::PciAddress, _offset: u16, _value: u16) {}
     fn write_pci_u8(&self, _address: acpi::PciAddress, _offset: u16, _value: u8) {}
     fn release(&self, _mutex: Handle) {}
-    fn stall(&self, _microseconds: u64) {}
-    fn sleep(&self, _milliseconds: u64) {}
 }
 
 /// ACPI initializator.
 pub fn init() {
+    // Enable ACPI mode
+    ACPI_PLATFORM
+        .enter_acpi_mode()
+        .expect("Failed to enable ACPI mode");
 
+    // Enable AML interpreter
+    //AMLINT.initialize_namespace();
 }

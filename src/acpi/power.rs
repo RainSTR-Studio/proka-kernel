@@ -1,10 +1,10 @@
 //! The power system which is based on ACPI.
-use crate::tables::idt::IDT_EMPTY;
 use super::ACPI_PLATFORM;
+use crate::tables::idt::IDT_EMPTY;
 use acpi::address::AddressSpace;
 use acpi::sdt::fadt::Fadt;
-use spin::Lazy;
 use log::{debug, warn};
+use spin::Lazy;
 use x86_64::instructions::port::Port;
 
 /// The FADT table.
