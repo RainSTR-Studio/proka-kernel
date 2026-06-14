@@ -40,7 +40,7 @@ macro_rules! success {
 pub fn init() {
     static LOGGER: KernelLogger = KernelLogger;
     log::set_logger(&LOGGER).expect("Failed to set logger");
-    
+
     // Match the log level from config
     match crate::config::LOG_LEVEL {
         "trace" => log::set_max_level(log::LevelFilter::Trace),

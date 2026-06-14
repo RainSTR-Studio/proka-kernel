@@ -71,7 +71,7 @@ pub fn init() {
 
         // Also, we need to update EFER to support no execute bits
         let flags = Efer::read();
-        Efer::write(flags | EferFlags::NO_EXECUTE_ENABLE);
+        Efer::write(flags | EferFlags::NO_EXECUTE_ENABLE | EferFlags::SYSTEM_CALL_EXTENSIONS);
     }
 
     // Print EFER flags

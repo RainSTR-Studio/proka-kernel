@@ -125,7 +125,8 @@ pub fn poweroff() -> ! {
     // For PM1a_CNT, it's required. But for PM1b_CNT, it's optional.
     let pm1 = &ACPI_PLATFORM.registers.pm1_control_registers;
     pm1.set_sleep_typ(slp_type).map_err(|_| hard_poweroff());
-    pm1.set_bit(Pm1ControlBit::SleepEnable, true).map_err(|_| hard_poweroff());
+    pm1.set_bit(Pm1ControlBit::SleepEnable, true)
+        .map_err(|_| hard_poweroff());
 
     loop {}
 }

@@ -188,5 +188,4 @@ pub fn init() {
 
     // Enable AML interpreter
     AMLINT.initialize_namespace();
-
 }
