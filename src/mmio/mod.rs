@@ -177,7 +177,7 @@ fn mapper(phys: u64, offset_idx: u64) {
     let idx = (entry_idx % 512) as usize;
 
     trace!("Mapping phys {:08x} to pdt[{}]...", phys, idx);
-    pdt[idx].set_addr(PhysAddr::new(phys), flags);
+    pdt[idx].set_addr(PhysAddr::new(align_down(phys, 4096)), flags);
 }
 
 #[inline]
