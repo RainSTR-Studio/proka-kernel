@@ -14,6 +14,10 @@
 /// The kernel version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+pub mod config {
+    include!(concat!(env!("OUT_DIR"), "/config.rs"));
+}
+
 pub mod acpi;
 pub mod apic;
 pub mod handler;

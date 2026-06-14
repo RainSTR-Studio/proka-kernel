@@ -1,1 +1,8 @@
 title = "Kernel Configuration"
+
+[[config]]
+name = "LOG_LEVEL"
+type = "choice"
+default = "info"
+desc = "Set kernel log level"
+options = ["trace", "debug", "info", "warn", "error"]

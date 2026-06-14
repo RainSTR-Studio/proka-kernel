@@ -4,15 +4,8 @@ target/*
 # Ignore the output directory
 output/*
 
-# Ignore the ISO temporary directory
-iso/*
+# The specific file to ignore
+.config
 
-AGENTS.md
-
-assets/initrd.cpio
-
+# Book build artifacts
 book/
-
-.sisyphus/
-
-assets/initrd/mylib.so
