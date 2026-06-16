@@ -1,6 +1,7 @@
 //! Exception handler.
+//!
+//! Originally by moyanj <me@moyanjdc.top>
 use crate::println;
-#[allow(unused)]
 use core::arch::asm;
 use x86_64::{
     VirtAddr,
