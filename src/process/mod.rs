@@ -78,7 +78,7 @@ pub struct Context {
 impl Default for Context {
     fn default() -> Self {
         Self {
-            rsp: 0x3F000,
+            rsp: 0x7FFFFFFFF000,
             rip: 0x200000,
         }
     }
@@ -189,7 +189,7 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     let mut proc_mapper = unsafe { MappedPageTable::new(pml4_table, IdentityPageTableMapper) };
 
     // Time to allocate 2MiB for stack
-    const STACK_PAGES: usize = 64; // Pages of stack needed
+    const STACK_PAGES: usize = 2; // Pages of stack needed
     let stack_base = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(STACK_PAGES) {
         trace!("Allocated frame {:?} for proc stack", frame);
         frame.start_address().as_u64()
@@ -198,7 +198,7 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     };
 
     for i in 0..STACK_PAGES as u64 {
-        let virt_addr = VirtAddr::new(i * 0x1000);
+        let virt_addr = VirtAddr::new(i * 0x1000 + 0x7fffffffe000);
         let page = Page::<Size4KiB>::containing_address(virt_addr);
         let phys_addr = PhysAddr::new(i * 0x1000 + stack_base);
         let frame = PhysFrame::<Size4KiB>::containing_address(phys_addr);

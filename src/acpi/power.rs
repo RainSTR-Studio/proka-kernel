@@ -96,7 +96,7 @@ pub fn poweroff() -> ! {
     let s5_wrapped = AMLINT
         .evaluate(path, Vec::new())
         .expect("Failed to get S5 object");
-    let s5 = (*s5_wrapped.clone()).clone();
+    let s5 = &*s5_wrapped;
 
     // The returned object is a package, and the first element is the sleep type.
     // For the second one, it's for pm1b;
@@ -107,7 +107,7 @@ pub fn poweroff() -> ! {
             hard_poweroff();
         }
 
-        let typea_obj = (*package[0].clone()).clone();
+        let typea_obj = &*package[0];
         let typea = if let acpi::aml::object::Object::Integer(i) = typea_obj {
             i
         } else {
@@ -115,7 +115,7 @@ pub fn poweroff() -> ! {
             hard_poweroff();
         };
 
-        u8::try_from(typea).unwrap_or(0)
+        u8::try_from(*typea).unwrap_or(0)
     } else {
         warn!("S5 object is not a package");
         hard_poweroff();
