@@ -6,8 +6,28 @@
 //! Also, the args of this call is required:
 //!  - arg1: The main type of this driver. See [`DrvType`] for more info;
 //!  - arg2: The subtype, which is the pointer of `&str` within 16 bytes length.
+extern crate alloc;
+use alloc::vec::Vec;
+use spin::{Lazy, Mutex};
+
+/// The driver type index.
+pub static DRVTYPE_INDEX: Lazy<Mutex<Vec<DrvTypeTable>>> = Lazy::new(|| {
+    let table = Vec::new();
+    Mutex::new(table)
+});
+
+/// The driver type table.
+#[derive(Debug, Clone)]
+pub struct DrvTypeTable {
+    /// The ID of this driver.
+    pub id: u16,
+
+    /// The type of this driver.
+    pub typ: DrvType,
+}
 
 /// The type of coredrv.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub enum DrvType {
     /// Graphics driver.
@@ -26,11 +46,20 @@ impl DrvType {
     }
 }
 
-pub fn driver_type_reg(arg1: u64, _arg2: u64) {
+pub fn driver_type_reg(arg1: u64, _arg2: u64, did: u16) {
     let typ = DrvType::from_u64(arg1);
 
-    match typ {
-        DrvType::Graphics => {},
-        DrvType::Invalid => return,
+    // Check: is type invalid?
+    if typ == DrvType::Invalid {
+        return;
     }
+
+    // Update index...
+    let obj = DrvTypeTable {
+        id: did,
+        typ
+    };
+    DRVTYPE_INDEX.lock().push(obj);
+
+    // TODO: Map the specified MMIO for this driver...
 }
