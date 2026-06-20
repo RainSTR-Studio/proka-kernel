@@ -1,6 +1,6 @@
 //! The scheduler.
 extern crate alloc;
-use crate::process::{DRIVER_PROCESS, NORMAL_PROCESS};
+use crate::process::{DRIVER_PROCESS, NORMAL_PROCESS, Context};
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use spin::Mutex;
@@ -69,7 +69,7 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
     let current_id = CURRENT_ID.load(Ordering::Relaxed);
 
     // Decide run process or driver.
-    if IS_DRIVER.load(Ordering::Relaxed) {
+    let result = if IS_DRIVER.load(Ordering::Relaxed) {
         // Now we are running driver.
         // Check: Is next proc area queue empty
         if !normal_empty {
@@ -198,57 +198,36 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
 
         to_normal()
     };
-}
 
-// Switch to next driver.
-#[unsafe(link_section = ".gdata")]
-fn to_driver() {
-    // Get current driver process.
-    let dpt = DRIVER_PROCESS.lock();
-    let mut queue = DRIVER_QUEUE.lock();
-
-    // Get the process
-    let did = queue[0];
-    let proc = match dpt.process.get(did) {
-        Some(p) => p,
-        None => {
-            crate::apic::eoi();
-            return;
-        }
-    };
-
-    // Check is it present
-    if !proc.present {
+    let context = if let Ok(val) = result {
+        val
+    } else {
         crate::apic::eoi();
         return;
-    }
+    };
 
-    // Save its current DID and update queue
-    CURRENT_ID.store(did, Ordering::Relaxed);
-    queue.remove(0);
-    queue.push(did);
-
-    // Now get its information
-    let rax = proc.context.rax;
-    let rcx = proc.context.rcx;
-    let rdx = proc.context.rdx;
-    let rsi = proc.context.rsi;
-    let rdi = proc.context.rdi;
-    let r8 = proc.context.r8;
-    let r9 = proc.context.r9;
-    let r10 = proc.context.r10;
-    let r11 = proc.context.r11;
-    let rbx = proc.context.rbx;
-    let r12 = proc.context.r12;
-    let r13 = proc.context.r13;
-    let r14 = proc.context.r14;
-    let r15 = proc.context.r15;
-    let rip = proc.context.rip;
-    let cs = proc.context.cs;
-    let rflags = proc.context.rflags;
-    let rsp = proc.context.rsp;
-    let rbp = proc.context.rbp;
-    let ss = proc.context.ss;
+    // Copy all register values from tuple (Context, cr3)
+    let rax = context.0.rax;
+    let rcx = context.0.rcx;
+    let rdx = context.0.rdx;
+    let rsi = context.0.rsi;
+    let rdi = context.0.rdi;
+    let r8 = context.0.r8;
+    let r9 = context.0.r9;
+    let r10 = context.0.r10;
+    let r11 = context.0.r11;
+    let rbx = context.0.rbx;
+    let r12 = context.0.r12;
+    let r13 = context.0.r13;
+    let r14 = context.0.r14;
+    let r15 = context.0.r15;
+    let rip = context.0.rip;
+    let cs = context.0.cs;
+    let rflags = context.0.rflags;
+    let rsp = context.0.rsp;
+    let rbp = context.0.rbp;
+    let ss = context.0.ss;
+    let cr3 = context.1;
 
     unsafe {
         // Push return stack
@@ -315,11 +294,6 @@ fn to_driver() {
             rbp = in(reg) rbp,
         );
 
-        // Get CR3 and drop locks
-        let cr3 = proc.table_addr;
-        drop(dpt);
-        drop(queue);
-
         // Emit EOI
         crate::apic::eoi();
 
@@ -350,8 +324,38 @@ fn to_driver() {
     }
 }
 
+// Switch to next driver.
 #[unsafe(link_section = ".gdata")]
-fn to_normal() {
+fn to_driver() -> Result<(Context, u64), ()> {
+    // Get current driver process.
+    let dpt = DRIVER_PROCESS.lock();
+    let mut queue = DRIVER_QUEUE.lock();
+
+    // Get the process
+    let did = queue[0];
+    let proc = match dpt.process.get(did) {
+        Some(p) => p,
+        None => {
+            return Err(());
+        }
+    };
+
+    // Check is it present
+    if !proc.present {
+        return Err(());
+    }
+
+    // Save its current DID and update queue
+    CURRENT_ID.store(did, Ordering::Relaxed);
+    queue.remove(0);
+    queue.push(did);
+
+    Ok((proc.context.clone(), proc.table_addr))
+}
+
+// Switch to next normal process.
+#[unsafe(link_section = ".gdata")]
+fn to_normal() -> Result<(Context, u64), ()> {
     // Get current normal process
     let npt = NORMAL_PROCESS.lock();
     let mut queue = NORMAL_QUEUE.lock();
@@ -361,15 +365,13 @@ fn to_normal() {
     let proc = match npt.process.get(pid) {
         Some(proc) => proc,
         None => {
-            crate::apic::eoi();
-            return;
+            return Err(());
         }
     };
 
     // Check is it present
     if !proc.present {
-        crate::apic::eoi();
-        return;
+        return Err(());
     }
 
     // Save its current id and update queue
@@ -377,124 +379,5 @@ fn to_normal() {
     queue.remove(0);
     queue.push(pid);
 
-    // Get info
-    let rax = proc.context.rax;
-    let rcx = proc.context.rcx;
-    let rdx = proc.context.rdx;
-    let rsi = proc.context.rsi;
-    let rdi = proc.context.rdi;
-    let r8 = proc.context.r8;
-    let r9 = proc.context.r9;
-    let r10 = proc.context.r10;
-    let r11 = proc.context.r11;
-    let rbx = proc.context.rbx;
-    let r12 = proc.context.r12;
-    let r13 = proc.context.r13;
-    let r14 = proc.context.r14;
-    let r15 = proc.context.r15;
-    let rip = proc.context.rip;
-    let cs = proc.context.cs;
-    let rflags = proc.context.rflags;
-    let rsp = proc.context.rsp;
-    let rbp = proc.context.rbp;
-    let ss = proc.context.ss;
-
-    unsafe {
-        // Push return stack
-        core::arch::asm!(
-            "push {ss}",
-            "push {rsp}",
-            "push {rflags}",
-            "push {cs}",
-            "push {rip}",
-            ss = in(reg) ss,
-            rsp = in(reg) rsp,
-            rflags = in(reg) rflags,
-            cs = in(reg) cs,
-            rip = in(reg) rip,
-        );
-
-        // Push callee-saved group 1
-        core::arch::asm!(
-            "push {rbx}",
-            "push {r12}",
-            "push {r13}",
-            "push {r14}",
-            rbx = in(reg) rbx,
-            r12 = in(reg) r12,
-            r13 = in(reg) r13,
-            r14 = in(reg) r14,
-        );
-
-        // Push callee-saved group 2
-        core::arch::asm!(
-            "push {r15}",
-            "push {rax}",
-            r15 = in(reg) r15,
-            rax = in(reg) rax,
-        );
-
-        // Push register group 1
-        core::arch::asm!(
-            "push {rcx}",
-            "push {rdx}",
-            "push {rsi}",
-            rcx = in(reg) rcx,
-            rdx = in(reg) rdx,
-            rsi = in(reg) rsi,
-        );
-
-        // Push register group 2
-        core::arch::asm!(
-            "push {rdi}",
-            "push {r8}",
-            "push {r9}",
-            "push {r10}",
-            rdi = in(reg) rdi,
-            r8 = in(reg) r8,
-            r9 = in(reg) r9,
-            r10 = in(reg) r10,
-        );
-
-        // Push register group 3
-        core::arch::asm!(
-            "push {r11}",
-            "push {rbp}",
-            r11 = in(reg) r11,
-            rbp = in(reg) rbp,
-        );
-
-        // Get CR3 and drop locks
-        let cr3 = proc.table_addr;
-        drop(npt);
-        drop(queue);
-
-        // Emit EOI
-        crate::apic::eoi();
-
-        // Pop all regs in one block
-        core::arch::asm!(
-            "mov rax, {cr3}",
-            "mov cr3, rax",
-            "mfence",
-            "pop rbp",
-            "pop r11",
-            "pop r10",
-            "pop r9",
-            "pop r8",
-            "pop rdi",
-            "pop rsi",
-            "pop rdx",
-            "pop rcx",
-            "pop rax",
-            "pop r15",
-            "pop r14",
-            "pop r13",
-            "pop r12",
-            "pop rbx",
-            "iretq",
-            cr3 = in(reg) cr3,
-            options(noreturn)
-        );
-    }
+    Ok((proc.context.clone(), proc.table_addr))
 }
