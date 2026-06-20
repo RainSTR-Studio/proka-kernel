@@ -1,5 +1,5 @@
 //! The driver type call.
-//! 
+//!
 //! For this module, we have the main function called [`driver_type_reg`], which will
 //! done the registration of current's driver type.
 //!
@@ -55,10 +55,7 @@ pub fn driver_type_reg(arg1: u64, _arg2: u64, did: u16) {
     }
 
     // Update index...
-    let obj = DrvTypeTable {
-        id: did,
-        typ
-    };
+    let obj = DrvTypeTable { id: did, typ };
     DRVTYPE_INDEX.lock().push(obj);
 
     // TODO: Map the specified MMIO for this driver...

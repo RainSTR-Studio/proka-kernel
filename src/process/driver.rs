@@ -46,7 +46,7 @@ impl DriverProcess {
         Ok(Self {
             present: true,
             status: Status::Ready,
-            context: Context::default(),
+            context: Context::driver(),
             table_addr: frame,
         })
     }

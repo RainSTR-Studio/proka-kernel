@@ -1,8 +1,8 @@
 //! The handler of interrupts.
-mod coredrv;
 mod apic;
+mod coredrv;
 mod exception;
 
-pub use coredrv::*;
 pub use apic::*;
+pub use coredrv::*;
 pub use exception::*;

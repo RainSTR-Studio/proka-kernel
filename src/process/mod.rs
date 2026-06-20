@@ -10,8 +10,10 @@ use crate::memory::IdentityPageTableMapper;
 use crate::memory::framealloc::FRAME_ALLOCATOR;
 use crate::memory::{PDPT_HPROC_ADDR, PML4_ADDR};
 use crate::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
+use crate::tables::gdt::GDT;
 use log::{debug, error, trace, warn};
 use proka_exec::{Parser, header::ExecMode};
+use x86_64::registers::rflags::RFlags;
 use x86_64::{PhysAddr, VirtAddr, align_up};
 
 pub use self::driver::DRIVER_PROCESS;
@@ -68,18 +70,58 @@ pub enum ProcType {
 
 /// The process register content.
 #[repr(C)]
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Context {
-    // TODO: Extend more registers
+    pub rax: u64,
+    pub rbx: u64,
+    pub rcx: u64,
+    pub rdx: u64,
+    pub rsi: u64,
+    pub rdi: u64,
     pub rsp: u64,
+    pub rbp: u64,
+    pub r8: u64,
+    pub r9: u64,
+    pub r10: u64,
+    pub r11: u64,
+    pub r12: u64,
+    pub r13: u64,
+    pub r14: u64,
+    pub r15: u64,
+    pub rflags: u64,
     pub rip: u64,
+    pub cs: u64,
+    pub ss: u64,
 }
 
-impl Default for Context {
-    fn default() -> Self {
+impl Context {
+    /// Create up a normal TCB.
+    pub fn normal() -> Self {
+        let sel = GDT.1;
+        let rflags = RFlags::INTERRUPT_FLAG | RFlags::ID;
         Self {
             rsp: 0x7FFFFFFFF000,
+            rbp: 0x7FFFFFFFF000,
             rip: 0x200000,
+            rflags: rflags.bits(),
+            cs: u64::from(sel.user_code.0),
+            ss: u64::from(sel.user_data.0),
+            ..Default::default()
+        }
+    }
+
+    /// Create up a driver TCB.
+    pub fn driver() -> Self {
+        let sel = GDT.1;
+        let rflags = RFlags::INTERRUPT_FLAG | RFlags::ID;
+        Self {
+            rsp: 0x7FFFFFFFF000,
+            rbp: 0x7FFFFFFFF000,
+            rip: 0x200000,
+            rflags: rflags.bits(),
+            cs: u64::from(sel.kernel_code.0),
+            ss: u64::from(sel.kernel_data.0),
+            ..Default::default()
         }
     }
 }

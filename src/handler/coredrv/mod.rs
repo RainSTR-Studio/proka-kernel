@@ -1,7 +1,7 @@
 //! The coredrv handler.
 mod drvtype;
-use x86_64::structures::idt::InterruptStackFrame;
 pub use drvtype::*;
+use x86_64::structures::idt::InterruptStackFrame;
 
 use crate::process::DRIVER_PROCESS;
 
@@ -12,7 +12,6 @@ pub enum Callnum {
     RegDriverType = 1,
 
     // TODO: Add more callnum for coredrv.
-
     /// Invalid call num.
     Invalid = u64::MAX,
 }
@@ -49,12 +48,17 @@ pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
 
     // Convert
     let call_num = Callnum::from_u64(call_num);
-    
+
     // Since we got PML4 address, we can do convert from PML4 to DID.
     let drvproc = &mut DRIVER_PROCESS.lock().process;
-    let did = if let Some(id) = drvproc.iter().position(|process| process.table_addr == pml4) {
-        id as u16   // id is always below 16384
-    } else { return; };
+    let did = if let Some(id) = drvproc
+        .iter()
+        .position(|process| process.table_addr == pml4)
+    {
+        id as u16 // id is always below 16384
+    } else {
+        return;
+    };
 
     // Check: is matched or not?
 
@@ -67,4 +71,3 @@ pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
         Callnum::Invalid => return,
     }
 }
-

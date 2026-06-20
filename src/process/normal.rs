@@ -50,7 +50,7 @@ impl NormalProcess {
             present: true,
             status: Status::Ready,
             priority,
-            context: Context::default(),
+            context: Context::normal(),
             table_addr: frame,
         })
     }

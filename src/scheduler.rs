@@ -1,9 +1,6 @@
 //! The scheduler.
 extern crate alloc;
-use crate::{
-    process::{DRIVER_PROCESS, NORMAL_PROCESS},
-    tables::gdt::GDT,
-};
+use crate::process::{DRIVER_PROCESS, NORMAL_PROCESS};
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use spin::Mutex;
@@ -21,33 +18,44 @@ static IS_DRIVER: AtomicBool = AtomicBool::new(true);
 // Contains the current PID/DID.
 static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
 
-/// Contents of the segment selector
-#[derive(Debug, Clone, Copy)]
-struct Stack {
-    pub cs: u64,
-    pub ss: u64,
-    pub rsp: u64,
-    pub rip: u64,
-    pub rflags: u64,
-}
-
 /// The task switcher
 #[unsafe(link_section = ".gdata")]
 pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
     // First, we should save the stack info before switching stack...
+    let rbp_cur: u64;
+    let rbx: u64;
+    let r12: u64;
+    let r13: u64;
+    let r14: u64;
+    let r15: u64;
     unsafe {
         core::arch::asm!(
             "mov rax, 0x100000", // Fixed addr, safe
             "mov cr3, rax",
             "mfence",
+            "mov {rbp}, rbp",
+            "mov {rbx}, rbx",
+            "mov {r12}, r12",
+            "mov {r13}, r13",
+            "mov {r14}, r14",
+            "mov {r15}, r15",
+            rbp = out(reg) rbp_cur,
+            rbx = out(reg) rbx,
+            r12 = out(reg) r12,
+            r13 = out(reg) r13,
+            r14 = out(reg) r14,
+            r15 = out(reg) r15,
         );
     }
+    let stack_base = rbp_cur as *const u64;
 
     // Get smth bruh
     let normal_empty = NORMAL_QUEUE.lock().is_empty();
     let driver_empty = DRIVER_QUEUE.lock().is_empty();
     let rip = stack.instruction_pointer.as_u64();
     let rsp = stack.stack_pointer.as_u64();
+    let cs: u64 = stack.code_segment.0.into();
+    let ss: u64 = stack.stack_segment.0.into();
     let rflags = stack.cpu_flags.bits();
 
     // Check is queue is empty.
@@ -97,11 +105,37 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             return;
         }
 
-        proc.context.rip = rip;
-        proc.context.rsp = rsp;
+        // Since we entered this function, the compiler
+        // has helped us to push each general registers'
+        // value into stack
+        //
+        // Before we load it, the RBP has changed, so here
+        // we just use offset to get it...
+        unsafe {
+            proc.context.rbp = *stack_base.offset(0); // 0
+            proc.context.r11 = *stack_base.offset(-1); // -8
+            proc.context.r10 = *stack_base.offset(-2); // -16
+            proc.context.r9 = *stack_base.offset(-3); // -24
+            proc.context.r8 = *stack_base.offset(-4); // -32
+            proc.context.rdi = *stack_base.offset(-5); // -40
+            proc.context.rsi = *stack_base.offset(-6); // -48
+            proc.context.rdx = *stack_base.offset(-7); // -56
+            proc.context.rcx = *stack_base.offset(-8); // -64
+            proc.context.rax = *stack_base.offset(-9); // -72
+            proc.context.rbx = rbx;
+            proc.context.r12 = r12;
+            proc.context.r13 = r13;
+            proc.context.r14 = r14;
+            proc.context.r15 = r15;
+            proc.context.rip = rip;
+            proc.context.rsp = rsp;
+            proc.context.rflags = rflags;
+            proc.context.cs = cs;
+            proc.context.ss = ss;
+        }
         drop(guard);
 
-        to_driver(rflags)
+        to_driver()
     } else {
         // Now we are running normal process.
         // Check: Is next proc area queue empty
@@ -137,17 +171,38 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             return;
         }
 
-        proc.context.rip = rip;
-        proc.context.rsp = rsp;
+        // Do the same here...
+        unsafe {
+            proc.context.rbp = *stack_base.offset(0); // 0
+            proc.context.r11 = *stack_base.offset(-1); // -8
+            proc.context.r10 = *stack_base.offset(-2); // -16
+            proc.context.r9 = *stack_base.offset(-3); // -24
+            proc.context.r8 = *stack_base.offset(-4); // -32
+            proc.context.rdi = *stack_base.offset(-5); // -40
+            proc.context.rsi = *stack_base.offset(-6); // -48
+            proc.context.rdx = *stack_base.offset(-7); // -56
+            proc.context.rcx = *stack_base.offset(-8); // -64
+            proc.context.rax = *stack_base.offset(-9); // -72
+            proc.context.rbx = rbx;
+            proc.context.r12 = r12;
+            proc.context.r13 = r13;
+            proc.context.r14 = r14;
+            proc.context.r15 = r15;
+            proc.context.rip = rip;
+            proc.context.rsp = rsp;
+            proc.context.rflags = rflags;
+            proc.context.cs = cs;
+            proc.context.ss = ss;
+        }
         drop(guard);
 
-        to_normal(rflags)
+        to_normal()
     };
 }
 
 // Switch to next driver.
 #[unsafe(link_section = ".gdata")]
-fn to_driver(rflags: u64) {
+fn to_driver() {
     // Get current driver process.
     let dpt = DRIVER_PROCESS.lock();
     let mut queue = DRIVER_QUEUE.lock();
@@ -174,54 +229,129 @@ fn to_driver(rflags: u64) {
     queue.push(did);
 
     // Now get its information
-    let cr3 = proc.table_addr;
-    let rsp = proc.context.rsp;
+    let rax = proc.context.rax;
+    let rcx = proc.context.rcx;
+    let rdx = proc.context.rdx;
+    let rsi = proc.context.rsi;
+    let rdi = proc.context.rdi;
+    let r8 = proc.context.r8;
+    let r9 = proc.context.r9;
+    let r10 = proc.context.r10;
+    let r11 = proc.context.r11;
+    let rbx = proc.context.rbx;
+    let r12 = proc.context.r12;
+    let r13 = proc.context.r13;
+    let r14 = proc.context.r14;
+    let r15 = proc.context.r15;
     let rip = proc.context.rip;
-
-    // Drop locks
-    drop(dpt);
-    drop(queue);
-
-    // Update status and switch to target process's table
-    // proc.status = Status::Running;
-    // Update RSP and jump
-    let selector = GDT.1;
-    let sel = Stack {
-        cs: selector.kernel_code.0 as u64,
-        ss: selector.kernel_data.0 as u64,
-        rsp,
-        rip,
-        rflags,
-    };
+    let cs = proc.context.cs;
+    let rflags = proc.context.rflags;
+    let rsp = proc.context.rsp;
+    let rbp = proc.context.rbp;
+    let ss = proc.context.ss;
 
     unsafe {
-        // Send EOI
+        // Push return stack
+        core::arch::asm!(
+            "push {ss}",
+            "push {rsp}",
+            "push {rflags}",
+            "push {cs}",
+            "push {rip}",
+            ss = in(reg) ss,
+            rsp = in(reg) rsp,
+            rflags = in(reg) rflags,
+            cs = in(reg) cs,
+            rip = in(reg) rip,
+        );
+
+        // Push callee-saved group 1
+        core::arch::asm!(
+            "push {rbx}",
+            "push {r12}",
+            "push {r13}",
+            "push {r14}",
+            rbx = in(reg) rbx,
+            r12 = in(reg) r12,
+            r13 = in(reg) r13,
+            r14 = in(reg) r14,
+        );
+
+        // Push callee-saved group 2
+        core::arch::asm!(
+            "push {r15}",
+            "push {rax}",
+            r15 = in(reg) r15,
+            rax = in(reg) rax,
+        );
+
+        // Push scratch group 1
+        core::arch::asm!(
+            "push {rcx}",
+            "push {rdx}",
+            "push {rsi}",
+            rcx = in(reg) rcx,
+            rdx = in(reg) rdx,
+            rsi = in(reg) rsi,
+        );
+
+        // Push scratch group 2
+        core::arch::asm!(
+            "push {rdi}",
+            "push {r8}",
+            "push {r9}",
+            "push {r10}",
+            rdi = in(reg) rdi,
+            r8 = in(reg) r8,
+            r9 = in(reg) r9,
+            r10 = in(reg) r10,
+        );
+
+        // Push scratch group 3
+        core::arch::asm!(
+            "push {r11}",
+            "push {rbp}",
+            r11 = in(reg) r11,
+            rbp = in(reg) rbp,
+        );
+
+        // Get CR3 and drop locks
+        let cr3 = proc.table_addr;
+        drop(dpt);
+        drop(queue);
+
+        // Emit EOI
         crate::apic::eoi();
 
-        // Switch table and return
+        // Pop all regs in one block
         core::arch::asm!(
-            "push {ss}",        // SS
-            "push {rsp}",       // RSP
-            "push {rflags}",    // RFLAGS
-            "push {cs}",        // CS, PL=0
-            "push {rip}",       // RIP
             "mov rax, {cr3}",
             "mov cr3, rax",
-            "mov rbp, {rsp}",
+            "mfence",
+            "pop rbp",
+            "pop r11", 
+            "pop r10",
+            "pop r9",
+            "pop r8", 
+            "pop rdi", 
+            "pop rsi", 
+            "pop rdx", 
+            "pop rcx",
+            "pop rax", 
+            "pop r15", 
+            "pop r14", 
+            "pop r13", 
+            "pop r12", 
+            "pop rbx",
             "iretq",
-            ss = in(reg) sel.ss,
-            rsp = in(reg) sel.rsp,
-            rflags = in(reg) sel.rflags,
-            cs = in(reg) sel.cs,
-            rip = in(reg) sel.rip,
             cr3 = in(reg) cr3,
             options(noreturn)
-        )
+        );
     }
 }
 
 #[unsafe(link_section = ".gdata")]
-fn to_normal(rflags: u64) {
+fn to_normal() {
     // Get current normal process
     let npt = NORMAL_PROCESS.lock();
     let mut queue = NORMAL_QUEUE.lock();
@@ -248,47 +378,123 @@ fn to_normal(rflags: u64) {
     queue.push(pid);
 
     // Get info
-    let cr3 = proc.table_addr;
-    let rsp = proc.context.rsp;
+    let rax = proc.context.rax;
+    let rcx = proc.context.rcx;
+    let rdx = proc.context.rdx;
+    let rsi = proc.context.rsi;
+    let rdi = proc.context.rdi;
+    let r8 = proc.context.r8;
+    let r9 = proc.context.r9;
+    let r10 = proc.context.r10;
+    let r11 = proc.context.r11;
+    let rbx = proc.context.rbx;
+    let r12 = proc.context.r12;
+    let r13 = proc.context.r13;
+    let r14 = proc.context.r14;
+    let r15 = proc.context.r15;
     let rip = proc.context.rip;
-
-    // Drop locks
-    drop(npt);
-    drop(queue);
-
-    // Update status and switch to CR3
-    // Finally, update RSP and jump
-    let selector = GDT.1;
-    let sel = Stack {
-        cs: selector.user_code.0 as u64,
-        ss: selector.user_data.0 as u64,
-        rsp,
-        rip,
-        rflags,
-    };
+    let cs = proc.context.cs;
+    let rflags = proc.context.rflags;
+    let rsp = proc.context.rsp;
+    let rbp = proc.context.rbp;
+    let ss = proc.context.ss;
 
     unsafe {
-        // Send EOI
+        // Push return stack
+        core::arch::asm!(
+            "push {ss}",
+            "push {rsp}",
+            "push {rflags}",
+            "push {cs}",
+            "push {rip}",
+            ss = in(reg) ss,
+            rsp = in(reg) rsp,
+            rflags = in(reg) rflags,
+            cs = in(reg) cs,
+            rip = in(reg) rip,
+        );
+
+        // Push callee-saved group 1
+        core::arch::asm!(
+            "push {rbx}",
+            "push {r12}",
+            "push {r13}",
+            "push {r14}",
+            rbx = in(reg) rbx,
+            r12 = in(reg) r12,
+            r13 = in(reg) r13,
+            r14 = in(reg) r14,
+        );
+
+        // Push callee-saved group 2
+        core::arch::asm!(
+            "push {r15}",
+            "push {rax}",
+            r15 = in(reg) r15,
+            rax = in(reg) rax,
+        );
+
+        // Push register group 1
+        core::arch::asm!(
+            "push {rcx}",
+            "push {rdx}",
+            "push {rsi}",
+            rcx = in(reg) rcx,
+            rdx = in(reg) rdx,
+            rsi = in(reg) rsi,
+        );
+
+        // Push register group 2
+        core::arch::asm!(
+            "push {rdi}",
+            "push {r8}",
+            "push {r9}",
+            "push {r10}",
+            rdi = in(reg) rdi,
+            r8 = in(reg) r8,
+            r9 = in(reg) r9,
+            r10 = in(reg) r10,
+        );
+
+        // Push register group 3
+        core::arch::asm!(
+            "push {r11}",
+            "push {rbp}",
+            r11 = in(reg) r11,
+            rbp = in(reg) rbp,
+        );
+
+        // Get CR3 and drop locks
+        let cr3 = proc.table_addr;
+        drop(npt);
+        drop(queue);
+
+        // Emit EOI
         crate::apic::eoi();
 
-        // Return
+        // Pop all regs in one block
         core::arch::asm!(
-            "push {ss}",        // SS
-            "push {rsp}",       // RSP
-            "push {rflags}",    // RFLAGS
-            "push {cs}",        // CS, PL=3
-            "push {rip}",       // RIP
             "mov rax, {cr3}",
             "mov cr3, rax",
-            "mov rbp, {rsp}",
+            "mfence",
+            "pop rbp",
+            "pop r11",
+            "pop r10",
+            "pop r9",
+            "pop r8",
+            "pop rdi",
+            "pop rsi",
+            "pop rdx",
+            "pop rcx",
+            "pop rax",
+            "pop r15",
+            "pop r14",
+            "pop r13",
+            "pop r12",
+            "pop rbx",
             "iretq",
-            ss = in(reg) sel.ss,
-            rsp = in(reg) sel.rsp,
-            rflags = in(reg) sel.rflags,
-            cs = in(reg) sel.cs,
-            rip = in(reg) sel.rip,
             cr3 = in(reg) cr3,
             options(noreturn)
-        )
+        );
     }
 }
