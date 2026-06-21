@@ -116,6 +116,7 @@ impl Write for InitprtReader {
 pub fn init() {
     // Load init, as userapp mode...
     load("/init", ExecMode::UserApp);
+    load("/init", ExecMode::UserApp);
 }
 
 /// Load proka exec file as the normal process program.

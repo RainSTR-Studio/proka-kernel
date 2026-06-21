@@ -33,7 +33,7 @@ pub fn init() {
         let mut lapic_cfg = LocalApicBuilder::new();
         lapic_cfg.set_xapic_base(xapic_base());
         lapic_cfg.timer_divide(TimerDivide::Div16);
-        lapic_cfg.timer_initial(10000);
+        lapic_cfg.timer_initial(20000);
         lapic_cfg.timer_mode(TimerMode::Periodic);
         lapic_cfg.timer_vector(0x30);
         lapic_cfg.spurious_vector(0xF0);

@@ -1,6 +1,6 @@
 //! The scheduler.
 extern crate alloc;
-use crate::process::{DRIVER_PROCESS, NORMAL_PROCESS, Context};
+use crate::process::{Context, DRIVER_PROCESS, NORMAL_PROCESS};
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use spin::Mutex;
@@ -23,28 +23,13 @@ static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
 pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
     // First, we should save the stack info before switching stack...
     let rbp_cur: u64;
-    let rbx: u64;
-    let r12: u64;
-    let r13: u64;
-    let r14: u64;
-    let r15: u64;
     unsafe {
         core::arch::asm!(
             "mov rax, 0x100000", // Fixed addr, safe
             "mov cr3, rax",
             "mfence",
             "mov {rbp}, rbp",
-            "mov {rbx}, rbx",
-            "mov {r12}, r12",
-            "mov {r13}, r13",
-            "mov {r14}, r14",
-            "mov {r15}, r15",
             rbp = out(reg) rbp_cur,
-            rbx = out(reg) rbx,
-            r12 = out(reg) r12,
-            r13 = out(reg) r13,
-            r14 = out(reg) r14,
-            r15 = out(reg) r15,
         );
     }
     let stack_base = rbp_cur as *const u64;
@@ -113,20 +98,20 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         // we just use offset to get it...
         unsafe {
             proc.context.rbp = *stack_base.offset(0); // 0
-            proc.context.r11 = *stack_base.offset(-1); // -8
-            proc.context.r10 = *stack_base.offset(-2); // -16
-            proc.context.r9 = *stack_base.offset(-3); // -24
-            proc.context.r8 = *stack_base.offset(-4); // -32
-            proc.context.rdi = *stack_base.offset(-5); // -40
-            proc.context.rsi = *stack_base.offset(-6); // -48
-            proc.context.rdx = *stack_base.offset(-7); // -56
-            proc.context.rcx = *stack_base.offset(-8); // -64
-            proc.context.rax = *stack_base.offset(-9); // -72
-            proc.context.rbx = rbx;
-            proc.context.r12 = r12;
-            proc.context.r13 = r13;
-            proc.context.r14 = r14;
-            proc.context.r15 = r15;
+            proc.context.r15 = *stack_base.offset(-1); // -8
+            proc.context.r14 = *stack_base.offset(-2); // -16
+            proc.context.r13 = *stack_base.offset(-3); // -24
+            proc.context.r12 = *stack_base.offset(-4); // -32
+            proc.context.r11 = *stack_base.offset(-5); // -40
+            proc.context.r10 = *stack_base.offset(-6); // -48
+            proc.context.r9 = *stack_base.offset(-7); // -56
+            proc.context.r8 = *stack_base.offset(-8); // -64
+            proc.context.rdi = *stack_base.offset(-9); // -72
+            proc.context.rsi = *stack_base.offset(-10); // -80
+            proc.context.rdx = *stack_base.offset(-11); // -88
+            proc.context.rcx = *stack_base.offset(-12); // -96
+            proc.context.rbx = *stack_base.offset(-13); // -104
+            proc.context.rax = *stack_base.offset(-14); // -112
             proc.context.rip = rip;
             proc.context.rsp = rsp;
             proc.context.rflags = rflags;
@@ -174,26 +159,27 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         // Do the same here...
         unsafe {
             proc.context.rbp = *stack_base.offset(0); // 0
-            proc.context.r11 = *stack_base.offset(-1); // -8
-            proc.context.r10 = *stack_base.offset(-2); // -16
-            proc.context.r9 = *stack_base.offset(-3); // -24
-            proc.context.r8 = *stack_base.offset(-4); // -32
-            proc.context.rdi = *stack_base.offset(-5); // -40
-            proc.context.rsi = *stack_base.offset(-6); // -48
-            proc.context.rdx = *stack_base.offset(-7); // -56
-            proc.context.rcx = *stack_base.offset(-8); // -64
-            proc.context.rax = *stack_base.offset(-9); // -72
-            proc.context.rbx = rbx;
-            proc.context.r12 = r12;
-            proc.context.r13 = r13;
-            proc.context.r14 = r14;
-            proc.context.r15 = r15;
+            proc.context.r15 = *stack_base.offset(-1); // -8
+            proc.context.r14 = *stack_base.offset(-2); // -16
+            proc.context.r13 = *stack_base.offset(-3); // -24
+            proc.context.r12 = *stack_base.offset(-4); // -32
+            proc.context.r11 = *stack_base.offset(-5); // -40
+            proc.context.r10 = *stack_base.offset(-6); // -48
+            proc.context.r9 = *stack_base.offset(-7); // -56
+            proc.context.r8 = *stack_base.offset(-8); // -64
+            proc.context.rdi = *stack_base.offset(-9); // -72
+            proc.context.rsi = *stack_base.offset(-10); // -80
+            proc.context.rdx = *stack_base.offset(-11); // -88
+            proc.context.rcx = *stack_base.offset(-12); // -96
+            proc.context.rbx = *stack_base.offset(-13); // -104
+            proc.context.rax = *stack_base.offset(-14); // -112
             proc.context.rip = rip;
             proc.context.rsp = rsp;
             proc.context.rflags = rflags;
             proc.context.cs = cs;
             proc.context.ss = ss;
         }
+
         drop(guard);
 
         to_normal()
@@ -303,19 +289,19 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             "mov cr3, rax",
             "mfence",
             "pop rbp",
-            "pop r11", 
+            "pop r11",
             "pop r10",
             "pop r9",
-            "pop r8", 
-            "pop rdi", 
-            "pop rsi", 
-            "pop rdx", 
+            "pop r8",
+            "pop rdi",
+            "pop rsi",
+            "pop rdx",
             "pop rcx",
-            "pop rax", 
-            "pop r15", 
-            "pop r14", 
-            "pop r13", 
-            "pop r12", 
+            "pop rax",
+            "pop r15",
+            "pop r14",
+            "pop r13",
+            "pop r12",
             "pop rbx",
             "iretq",
             cr3 = in(reg) cr3,
