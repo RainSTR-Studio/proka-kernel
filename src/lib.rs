@@ -29,5 +29,6 @@ pub mod output;
 pub mod panic;
 pub mod process;
 pub mod scheduler;
+pub mod syscall;
 pub mod tables;
 pub mod test;

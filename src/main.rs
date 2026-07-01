@@ -9,7 +9,6 @@
 //! Now, let's enjoy the kernel written in Rust!!!!
 //!
 //! For more information, see https://github.com/RainSTR-Studio/proka-kernel
-
 #![no_std]
 #![no_main]
 #![feature(custom_test_frameworks)]
@@ -66,6 +65,11 @@ pub extern "C" fn kernel_main() -> ! {
     info!("Starting to initialize ACPI...");
     proka_kernel::acpi::init();
     success!("Completed ACPI initialization process.");
+
+    // Init syscall
+    info!("Starting to initialize syscall module...");
+    proka_kernel::syscall::init();
+    success!("Successfully initialized syscall.");
 
     // Time to parse INITPRT!
     info!("Loading initprt's content to prepare for system running...");
