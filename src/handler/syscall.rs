@@ -6,11 +6,11 @@ use core::arch::naked_asm;
 pub extern "C" fn syscall_entry() {
     naked_asm!(
         // TODO: Added push/pop operations.
-        "call handler",
+        "call syscall_handler",
         "sysret",
     );
 }
 
 /// The syscall handler.
 #[unsafe(no_mangle)]
-pub fn handler() {}
+pub fn syscall_handler() {}
