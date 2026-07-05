@@ -55,11 +55,16 @@ pub extern "C" fn syscall_entry() {
 ///  - R9: The syscall arg 4
 ///  - R10: The syscall arg 5
 #[unsafe(no_mangle)]
-pub fn syscall_handler() {
+pub extern "C" fn syscall_handler() {
     // First, save the user's page table.
     let user_table: u64;
     let user_stack: u64;
     let sysnum: u64;
+    let arg1: u64;
+    let arg2: u64;
+    let arg3: u64;
+    let arg4: u64;
+    let arg5: u64;
 
     unsafe {
         asm!(
@@ -69,11 +74,11 @@ pub fn syscall_handler() {
             out("rdx") user_stack,
             out("rax") sysnum,
             out("rcx") _,
-            out("rdi") _,
-            out("rsi") _,
-            out("r8") _,
-            out("r9") _,
-            out("r10") _,
+            out("rdi") arg1,
+            out("rsi") arg2,
+            out("r8") arg3,
+            out("r9") arg4,
+            out("r10") arg5,
             out("r11") _,
         )
     }
@@ -91,21 +96,43 @@ pub fn syscall_handler() {
     // Switch to process's page table, call and return
     unsafe {
         asm!(
+            // Save info
             "mov rbx, {0}",
             "mov r13, {1}",
             "mov rsp, 0xffff80004007f000",
             "mov cr3, {2}",
             "push rbx",
             "push r13",
+            // Push arg registers
+            "push rdi",
+            "push rsi",
+            "push r8",
+            "push r9",
+            "push r10",
+            // Call main fn
             "call {3}",
+            // Pop arg one...
+            "pop r10",
+            "pop r9",
+            "pop r8",
+            "pop rsi",
+            "pop rdi",
+            // Pop essential registers
             "pop r13",
             "pop rbx",
-            "mov cr3, rbx",
-            "mov rsp, r13",
-            in(reg) user_table,
+            "mov cr3, r13",
+            "mov rsp, rbx",
             in(reg) user_stack,
+            in(reg) user_table,
             in(reg) entry.page_table,
-            in(reg) entry.entry
+            in(reg) entry.entry,
+            in("rdi") arg1,
+            in("rsi") arg2,
+            in("r8") arg3,
+            in("r9") arg4,
+            in("r10") arg5,
+            out("r11") _,
+            out("rcx") _,
         )
     }
 
