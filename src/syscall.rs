@@ -1,9 +1,15 @@
 //! The syscall initializator.
 extern crate alloc;
+use crate::{handler::syscall_entry, tables::gdt::GDT};
 use alloc::vec::Vec;
 use spin::Mutex;
-use x86_64::{VirtAddr, registers::model_specific::{LStar, Star}};
-use crate::{handler::syscall_entry, tables::gdt::GDT};
+use x86_64::{
+    VirtAddr,
+    registers::{
+        model_specific::{LStar, SFMask, Star},
+        rflags::RFlags,
+    },
+};
 
 /// The syscall number manager.
 pub static SYSCALL: Mutex<Vec<SyscallEntry>> = {
@@ -18,7 +24,7 @@ pub struct SyscallEntry {
 
     /// The dest page table.
     ///
-    /// This system will automatically switch into this 
+    /// This system will automatically switch into this
     /// table and pass the arguments...
     pub page_table: u64,
 
@@ -40,4 +46,7 @@ pub fn init() {
     // Then update LSTAR.
     let addr = syscall_entry as *const () as u64;
     LStar::write(VirtAddr::new(addr));
+
+    // Finally write SFMask
+    SFMask::write(RFlags::DIRECTION_FLAG);
 }
