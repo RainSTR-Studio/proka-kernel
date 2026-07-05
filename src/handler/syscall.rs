@@ -1,13 +1,14 @@
 //! The syscall handler.
-use core::arch::naked_asm;
+use core::arch::{asm, naked_asm};
+
+use crate::syscall::SYSCALL;
 
 /// The syscall common entry.
 #[unsafe(naked)]
 #[unsafe(no_mangle)]
 pub extern "C" fn syscall_entry() {
     naked_asm!(
-        // Push all of the registers
-        "push rax",
+        // Push all of the registers (no RAX)
         "push rbx",
         "push rcx",
         "push rdx",
@@ -40,12 +41,80 @@ pub extern "C" fn syscall_entry() {
         "pop rdx",
         "pop rcx",
         "pop rbx",
-        "pop rax",
         "sysretq",
     );
 }
 
 /// The syscall handler.
+///
+/// # Arguments
+///  - RAX: The syscall number
+///  - RDI: The syscall arg 1
+///  - RSI: The syscall arg 2
+///  - R8: The syscall arg 3
+///  - R9: The syscall arg 4
+///  - R10: The syscall arg 5
 #[unsafe(no_mangle)]
+pub fn syscall_handler() {
+    // First, save the user's page table.
+    let user_table: u64;
+    let user_stack: u64;
+    let sysnum: u64;
 
-pub fn syscall_handler() {}
+    unsafe {
+        asm!(
+            "mov {}, cr3",
+            "mov {}, rsp",
+            out(reg) user_table,
+            out(reg) user_stack,
+            out("rax") sysnum,
+            out("rdi") _,
+            out("rsi") _,
+            out("r8") _,
+            out("r9") _,
+            out("r10") _,
+        )
+    }
+
+    // Search for syscall table
+    let table = SYSCALL.lock();
+    let entry = table.iter().find(|e| e.sysnum == sysnum);
+    if entry.is_none() {
+        sysreturn(0xffff_ffff_ffff_ffff);
+        return;
+    }
+
+    let entry = entry.unwrap(); // Safety: Already asserted is `None` or `Some`.
+
+    // Switch to process's page table, call and return
+    unsafe {
+        asm!(
+            "mov rbx, {0}",
+            "mov r13, {1}",
+            "mov rsp, 0xffff80004007f000",
+            "mov cr3, {2}",
+            "call {3}",
+            "mov cr3, r13",
+            "mov rsp, rbx",
+            in(reg) user_table,
+            in(reg) user_stack,
+            in(reg) entry.page_table,
+            in(reg) entry.entry
+        )
+    }
+
+    sysreturn(0);
+    return;
+}
+
+/// Return from syscall handler.
+#[inline(always)]
+fn sysreturn(code: u64) {
+    // Safety: Write RAX only
+    unsafe {
+        asm!(
+            "mov rax, {0}",
+            in(reg) code,
+        );
+    }
+}

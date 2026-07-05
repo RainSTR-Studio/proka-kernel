@@ -18,6 +18,7 @@ pub static SYSCALL: Mutex<Vec<SyscallEntry>> = {
 };
 
 /// The syscall entry.
+#[derive(Debug, Clone, Copy)]
 pub struct SyscallEntry {
     /// The syscall number.
     pub sysnum: u64,
