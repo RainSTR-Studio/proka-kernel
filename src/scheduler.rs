@@ -19,7 +19,7 @@ static IS_DRIVER: AtomicBool = AtomicBool::new(true);
 static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
 
 /// The task switcher
-#[unsafe(link_section = ".gdata")]
+
 pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
     // First, we should save the stack info before switching stack...
     let rbp_cur: u64;
@@ -311,7 +311,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
 }
 
 // Switch to next driver.
-#[unsafe(link_section = ".gdata")]
 fn to_driver() -> Result<(Context, u64), ()> {
     // Get current driver process.
     let dpt = DRIVER_PROCESS.lock();
@@ -340,7 +339,7 @@ fn to_driver() -> Result<(Context, u64), ()> {
 }
 
 // Switch to next normal process.
-#[unsafe(link_section = ".gdata")]
+
 fn to_normal() -> Result<(Context, u64), ()> {
     // Get current normal process
     let npt = NORMAL_PROCESS.lock();

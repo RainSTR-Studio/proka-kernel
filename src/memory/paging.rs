@@ -1,9 +1,7 @@
 //! The paging module.
-use core::ptr::addr_of;
 use x86_64::PhysAddr;
 use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::*;
-use x86_64::{align_down, align_up};
 
 // Kernel specific
 pub const PML4_ADDR: u64 = 0x100000;
@@ -15,7 +13,6 @@ const PT_LOW_ADDR: u64 = 0x105000;
 
 // Process specific
 pub const PDPT_HPROC_ADDR: u64 = 0x106000; // Process-specified high addr
-const PDT_PROC_ADDR: u64 = 0x107000;
 const PDT_GS_ADDR: u64 = 0x108000; // Global interrupt stack PDT (resolve conflict)
 const PDT_GRW_ADDR: u64 = 0x109000; // Global Read-Write area
 const PDT_LOW2_ADDR: u64 = 0x10a000;
@@ -38,7 +35,6 @@ pub fn init() {
 
     // Process specific
     let pdpt_hproc = unsafe { &mut *(PDPT_HPROC_ADDR as *mut PageTable) };
-    let pdt_proc = unsafe { &mut *(PDT_PROC_ADDR as *mut PageTable) };
     let pdt_gs = unsafe { &mut *(PDT_GS_ADDR as *mut PageTable) };
     let pdt_grw = unsafe { &mut *(PDT_GRW_ADDR as *mut PageTable) };
 
@@ -124,52 +120,6 @@ pub fn init() {
             | PageTableFlags::USER_ACCESSIBLE
             | PageTableFlags::NO_EXECUTE,
     );
-
-    // Higher half mapping (process-only)
-    // SAFETY: Reading linker-defined symbols is safe
-    let start = addr_of!(__GDATA_START) as u64;
-    let end = addr_of!(__GDATA_END) as u64;
-
-    // Align start address down to 4KiB boundary
-    let start_aligned = align_down(start, 0x1000);
-    // Align end address up to 4KiB boundary
-    let end_aligned = align_up(end, 0x1000);
-
-    // Higher half kernel virtual base
-    let va_base = 0xFFFF800000000000;
-    // Total aligned length of GDATA region
-    let len = end_aligned - start_aligned;
-
-    // Number of 2MiB and 4KiB times
-    let pdt_times = (align_up(len, 0x200000) / 0x200000) as usize;
-    let pt_times = (align_up(len, 0x1000) / 0x1000) as usize;
-
-    // Starting PDT and PT index (from relative offset)
-    let pdt_index: usize = ((start_aligned >> 21) & 0x1FF) as usize;
-    let pt_index: usize = ((start_aligned >> 12) & 0x1FF) as usize;
-
-    // Flags
-    let proc_flags =
-        PageTableFlags::PRESENT | PageTableFlags::GLOBAL | PageTableFlags::USER_ACCESSIBLE;
-    // Convert virt to phys
-    let gdata_phys = start_aligned - va_base + 0x200000;
-
-    // Map process-only region with 4KiB granularity
-    for i_pdt in pdt_index..pdt_index + pdt_times {
-        let pt = unsafe { &mut *(current as *mut PageTable) };
-        let mut count = 0;
-        for i_pt in pt_index..pt_index + pt_times {
-            let base_addr = gdata_phys + count * 0x1000;
-            pt[i_pt].set_addr(PhysAddr::new(base_addr), proc_flags);
-            count += 1;
-        }
-
-        pdt_proc[i_pdt].set_addr(PhysAddr::new(current), flags);
-        current += 0x1000;
-    }
-
-    // Map to high-only process PDPT
-    pdpt_hproc[0].set_addr(PhysAddr::new(PDT_PROC_ADDR), flags);
 
     // Map the framebuffer
     // At here, we just use the old page tables

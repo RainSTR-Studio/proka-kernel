@@ -4,7 +4,7 @@ use spin::Lazy;
 use x86_64::registers::segmentation::{CS, DS, ES, FS, GS, SS, Segment};
 use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
 
-#[unsafe(link_section = ".gdata")]
+/// The GDT table
 pub static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
     let mut gdt = GlobalDescriptorTable::new();
 

@@ -2,7 +2,6 @@
 mod drvtype;
 pub use drvtype::*;
 use x86_64::structures::idt::InterruptStackFrame;
-
 use crate::process::DRIVER_PROCESS;
 
 /// The call_num enums of coredrv.
@@ -26,7 +25,6 @@ impl Callnum {
 }
 
 /// Common interrupt handler
-#[unsafe(link_section = ".gdata")]
 pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
     // At this time, we shall check up the interrupt
     let call_num: u64;

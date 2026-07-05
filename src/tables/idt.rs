@@ -6,7 +6,6 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 // Place IDT in .gdata section, initialize lazily
 // All exception handler are in `crate::handler`.
-#[unsafe(link_section = ".gdata")]
 pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| unsafe {
     // New table
     let mut idt = InterruptDescriptorTable::new();
@@ -71,7 +70,7 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| unsafe {
 });
 
 /// The empty IDT
-#[unsafe(link_section = ".gdata")]
+
 pub static IDT_EMPTY: InterruptDescriptorTable = InterruptDescriptorTable::new();
 
 // The APIC calibrator

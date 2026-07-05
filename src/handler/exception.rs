@@ -11,7 +11,6 @@ use x86_64::{
 
 macro_rules! exception {
     ($name:ident, $msg:expr) => {
-        #[unsafe(link_section = ".gdata")]
         pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame) {
             // Switch to kernel page table
             unsafe {
@@ -34,7 +33,6 @@ macro_rules! exception {
 
 macro_rules! exception_with_error_code {
     ($name:ident, $msg:expr) => {
-        #[unsafe(link_section = ".gdata")]
         pub extern "x86-interrupt" fn $name(
             stack_frame: InterruptStackFrame,
             error_code: u64, // Uses u64 as error code
@@ -77,7 +75,7 @@ exception_with_error_code!(control_protection, "CONTROL PROTECTION EXCEPTION");
 
 // Special handler -------------------------------------------------
 // #DF handler
-#[unsafe(link_section = ".gdata")]
+
 pub extern "x86-interrupt" fn double_fault(stack_frame: InterruptStackFrame, error_code: u64) -> ! {
     // Switch to kernel table
     unsafe {
@@ -97,7 +95,7 @@ pub extern "x86-interrupt" fn double_fault(stack_frame: InterruptStackFrame, err
 }
 
 // #PF handler
-#[unsafe(link_section = ".gdata")]
+
 pub extern "x86-interrupt" fn pagefault(
     stack_frame: InterruptStackFrame,
     error_code: PageFaultErrorCode,
@@ -124,7 +122,7 @@ pub extern "x86-interrupt" fn pagefault(
 }
 
 // Breakpoint handler
-#[unsafe(link_section = ".gdata")]
+
 pub extern "x86-interrupt" fn breakpoint(stack_frame: InterruptStackFrame) {
     unsafe {
         asm!(
@@ -138,7 +136,7 @@ pub extern "x86-interrupt" fn breakpoint(stack_frame: InterruptStackFrame) {
 }
 
 // Machine check handler
-#[unsafe(link_section = ".gdata")]
+
 pub extern "x86-interrupt" fn machine_check(stack_frame: InterruptStackFrame) -> ! {
     unsafe {
         asm!(
