@@ -63,16 +63,18 @@ pub fn syscall_handler() {
 
     unsafe {
         asm!(
-            "mov {}, cr3",
-            "mov {}, rsp",
-            out(reg) user_table,
-            out(reg) user_stack,
+            "mov r12, cr3",
+            "mov rdx, rsp",
+            out("r12") user_table,
+            out("rdx") user_stack,
             out("rax") sysnum,
+            out("rcx") _,
             out("rdi") _,
             out("rsi") _,
             out("r8") _,
             out("r9") _,
             out("r10") _,
+            out("r11") _,
         )
     }
 
@@ -93,9 +95,13 @@ pub fn syscall_handler() {
             "mov r13, {1}",
             "mov rsp, 0xffff80004007f000",
             "mov cr3, {2}",
+            "push rbx",
+            "push r13",
             "call {3}",
-            "mov cr3, r13",
-            "mov rsp, rbx",
+            "pop r13",
+            "pop rbx",
+            "mov cr3, rbx",
+            "mov rsp, r13",
             in(reg) user_table,
             in(reg) user_stack,
             in(reg) entry.page_table,
@@ -103,7 +109,6 @@ pub fn syscall_handler() {
         )
     }
 
-    sysreturn(0);
     return;
 }
 
