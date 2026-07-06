@@ -7,6 +7,7 @@ use x86_64::structures::paging::{
 pub mod driver;
 pub mod normal;
 use crate::memory::IdentityPageTableMapper;
+use crate::memory::PDPT_HPROC_ADDR;
 use crate::memory::PML4_ADDR;
 use crate::memory::framealloc::FRAME_ALLOCATOR;
 use crate::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
@@ -223,6 +224,14 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     };
     for i in 0..256 {
         pml4_table[i].set_unused();
+    }
+    if proctype == ProcType::Driver {
+        // This defend driver write the kernel's page table to prevent
+        // table was destoryed.
+        pml4_table[256].set_addr(
+            PhysAddr::new(PDPT_HPROC_ADDR),
+            PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+        );
     }
     let mut proc_mapper = unsafe { MappedPageTable::new(pml4_table, IdentityPageTableMapper) };
 
