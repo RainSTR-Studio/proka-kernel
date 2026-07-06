@@ -1,8 +1,8 @@
 //! The syscall initializator.
 extern crate alloc;
-use crate::{handler::syscall_entry, tables::gdt::GDT};
+use crate::{handler::syscall_entry, println, tables::gdt::GDT};
 use alloc::vec::Vec;
-use spin::Mutex;
+use spin::RwLock;
 use x86_64::{
     VirtAddr,
     registers::{
@@ -12,9 +12,9 @@ use x86_64::{
 };
 
 /// The syscall number manager.
-pub static SYSCALL: Mutex<Vec<SyscallEntry>> = {
+pub static SYSCALL: RwLock<Vec<SyscallEntry>> = {
     let syscalls = Vec::new();
-    Mutex::new(syscalls)
+    RwLock::new(syscalls)
 };
 
 /// The syscall entry.
@@ -29,8 +29,11 @@ pub struct SyscallEntry {
     /// table and pass the arguments...
     pub page_table: u64,
 
+    /// The dest RSP address (stack top).
+    pub stack: u64,
+
     /// The dest entry point addr after switching table.
-    pub entry: u64,
+    pub entry: extern "C" fn(u64, u64, u64, u64, u64) -> u64,
 }
 
 pub fn init() {
@@ -50,4 +53,11 @@ pub fn init() {
 
     // Finally write SFMask
     SFMask::write(RFlags::DIRECTION_FLAG);
+
+    SYSCALL.write().push(SyscallEntry { sysnum: 1, page_table: 0x100000, stack: 0xffff800003000000, entry: syscall });
+}
+
+extern "C" fn syscall(_: u64, _: u64, _: u64, _: u64, _: u64) -> u64 {
+    println!("Hello, syscall!");
+    0
 }

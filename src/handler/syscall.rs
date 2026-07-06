@@ -84,7 +84,7 @@ pub extern "C" fn syscall_handler() {
     }
 
     // Search for syscall table
-    let table = SYSCALL.lock();
+    let table = SYSCALL.read();
     let entry = table.iter().find(|e| e.sysnum == sysnum);
     if entry.is_none() {
         sysreturn(0xffff_ffff_ffff_ffff);
@@ -97,24 +97,24 @@ pub extern "C" fn syscall_handler() {
     unsafe {
         asm!(
             // Save info
-            "mov rbx, {0}",
-            "mov r13, {1}",
-            "mov rsp, 0xffff80004007f000",
-            "mov cr3, {2}",
+            "mov rbx, {user_stack}",
+            "mov r13, {user_table}",
+            "mov rsp, {stack}",
+            "mov cr3, {page_table}",
             "push rbx",
             "push r13",
             // Push arg registers
             "push rdi",
             "push rsi",
-            "push r8",
-            "push r9",
+            "push rdx",
             "push r10",
+            "push r8",
             // Call main fn
-            "call {3}",
+            "call {entry}",
             // Pop arg one...
-            "pop r10",
-            "pop r9",
             "pop r8",
+            "pop r10",
+            "pop rdx",
             "pop rsi",
             "pop rdi",
             // Pop essential registers
@@ -122,15 +122,16 @@ pub extern "C" fn syscall_handler() {
             "pop rbx",
             "mov cr3, r13",
             "mov rsp, rbx",
-            in(reg) user_stack,
-            in(reg) user_table,
-            in(reg) entry.page_table,
-            in(reg) entry.entry,
+            user_stack = in(reg) user_stack,
+            user_table = in(reg) user_table,
+            page_table = in(reg) entry.page_table,
+            stack = in(reg) entry.stack,
+            entry = in(reg) entry.entry,
             in("rdi") arg1,
             in("rsi") arg2,
-            in("r8") arg3,
-            in("r9") arg4,
-            in("r10") arg5,
+            in("rdx") arg3,
+            in("r10") arg4,
+            in("r8") arg5,
             out("r11") _,
             out("rcx") _,
         )

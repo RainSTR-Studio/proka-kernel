@@ -13,10 +13,10 @@ pub static NORMAL_QUEUE: Mutex<Vec<usize>> = Mutex::new(Vec::new());
 pub static DRIVER_QUEUE: Mutex<Vec<usize>> = Mutex::new(Vec::new());
 
 /// Assign is it driver running or normal process.
-static IS_DRIVER: AtomicBool = AtomicBool::new(true);
+pub static IS_DRIVER: AtomicBool = AtomicBool::new(true);
 
 // Contains the current PID/DID.
-static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
+pub static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
 
 /// The task switcher
 pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
