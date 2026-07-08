@@ -114,16 +114,18 @@ impl Write for InitprtReader {
 
 /// Load all of the file which is in initprt and essential.
 pub fn init() {
+    // Init fs
+    let reader = InitprtReader::init();
+    let fs = FileSystem::new(reader, FsOptions::new()).expect("Failed to load initprt");
+
     // Load init, as userapp mode...
-    load("/init", ExecMode::UserApp);
+    load(&fs, "/init", ExecMode::UserApp);
 }
 
 /// Load proka exec file as the normal process program.
-fn load(file: &str, mode: ExecMode) {
+fn load(fs: &FileSystem<InitprtReader>, file: &str, mode: ExecMode) {
     // In this fn, we just use the most simple way to load
     // the initprt's contents.
-    let reader = InitprtReader::init();
-    let fs = FileSystem::new(reader, FsOptions::new()).expect("Failed to load initprt");
     let root = fs.root_dir();
 
     // Debug only...

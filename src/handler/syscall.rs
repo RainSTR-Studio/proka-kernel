@@ -26,6 +26,7 @@ pub extern "C" fn syscall_entry() {
         "push r15",
         // Enter main function
         "call syscall_handler",
+        // Recover common registers
         "pop r15",
         "pop r14",
         "pop r13",

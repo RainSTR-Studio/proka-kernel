@@ -8,12 +8,12 @@
 //!  - arg2: The subtype, which is the pointer of `&str` within 16 bytes length.
 extern crate alloc;
 use alloc::vec::Vec;
-use spin::{Lazy, Mutex};
+use spin::{Lazy, RwLock};
 
 /// The driver type index.
-pub static DRVTYPE_INDEX: Lazy<Mutex<Vec<DrvTypeTable>>> = Lazy::new(|| {
+pub static DRVTYPE_INDEX: Lazy<RwLock<Vec<DrvTypeTable>>> = Lazy::new(|| {
     let table = Vec::new();
-    Mutex::new(table)
+    RwLock::new(table)
 });
 
 /// The driver type table.
@@ -56,7 +56,7 @@ pub fn driver_type_reg(arg1: u64, _arg2: u64, did: u16) {
 
     // Update index...
     let obj = DrvTypeTable { id: did, typ };
-    DRVTYPE_INDEX.lock().push(obj);
+    DRVTYPE_INDEX.write().push(obj);
 
     // TODO: Map the specified MMIO for this driver...
 }
