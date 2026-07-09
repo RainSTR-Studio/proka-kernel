@@ -9,13 +9,15 @@ glob = "0.3.0"
 
 [dependencies]
 acpi = { git = "https://github.com/rust-osdev/acpi.git", branch = "main" }
-axfatfs = { version = "0.1.0-pre.0", default-features = false, features = ["alloc", "lfn"] }
+hadris-fat = { version = "1.2.0", default-features = false, features = ["alloc", "lfn", "read", "sync"] }
 log = "0.4.29"
 proka-bootloader = "0.5.4"
 proka-exec = "0.4.2"
+serde = { version = "1.0.228", default-features = false, features = ["alloc", "derive", "serde_derive"] }
 spin = "0.10.0"
 spinning_top = "0.3.0"
 talc = "5.0.3"
+toml = { version = "1.1.2", default-features = false, features = ["parse", "serde"] }
 uart_16550 = "0.4.0"
 x2apic = "0.5.0"
 x86_64 = "0.15.4"

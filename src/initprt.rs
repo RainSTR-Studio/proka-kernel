@@ -1,9 +1,15 @@
 //! The INITPRT parser.
+extern crate alloc;
 use crate::memory::framealloc::FRAME_ALLOCATOR;
-use axfatfs::{Error, FileSystem, FsOptions, IoBase, Read, Seek, SeekFrom, Write};
+use alloc::format;
+use alloc::string::String;
+use alloc::{vec, vec::Vec};
+use hadris_fat::{Error, ErrorKind, FatDir, FatFs, IoResult, Read, Seek, SeekFrom};
 use log::debug;
 use proka_exec::{Parser, header::ExecMode};
-use x86_64::align_up;
+use serde::Deserialize;
+use x86_64::structures::paging::PhysFrame;
+use x86_64::{PhysAddr, align_up};
 
 // Constants
 pub const INITPRT_BASE: u64 = 0xffff800003000000; // loaded
@@ -37,15 +43,9 @@ impl InitprtReader {
         self.pos >= self.data.len()
     }
 }
-
-// IoBase
-impl IoBase for InitprtReader {
-    type Error = Error<()>;
-}
-
 // Read
 impl Read for InitprtReader {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+    fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
         // Check is it now in EOF
         if self.is_eof() {
             return Ok(0);
@@ -66,27 +66,27 @@ impl Read for InitprtReader {
 
 // Seek
 impl Seek for InitprtReader {
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
+    fn seek(&mut self, pos: SeekFrom) -> IoResult<u64> {
         let len = INITPRT_LENGTH as i64;
         let new_pos = match pos {
             SeekFrom::Start(offset) => {
                 let off = offset as i64;
                 if off < 0 || off > len {
-                    return Err(Error::Io(()));
+                    return Err(Error::new(ErrorKind::Other, "seek out of bounds"));
                 }
                 off
             }
             SeekFrom::End(offset) => {
                 let off = len + offset;
                 if off < 0 || off > len {
-                    return Err(Error::Io(()));
+                    return Err(Error::new(ErrorKind::Other, "seek out of bounds"));
                 }
                 off
             }
             SeekFrom::Current(offset) => {
                 let off = self.pos as i64 + offset;
                 if off < 0 || off > len {
-                    return Err(Error::Io(()));
+                    return Err(Error::new(ErrorKind::Other, "seek out of bounds"));
                 }
                 off
             }
@@ -97,15 +97,10 @@ impl Seek for InitprtReader {
     }
 }
 
-// Write (but error)
-impl Write for InitprtReader {
-    fn write(&mut self, _buf: &[u8]) -> Result<usize, Self::Error> {
-        Err(Error::Io(()))
-    }
-
-    fn flush(&mut self) -> Result<(), Self::Error> {
-        Err(Error::Io(()))
-    }
+/// The format of `/drivers/list.toml`.
+#[derive(Debug, Clone, Deserialize)]
+struct DrvList {
+    pub drivers: Vec<String>,
 }
 
 /*
@@ -116,56 +111,63 @@ impl Write for InitprtReader {
 pub fn init() {
     // Init fs
     let reader = InitprtReader::init();
-    let fs = FileSystem::new(reader, FsOptions::new()).expect("Failed to load initprt");
+    let fs = FatFs::open(reader).expect("Failed to load initprt");
 
     // Load init, as userapp mode...
-    load(&fs, "/init", ExecMode::UserApp);
+    let root = fs.root_dir();
+    run(&root, "init", ExecMode::UserApp);
+
+    // Then, parse the `/drivers/list.toml`.
+    let drivers = fs
+        .open_dir_path("drivers")
+        .expect("Failed to load driver path");
+    let list_content = load(&drivers, "list.toml", false);
+    let lists: DrvList =
+        toml::from_slice(&list_content.2).expect("Failed to parse drivers list.toml");
+    for driver in lists.drivers {
+        #[cfg(debug_assertions)]
+        debug!("Driver: {}", driver);
+        run(&drivers, &driver, ExecMode::CoreDrv);
+    }
 }
 
 /// Load proka exec file as the normal process program.
-fn load(fs: &FileSystem<InitprtReader>, file: &str, mode: ExecMode) {
-    // In this fn, we just use the most simple way to load
-    // the initprt's contents.
-    let root = fs.root_dir();
-
-    // Debug only...
-    #[cfg(debug_assertions)]
-    {
-        debug!("====== Begin of list of initprt in root: ======");
-        for r in root.iter() {
-            let entry = r.unwrap();
-            debug!("Object: {}", entry.file_name());
-        }
-        debug!("====== End of list of initprt in root ======");
-    }
-
+/// Returns: (addr, size, buf)
+fn load<'a>(dir: &FatDir<'_, InitprtReader>, file: &str, is_exec: bool) -> (u64, u64, Vec<u8>) {
     // Open file...
-    let mut init = root.open_file(file).expect("file not found");
-    let size = {
-        let mut total = 0;
-        for ext in init.extents().flatten() {
-            total += ext.size;
-        }
-        total as usize
-    };
+    let mut init = dir
+        .open_file(file)
+        .expect(&format!("Failed to load {}", file));
+    let size = init.size();
 
     // Construct a slice to contain that executable
-    let pages = (align_up(size as u64, 4096) >> 12) as usize;
-    let base = FRAME_ALLOCATOR
-        .lock()
-        .allocate_contiguous(pages)
-        .expect("Failed to alloc a frame to store data");
-    let addr = base.start_address().as_u64();
-    debug!("Init will put into 0x{:08x}", addr);
-    let buf = unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, size) };
+    let mut buf = if is_exec {
+        let pages = (align_up(size as u64, 4096) >> 12) as usize;
+        let base = FRAME_ALLOCATOR
+            .lock()
+            .allocate_contiguous(pages)
+            .expect("Failed to alloc a frame to store data");
+        let addr = base.start_address().as_u64();
+        debug!("Init will put into 0x{:08x}", addr);
+        unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, size) }.to_vec()
+    } else {
+        vec![0u8; size]
+    };
 
     // Read!
-    init.read(buf).unwrap();
+    init.read(&mut buf).unwrap();
+    (buf.as_ptr() as u64, size as u64, buf)
+}
+
+fn run(dir: &FatDir<'_, InitprtReader>, file: &str, mode: ExecMode) {
+    // Get buffer
+    let info = load(dir, file, true);
+    let buf = &info.2;
 
     // Temporary initialize parser to check is mode correct
     // SAFETY: buffer already mapped
     {
-        let parser = Parser::init(buf).expect("{} is corrupted");
+        let parser = Parser::init(&buf).expect("{} is corrupted");
         let filemode = parser.header().mode;
         if filemode != mode {
             panic!(
@@ -178,5 +180,12 @@ fn load(fs: &FileSystem<InitprtReader>, file: &str, mode: ExecMode) {
     // Then create up a process
     // TODO: Turn panic into internal shell
     // SAFETY: buffer already mapped and read
-    unsafe { crate::process::create(buf, 0).unwrap() }
+    unsafe { crate::process::create(&buf, 0).unwrap() }
+
+    // Drop the buffer's region
+    // Idea: Deallocate that region
+    let pages = (align_up(info.1, 4096) >> 12) as usize;
+    FRAME_ALLOCATOR
+        .lock()
+        .deallocate_contiguous(PhysFrame::containing_address(PhysAddr::new(info.0)), pages);
 }

@@ -146,7 +146,7 @@ struct SectionData {
 ///
 /// If an unsupported process domain is provided, it will be ignored,
 /// and process creation will continue normally.
-pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
+pub unsafe fn create<'a>(data: &'a [u8], priority: u8) -> Result<(), Error> {
     // First, parse the current data
     let proctype: ProcType;
     let pml4: u64;
