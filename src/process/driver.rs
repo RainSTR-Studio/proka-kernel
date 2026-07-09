@@ -2,10 +2,10 @@
 extern crate alloc;
 use super::{Context, Error, MAX_PS, Status};
 use alloc::{vec, vec::Vec};
-use spin::{Lazy, Mutex};
+use spin::{Lazy, RwLock};
 
-pub static DRIVER_PROCESS: Lazy<Mutex<DriverProcessTable>> =
-    Lazy::new(|| Mutex::new(DriverProcessTable::default()));
+pub static DRIVER_PROCESS: Lazy<RwLock<DriverProcessTable>> =
+    Lazy::new(|| RwLock::new(DriverProcessTable::default()));
 
 /// The driver process list.
 #[repr(C)]

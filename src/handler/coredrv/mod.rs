@@ -48,7 +48,7 @@ pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
     let call_num = Callnum::from_u64(call_num);
 
     // Since we got PML4 address, we can do convert from PML4 to DID.
-    let drvproc = &mut DRIVER_PROCESS.lock().process;
+    let drvproc = &mut DRIVER_PROCESS.write().process;
     let did = if let Some(id) = drvproc
         .iter()
         .position(|process| process.table_addr == pml4)

@@ -327,7 +327,7 @@ fn create_normal(frame: u64, priority: u8) -> Result<(), Error> {
     let process = self::normal::NormalProcess::create(frame, priority)?;
 
     // Check which process is usable
-    let mut table = NORMAL_PROCESS.lock();
+    let mut table = NORMAL_PROCESS.write();
     let mut pid: usize = 0;
     for i in 0..MAX_PS {
         if !table.process[i].present {
@@ -349,7 +349,7 @@ fn create_driver(frame: u64) -> Result<(), Error> {
     let process = self::driver::DriverProcess::create(frame)?;
 
     // Check which process is usable
-    let mut table = DRIVER_PROCESS.lock();
+    let mut table = DRIVER_PROCESS.write();
     let mut did: usize = 0;
     for i in 0..MAX_PS {
         if !table.process[i].present {
@@ -386,7 +386,7 @@ fn remove_normal(index: usize) -> Result<(), Error> {
         return Err(Error::InvalidIndex);
     }
 
-    let mut table = NORMAL_PROCESS.lock();
+    let mut table = NORMAL_PROCESS.write();
     let proc = &mut table.process[index];
 
     if !proc.present {
@@ -405,7 +405,7 @@ fn remove_driver(index: usize) -> Result<(), Error> {
         return Err(Error::InvalidIndex);
     }
 
-    let mut table = DRIVER_PROCESS.lock();
+    let mut table = DRIVER_PROCESS.write();
     let proc = &mut table.process[index];
 
     if !proc.present {

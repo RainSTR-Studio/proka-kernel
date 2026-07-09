@@ -2,10 +2,10 @@
 extern crate alloc;
 use super::{Context, Error, MAX_PS, Status};
 use alloc::{vec, vec::Vec};
-use spin::{Lazy, Mutex};
+use spin::{Lazy, RwLock};
 
-pub static NORMAL_PROCESS: Lazy<Mutex<NormalProcessTable>> =
-    Lazy::new(|| Mutex::new(NormalProcessTable::default()));
+pub static NORMAL_PROCESS: Lazy<RwLock<NormalProcessTable>> =
+    Lazy::new(|| RwLock::new(NormalProcessTable::default()));
 
 /// The normal process list.
 #[repr(C)]
@@ -38,6 +38,9 @@ pub struct NormalProcess {
     /// The process context.
     pub context: Context,
 
+    /// The page table which is currently using.
+    pub current_table: u64,
+
     /// The process's page table.
     pub table_addr: u64,
 }
@@ -51,6 +54,7 @@ impl NormalProcess {
             status: Status::Ready,
             priority,
             context: Context::normal(),
+            current_table: frame,
             table_addr: frame,
         })
     }

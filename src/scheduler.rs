@@ -61,7 +61,7 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         }
 
         // So let's save its RIP and RSP
-        let mut guard = DRIVER_PROCESS.lock();
+        let mut guard = DRIVER_PROCESS.write();
         let proc = &mut guard.process[current_id];
 
         // Check: Is driver empty
@@ -128,7 +128,7 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         }
 
         // Do the save step as above
-        let mut guard = NORMAL_PROCESS.lock();
+        let mut guard = NORMAL_PROCESS.write();
         let proc = &mut guard.process[current_id];
 
         // Check: Is normal list empty
@@ -312,7 +312,7 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
 // Switch to next driver.
 fn to_driver() -> Result<(Context, u64), ()> {
     // Get current driver process.
-    let dpt = DRIVER_PROCESS.lock();
+    let dpt = DRIVER_PROCESS.read();
     let mut queue = DRIVER_QUEUE.lock();
 
     // Get the process
@@ -341,7 +341,7 @@ fn to_driver() -> Result<(Context, u64), ()> {
  
 fn to_normal() -> Result<(Context, u64), ()> {
     // Get current normal process
-    let npt = NORMAL_PROCESS.lock();
+    let npt = NORMAL_PROCESS.read();
     let mut queue = NORMAL_QUEUE.lock();
 
     // Get current PID
@@ -363,5 +363,5 @@ fn to_normal() -> Result<(Context, u64), ()> {
     queue.remove(0);
     queue.push(pid);
 
-    Ok((proc.context.clone(), proc.table_addr))
+    Ok((proc.context.clone(), proc.current_table))
 }
