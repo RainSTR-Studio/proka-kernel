@@ -22,12 +22,15 @@ pub static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
 pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
     // First, we should save the stack info before switching stack...
     let rbp_cur: u64;
+    let cr3: u64;
     unsafe {
         core::arch::asm!(
+            "mov {cr3}, cr3",
             "mov rax, 0x100000", // Fixed addr, safe
             "mov cr3, rax",
             "mfence",
             "mov {rbp}, rbp",
+            cr3 = out(reg) cr3,
             rbp = out(reg) rbp_cur,
         );
     }
@@ -177,6 +180,7 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             proc.context.rflags = rflags;
             proc.context.cs = cs;
             proc.context.ss = ss;
+            proc.current_table = cr3;
         }
 
         drop(guard);
