@@ -1,6 +1,5 @@
 //! The INITPRT parser.
 extern crate alloc;
-use crate::memory::framealloc::FRAME_ALLOCATOR;
 use alloc::format;
 use alloc::string::String;
 use alloc::{vec, vec::Vec};
@@ -8,8 +7,6 @@ use hadris_fat::{Error, ErrorKind, FatDir, FatFs, IoResult, Read, Seek, SeekFrom
 use log::debug;
 use proka_exec::{Parser, header::ExecMode};
 use serde::Deserialize;
-use x86_64::structures::paging::PhysFrame;
-use x86_64::{PhysAddr, align_up};
 
 // Constants
 pub const INITPRT_BASE: u64 = 0xffff800003000000; // loaded
@@ -121,7 +118,7 @@ pub fn init() {
     let drivers = fs
         .open_dir_path("drivers")
         .expect("Failed to load driver path");
-    let list_content = load(&drivers, "list.toml", false);
+    let list_content = load(&drivers, "list.toml");
     let lists: DrvList =
         toml::from_slice(&list_content.2).expect("Failed to parse drivers list.toml");
     for driver in lists.drivers {
@@ -133,7 +130,7 @@ pub fn init() {
 
 /// Load proka exec file as the normal process program.
 /// Returns: (addr, size, buf)
-fn load<'a>(dir: &FatDir<'_, InitprtReader>, file: &str, is_exec: bool) -> (u64, u64, Vec<u8>) {
+fn load<'a>(dir: &FatDir<'_, InitprtReader>, file: &str) -> (u64, u64, Vec<u8>) {
     // Open file...
     let mut init = dir
         .open_file(file)
@@ -141,19 +138,7 @@ fn load<'a>(dir: &FatDir<'_, InitprtReader>, file: &str, is_exec: bool) -> (u64,
     let size = init.size();
 
     // Construct a slice to contain that executable
-    let mut buf = if is_exec {
-        let pages = (align_up(size as u64, 4096) >> 12) as usize;
-        let base = FRAME_ALLOCATOR
-            .lock()
-            .allocate_contiguous(pages)
-            .expect("Failed to alloc a frame to store data");
-        let addr = base.start_address().as_u64();
-        debug!("Init will put into 0x{:08x}", addr);
-        unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, size) }.to_vec()
-    } else {
-        vec![0u8; size]
-    };
-
+    let mut buf = vec![0u8; size];
     // Read!
     init.read(&mut buf).unwrap();
     (buf.as_ptr() as u64, size as u64, buf)
@@ -161,7 +146,7 @@ fn load<'a>(dir: &FatDir<'_, InitprtReader>, file: &str, is_exec: bool) -> (u64,
 
 fn run(dir: &FatDir<'_, InitprtReader>, file: &str, mode: ExecMode) {
     // Get buffer
-    let info = load(dir, file, true);
+    let info = load(dir, file);
     let buf = &info.2;
 
     // Temporary initialize parser to check is mode correct
@@ -181,11 +166,4 @@ fn run(dir: &FatDir<'_, InitprtReader>, file: &str, mode: ExecMode) {
     // TODO: Turn panic into internal shell
     // SAFETY: buffer already mapped and read
     unsafe { crate::process::create(&buf, 0).unwrap() }
-
-    // Drop the buffer's region
-    // Idea: Deallocate that region
-    let pages = (align_up(info.1, 4096) >> 12) as usize;
-    FRAME_ALLOCATOR
-        .lock()
-        .deallocate_contiguous(PhysFrame::containing_address(PhysAddr::new(info.0)), pages);
 }
