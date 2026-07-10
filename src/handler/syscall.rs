@@ -137,8 +137,6 @@ pub extern "C" fn syscall_handler() {
             out("rcx") _,
         )
     }
-
-    return;
 }
 
 /// Return from syscall handler.

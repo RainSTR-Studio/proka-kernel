@@ -70,7 +70,6 @@ pub static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| unsafe {
 });
 
 /// The empty IDT
-
 pub static IDT_EMPTY: InterruptDescriptorTable = InterruptDescriptorTable::new();
 
 // The APIC calibrator

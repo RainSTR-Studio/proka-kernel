@@ -146,10 +146,10 @@ struct SectionData {
 ///
 /// If an unsupported process domain is provided, it will be ignored,
 /// and process creation will continue normally.
-pub unsafe fn create<'a>(data: &'a [u8], priority: u8) -> Result<(), Error> {
+pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
     // First, parse the current data
-    let proctype: ProcType;
-    let pml4: u64;
+    
+    
     let mut section_info: Vec<SectionData> = Vec::new(); // (addr, pages)
     let parser = Parser::init(data).map_err(|_| Error::InvalidFormat)?;
 
@@ -161,7 +161,7 @@ pub unsafe fn create<'a>(data: &'a [u8], priority: u8) -> Result<(), Error> {
     trace!("Process: data validation passed");
 
     // Decide the process type through the header info
-    proctype = match parser.header().mode {
+    let proctype: ProcType = match parser.header().mode {
         ExecMode::UserApp => ProcType::Normal,
         ExecMode::CoreDrv => ProcType::Driver,
     };
@@ -209,7 +209,7 @@ pub unsafe fn create<'a>(data: &'a [u8], priority: u8) -> Result<(), Error> {
 
     // After collecting info, its time to make up a page table.
     // But first, we need to make up an PML4
-    pml4 = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(1) {
+    let pml4: u64 = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(1) {
         trace!("Allocated frame {:?} for proc PML4", frame);
         frame.start_address().as_u64()
     } else {

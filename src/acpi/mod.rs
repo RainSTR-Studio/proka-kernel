@@ -18,8 +18,8 @@ use x86_64::{
 pub static ACPI_PLATFORM: Lazy<AcpiPlatform<AcpiHandler>> = Lazy::new(|| unsafe {
     let addr = proka_bootloader::get_bootinfo().acpi() as usize;
     let acpi = AcpiTables::from_rsdp(AcpiHandler, addr).expect("ACPI table init failed");
-    let platform = AcpiPlatform::new(acpi, AcpiHandler).expect("Failed to init ACPI platform");
-    platform
+    
+    AcpiPlatform::new(acpi, AcpiHandler).expect("Failed to init ACPI platform")
 });
 
 /// The AML interpreter.

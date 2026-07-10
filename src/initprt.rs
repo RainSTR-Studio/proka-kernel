@@ -1,9 +1,9 @@
 //! The INITPRT parser.
 extern crate alloc;
-use alloc::format;
 use alloc::string::String;
 use alloc::{vec, vec::Vec};
 use hadris_fat::{Error, ErrorKind, FatDir, FatFs, IoResult, Read, Seek, SeekFrom};
+#[cfg(debug_assertions)]
 use log::debug;
 use proka_exec::{Parser, header::ExecMode};
 use serde::Deserialize;
@@ -130,11 +130,11 @@ pub fn init() {
 
 /// Load proka exec file as the normal process program.
 /// Returns: (addr, size, buf)
-fn load<'a>(dir: &FatDir<'_, InitprtReader>, file: &str) -> (u64, u64, Vec<u8>) {
+fn load(dir: &FatDir<'_, InitprtReader>, file: &str) -> (u64, u64, Vec<u8>) {
     // Open file...
     let mut init = dir
         .open_file(file)
-        .expect(&format!("Failed to load {}", file));
+        .unwrap_or_else(|_| panic!("Failed to load {}", file));
     let size = init.size();
 
     // Construct a slice to contain that executable
@@ -152,7 +152,7 @@ fn run(dir: &FatDir<'_, InitprtReader>, file: &str, mode: ExecMode) {
     // Temporary initialize parser to check is mode correct
     // SAFETY: buffer already mapped
     {
-        let parser = Parser::init(&buf).expect("{} is corrupted");
+        let parser = Parser::init(buf).expect("{} is corrupted");
         let filemode = parser.header().mode;
         if filemode != mode {
             panic!(
@@ -165,5 +165,5 @@ fn run(dir: &FatDir<'_, InitprtReader>, file: &str, mode: ExecMode) {
     // Then create up a process
     // TODO: Turn panic into internal shell
     // SAFETY: buffer already mapped and read
-    unsafe { crate::process::create(&buf, 0).unwrap() }
+    unsafe { crate::process::create(buf, 0).unwrap() }
 }

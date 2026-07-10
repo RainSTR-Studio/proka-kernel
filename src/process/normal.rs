@@ -5,7 +5,7 @@ use alloc::{vec, vec::Vec};
 use spin::{Lazy, RwLock};
 
 pub static NORMAL_PROCESS: Lazy<RwLock<NormalProcessTable>> =
-    Lazy::new(|| RwLock::new(NormalProcessTable::default()));
+    Lazy::new(|| RwLock::new(NormalProcessTable::new()));
 
 /// The normal process list.
 #[repr(C)]
@@ -16,9 +16,15 @@ pub struct NormalProcessTable {
 }
 
 impl NormalProcessTable {
-    pub fn default() -> Self {
+    pub fn new() -> Self {
         let process = vec![NormalProcess::default(); MAX_PS];
         Self { process, count: 0 }
+    }
+}
+
+impl Default for NormalProcessTable {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

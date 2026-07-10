@@ -66,6 +66,6 @@ pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
         Callnum::RegDriverType => driver_type_reg(arg1, arg2, did),
 
         // Invalid type
-        Callnum::Invalid => return,
+        Callnum::Invalid => (),
     }
 }

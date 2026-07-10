@@ -5,7 +5,7 @@ use alloc::{vec, vec::Vec};
 use spin::{Lazy, RwLock};
 
 pub static DRIVER_PROCESS: Lazy<RwLock<DriverProcessTable>> =
-    Lazy::new(|| RwLock::new(DriverProcessTable::default()));
+    Lazy::new(|| RwLock::new(DriverProcessTable::new()));
 
 /// The driver process list.
 #[repr(C)]
@@ -16,9 +16,15 @@ pub struct DriverProcessTable {
 }
 
 impl DriverProcessTable {
-    pub fn default() -> Self {
+    pub fn new() -> Self {
         let process = vec![DriverProcess::default(); MAX_PS];
         Self { process, count: 0 }
+    }
+}
+
+impl Default for DriverProcessTable {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

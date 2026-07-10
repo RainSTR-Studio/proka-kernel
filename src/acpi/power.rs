@@ -32,10 +32,7 @@ pub fn reboot() -> ! {
         const KBD_RESET: u8 = 0xFE;
 
         unsafe {
-            let value = Port::<u8>::new(KBD_PORT).read();
-            while (value & 0x02) != 0 {
-                Port::<u8>::new(KBD_PORT).write(KBD_RESET);
-            }
+            Port::<u8>::new(KBD_PORT).write(KBD_RESET);
         }
 
         // Commonly, the PC has shut down.

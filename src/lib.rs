@@ -10,6 +10,7 @@
 #![feature(abi_x86_interrupt)]
 #![test_runner(crate::test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
+#![allow(clippy::empty_loop)]
 
 /// The kernel version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
