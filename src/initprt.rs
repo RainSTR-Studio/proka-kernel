@@ -5,6 +5,7 @@ use alloc::{vec, vec::Vec};
 use hadris_fat::{Error, ErrorKind, FatDir, FatFs, IoResult, Read, Seek, SeekFrom};
 #[cfg(debug_assertions)]
 use log::debug;
+use log::warn;
 use proka_exec::{Parser, header::ExecMode};
 use serde::Deserialize;
 
@@ -121,6 +122,14 @@ pub fn init() {
     let list_content = load(&drivers, "list.toml");
     let lists: DrvList =
         toml::from_slice(&list_content.2).expect("Failed to parse drivers list.toml");
+
+    // Check: Is driver list empty
+    if lists.drivers.is_empty() {
+        warn!("The driver list is empty, no drivers will be run!!");
+        return;
+    }
+
+    // Iterate drivers and run them
     for driver in lists.drivers {
         #[cfg(debug_assertions)]
         debug!("Driver: {}", driver);

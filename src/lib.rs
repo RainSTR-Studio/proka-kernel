@@ -25,7 +25,7 @@ pub mod handler;
 pub mod initprt;
 pub mod logger;
 pub mod memory;
-pub mod mmio;
+pub mod devices;
 pub mod output;
 pub mod panic;
 pub mod process;
