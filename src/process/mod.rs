@@ -148,8 +148,6 @@ struct SectionData {
 /// and process creation will continue normally.
 pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
     // First, parse the current data
-    
-    
     let mut section_info: Vec<SectionData> = Vec::new(); // (addr, pages)
     let parser = Parser::init(data).map_err(|_| Error::InvalidFormat)?;
 

@@ -6,6 +6,7 @@ use crate::process::DRIVER_PROCESS;
 
 /// The call_num enums of coredrv.
 #[repr(u64)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Callnum {
     /// Register the driver type.
     RegDriverType = 1,
@@ -34,13 +35,13 @@ pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
 
     unsafe {
         core::arch::asm!(
-            "mov r10, cr3",
-            "mov r11, 0x100000",
-            "mov cr3, r9",
+            "mov {}, cr3",
+            "mov r15, 0x100000",
+            "mov cr3, r15",
+            out(reg) pml4,
             out("rax") call_num,
             out("rdi") arg1,
             out("rsi") arg2,
-            out("r10") pml4,
         );
     }
 
@@ -48,7 +49,7 @@ pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
     let call_num = Callnum::from_u64(call_num);
 
     // Since we got PML4 address, we can do convert from PML4 to DID.
-    let drvproc = &mut DRIVER_PROCESS.write().process;
+    let drvproc = &DRIVER_PROCESS.read().process;
     let did = if let Some(id) = drvproc
         .iter()
         .position(|process| process.table_addr == pml4)
@@ -57,8 +58,6 @@ pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
     } else {
         return;
     };
-
-    // Check: is matched or not?
 
     // After getting call_num and args, we shall match each...
     match call_num {

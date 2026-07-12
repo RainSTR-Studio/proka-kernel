@@ -1,6 +1,6 @@
 //! The syscall initializator.
 extern crate alloc;
-use crate::{handler::syscall_entry, println, tables::gdt::GDT};
+use crate::{handler::syscall_entry, tables::gdt::GDT};
 use alloc::vec::Vec;
 use spin::RwLock;
 use x86_64::{
@@ -53,11 +53,4 @@ pub fn init() {
 
     // Finally write SFMask
     SFMask::write(RFlags::DIRECTION_FLAG);
-
-    SYSCALL.write().push(SyscallEntry { sysnum: 1, page_table: 0x100000, stack: 0xffff800003000000, entry: syscall });
-}
-
-extern "C" fn syscall(_: u64, _: u64, _: u64, _: u64, _: u64) -> u64 {
-    println!("Hello, syscall!");
-    0
 }

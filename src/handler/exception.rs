@@ -2,7 +2,9 @@
 //!
 //! Originally by moyanj <me@moyanjdc.top>
 use crate::println;
+use crate::scheduler::{CURRENT_ID, IS_DRIVER};
 use core::arch::asm;
+use core::sync::atomic::Ordering;
 use x86_64::{
     VirtAddr,
     registers::control::Cr2,
@@ -21,10 +23,18 @@ macro_rules! exception {
                 )
             }
 
+            // Query the current process ID.
+            let pid = CURRENT_ID.load(Ordering::Relaxed);
+            let proc_type = if IS_DRIVER.load(Ordering::Relaxed) {
+                "DRIVER"
+            } else {
+                "USER"
+            };
+
             // Do next...
             println!(
-                "\x1b[31m[ERROR] CPU EXCEPTION: {}\n{:#?}\x1b[0m",
-                $msg, stack_frame
+                "\x1b[31m[ERROR] CPU EXCEPTION: {} [ID: {}] [PROCESS TYPE: {}]\n{:#?}\x1b[0m",
+                $msg, pid, proc_type, stack_frame
             );
             hlt_loop() // TODO: Replace it to recovor logic
         }
@@ -46,9 +56,18 @@ macro_rules! exception_with_error_code {
                 )
             }
 
+            // Query the current process ID.
+            let pid = CURRENT_ID.load(Ordering::Relaxed);
+            let proc_type = if IS_DRIVER.load(Ordering::Relaxed) {
+                "DRIVER"
+            } else {
+                "USER"
+            };
+
+            // Do next...
             println!(
-                "\x1b[31m[ERROR] CPU EXCEPTION! {} [ERR: {:#x}]\n{:#?}\x1b[0m",
-                $msg, error_code, stack_frame
+                "\x1b[31m[ERROR] CPU EXCEPTION: {}, error code: {} [ID: {}] [PROCESS TYPE: {}]\n{:#?}\x1b[0m",
+                $msg, error_code, pid, proc_type, stack_frame
             );
             hlt_loop()
         }

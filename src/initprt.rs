@@ -143,7 +143,7 @@ fn load(dir: &FatDir<'_, InitprtReader>, file: &str) -> (u64, u64, Vec<u8>) {
     // Open file...
     let mut init = dir
         .open_file(file)
-        .unwrap_or_else(|_| panic!("Failed to load {}", file));
+        .unwrap_or_else(|e| panic!("Failed to load {} because of {:?}", file, e));
     let size = init.size();
 
     // Construct a slice to contain that executable

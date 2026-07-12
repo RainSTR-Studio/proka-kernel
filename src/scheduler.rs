@@ -1,6 +1,9 @@
 //! The scheduler.
 extern crate alloc;
-use crate::process::{Context, DRIVER_PROCESS, NORMAL_PROCESS};
+use crate::{
+    process::{Context, DRIVER_PROCESS, NORMAL_PROCESS},
+    serial_println,
+};
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use spin::Mutex;
@@ -61,6 +64,7 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         // Check: Is next proc area queue empty
         if !normal_empty {
             IS_DRIVER.store(false, Ordering::Relaxed);
+            serial_println!("Switch to driver");
         }
 
         // So let's save its RIP and RSP
@@ -120,8 +124,8 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             proc.context.cs = cs;
             proc.context.ss = ss;
         }
-        drop(guard);
 
+        drop(guard);
         to_driver()
     } else {
         // Now we are running normal process.
@@ -184,7 +188,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         }
 
         drop(guard);
-
         to_normal()
     };
 
@@ -342,7 +345,7 @@ fn to_driver() -> Result<(Context, u64), ()> {
 }
 
 // Switch to next normal process.
- 
+
 fn to_normal() -> Result<(Context, u64), ()> {
     // Get current normal process
     let npt = NORMAL_PROCESS.read();
