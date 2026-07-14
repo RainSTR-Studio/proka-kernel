@@ -10,6 +10,7 @@ use crate::memory::IdentityPageTableMapper;
 use crate::memory::PDPT_HPROC_ADDR;
 use crate::memory::PML4_ADDR;
 use crate::memory::framealloc::FRAME_ALLOCATOR;
+use crate::memory::paging::PDPT_HIGH_ADDR;
 use crate::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
 use crate::tables::gdt::GDT;
 use log::{debug, error, trace, warn};
@@ -220,14 +221,17 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
         core::ptr::copy(PML4_ADDR as *const PageTable, pml4 as *mut PageTable, 1);
         &mut *(pml4 as *mut PageTable)
     };
-    for i in 0..256 {
-        pml4_table[i].set_unused();
-    }
+    pml4_table.zero();
     if proctype == ProcType::Driver {
         // This defend driver write the kernel's page table to prevent
         // table was destoryed.
         pml4_table[256].set_addr(
             PhysAddr::new(PDPT_HPROC_ADDR),
+            PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+        );
+    } else {
+        pml4_table[256].set_addr(
+            PhysAddr::new(PDPT_HIGH_ADDR),
             PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
         );
     }

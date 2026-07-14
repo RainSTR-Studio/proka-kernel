@@ -1,5 +1,7 @@
-//! The syscall initializator.
+//! The syscall module.
 extern crate alloc;
+pub mod power;
+pub mod process;
 use crate::{handler::syscall_entry, tables::gdt::GDT};
 use alloc::vec::Vec;
 use spin::RwLock;
@@ -17,6 +19,16 @@ pub static SYSCALL: RwLock<Vec<SyscallEntry>> = {
     RwLock::new(syscalls)
 };
 
+/// The syscall return type.
+#[repr(C)]
+pub enum ReturnType {
+    /// Returns success with a number.
+    Success(i64),
+
+    /// Returns error with specified error num.
+    Error(i32),
+}
+
 /// The syscall entry.
 #[derive(Debug, Clone, Copy)]
 pub struct SyscallEntry {
@@ -33,7 +45,7 @@ pub struct SyscallEntry {
     pub stack: u64,
 
     /// The dest entry point addr after switching table.
-    pub entry: extern "C" fn(u64, u64, u64, u64, u64) -> u64,
+    pub entry: extern "C" fn(u64, u64, u64, u64, u64) -> ReturnType,
 }
 
 pub fn init() {
@@ -53,4 +65,13 @@ pub fn init() {
 
     // Finally write SFMask
     SFMask::write(RFlags::DIRECTION_FLAG);
+
+    // It's time to register kernel's own syscall...
+    // For syscall 1 (power action)
+    SYSCALL.write().push(SyscallEntry {
+        sysnum: 1,
+        page_table: 0x100000,
+        stack: 0xffff800002fffff0,
+        entry: power::power,
+    });
 }

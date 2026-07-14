@@ -94,6 +94,12 @@ pub extern "C" fn syscall_handler() {
 
     let entry = entry.unwrap(); // Safety: Already asserted is `None` or `Some`.
 
+    // Check: Is `entry.page_table` zero?
+    if entry.page_table == 0 {
+        // Invalid page table address.
+        return;
+    }
+
     // Switch to process's page table, call and return
     unsafe {
         asm!(

@@ -5,8 +5,8 @@ use x86_64::structures::paging::*;
 
 // Kernel specific
 pub const PML4_ADDR: u64 = 0x100000;
-const PDPT_LOW_ADDR: u64 = 0x101000;
-const PDPT_HIGH_ADDR: u64 = 0x102000;
+pub const PDPT_HIGH_ADDR: u64 = 0x101000;
+const PDPT_LOW_ADDR: u64 = 0x102000;
 const PDT_LOW_ADDR: u64 = 0x103000;
 const PDT_HIGH_ADDR: u64 = 0x104000;
 const PT_LOW_ADDR: u64 = 0x105000;
