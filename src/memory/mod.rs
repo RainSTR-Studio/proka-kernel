@@ -5,6 +5,7 @@ pub mod paging;
 
 // Uses
 use crate::println;
+use self::framealloc::FRAME_ALLOCATOR;
 pub use paging::{PDPT_HPROC_ADDR, PML4_ADDR};
 use proka_bootloader::{get_bootinfo, memory::MemoryType};
 use spin::{Lazy, Mutex, Once};
@@ -102,10 +103,6 @@ pub fn init() {
         }
     }
 
-    // Pre-initialize the frame allocator
-    println!("[INFO] Initializing frame allocator (this may take some time)...");
-    let mut framealloc = framealloc::FRAME_ALLOCATOR.lock();
-
     // Map 0xfe000000-0xfeffffff
     let flags = PageTableFlags::PRESENT
         | PageTableFlags::WRITABLE
@@ -115,7 +112,7 @@ pub fn init() {
         let addr = PhysAddr::new(0xfe000000 + i * 0x200000);
         let frame = PhysFrame::<Size2MiB>::containing_address(addr);
         unsafe {
-            match mapper.identity_map(frame, flags, &mut *framealloc) {
+            match mapper.identity_map(frame, flags, &mut * FRAME_ALLOCATOR.lock()) {
                 Ok(m) => m.flush(),
                 Err(MapToError::PageAlreadyMapped(_)) => (),
                 Err(e) => panic!("map failed {:?}", e),
@@ -138,7 +135,7 @@ pub fn init() {
         let addr = PhysAddr::new(0x40000000 + i * 0x200000);
         let frame = PhysFrame::<Size2MiB>::containing_address(addr);
         unsafe {
-            match mapper.identity_map(frame, flags, &mut *framealloc) {
+            match mapper.identity_map(frame, flags, &mut *FRAME_ALLOCATOR.lock()) {
                 Ok(m) => m.flush(),
                 Err(MapToError::PageAlreadyMapped(_)) => (),
                 Err(e) => panic!("map failed {:?}", e),

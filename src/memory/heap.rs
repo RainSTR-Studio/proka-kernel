@@ -1,50 +1,48 @@
 //! The heap allocator
-use core::{alloc::GlobalAlloc, ptr::addr_of};
-use spin::Lazy;
-use spinning_top::RawSpinlock;
-use talc::{source::Claim, *};
+use crate::{memory::framealloc::FRAME_ALLOCATOR, serial_println};
+use core::alloc::GlobalAlloc;
+use x86_64::{
+    PhysAddr,
+    structures::paging::{PhysFrame, Size4KiB},
+};
 
-/// The end to heap
-const HEAP_END: u64 = 0xffff800002e00000;
 
-// Extern
-unsafe extern "C" {
-    static __HEAP_START: u8;
-}
+/// A page size
+const PAGE_SIZE: usize = 4096;
 
-/// Wrapper to use [`Lazy`] to initialize talc
-#[repr(transparent)]
-struct LazyWrapper(Lazy<TalcLock<RawSpinlock, Claim>>);
+/// A struct which is based on frame allocator.
+pub struct HeapAlloc;
 
-// Implementations
-unsafe impl GlobalAlloc for LazyWrapper {
+// Implementations of [`GlobalAlloc`]
+unsafe impl GlobalAlloc for HeapAlloc {
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
-        unsafe { self.0.alloc(layout) }
-    }
-
-    unsafe fn alloc_zeroed(&self, layout: core::alloc::Layout) -> *mut u8 {
-        unsafe { self.0.alloc_zeroed(layout) }
+        if layout.size() == 0 {
+            // Return a non-null dummy address (e.g., page-aligned from a reserved area)
+            return 0x1000 as *mut u8; // but ensure it's never deallocated
+        }
+        if layout.align() > PAGE_SIZE {
+            // Return null if alignment is greater than page size
+            return core::ptr::null_mut();
+        }
+        let pages = (layout.size() + PAGE_SIZE - 1) / PAGE_SIZE;
+        let mut guard = FRAME_ALLOCATOR.lock();
+        if let Some(frame) = guard.allocate_contiguous(pages) {
+            let phys = frame.start_address().as_u64();
+            serial_println!("Allocated {} pages for layout: {:?}, address = 0x{:x}", pages, layout, phys);
+            phys as *mut u8
+        } else {
+            core::ptr::null_mut()
+        }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
-        unsafe { self.0.dealloc(ptr, layout) }
-    }
-
-    unsafe fn realloc(
-        &self,
-        ptr: *mut u8,
-        layout: core::alloc::Layout,
-        new_size: usize,
-    ) -> *mut u8 {
-        unsafe { self.0.realloc(ptr, layout, new_size) }
+        // Deallocate the frame from frame allocator...
+        let pages = (layout.size() + 0xfff) / 0x1000;
+        let frame = PhysFrame::<Size4KiB>::containing_address(PhysAddr::new(ptr as u64));
+        serial_println!("Deallocated {} pages for layout: {:?}", pages, layout);
+        FRAME_ALLOCATOR.lock().deallocate_contiguous(frame, pages);
     }
 }
 
 #[global_allocator]
-static TALC: LazyWrapper = LazyWrapper(Lazy::new(|| {
-    TalcLock::new(unsafe {
-        let start = addr_of!(__HEAP_START) as u64;
-        let size = (HEAP_END - start) as usize;
-        Claim::new(start as *mut u8, size)
-    })
-}));
+pub static HEAP_ALLOCATOR: HeapAlloc = HeapAlloc;

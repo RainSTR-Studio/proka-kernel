@@ -1,15 +1,11 @@
 //! The frame allocator.
-extern crate alloc;
-use alloc::{vec, vec::Vec};
+use crate::serial_println;
 use proka_bootloader::{
     get_bootinfo,
     memory::{MemoryMap, MemoryType},
 };
 use spin::{Lazy, Mutex};
-use x86_64::{
-    PhysAddr,
-    structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB},
-};
+use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
 
 /// The global frame allocator
 pub static FRAME_ALLOCATOR: Lazy<Mutex<FrameAlloc>> = Lazy::new(|| {
@@ -19,12 +15,16 @@ pub static FRAME_ALLOCATOR: Lazy<Mutex<FrameAlloc>> = Lazy::new(|| {
 });
 
 /// The bits to start allocation
-const USED_PAGE: usize = (72 << 20) >> 12;
+const USED_PAGE: usize = 0x1e00;
+
+/// The start address which is free for frame allocator.
+const FREE_ADDR: u64 = 0x1e00000;
 
 #[derive(Default)]
 pub struct FrameAlloc {
-    bitmap: Vec<u8>,
+    bitmap: &'static mut [u8],
     max_page: usize,
+    self_used_page: usize,
     pos: usize,
 }
 
@@ -35,21 +35,25 @@ impl FrameAlloc {
         let max_phys_addr = map
             .entries
             .iter()
+            .filter(|d| d.mem_type == MemoryType::FreeRAM)
             .map(|d| d.base_addr + d.length)
             .max()
             .unwrap();
 
-        self.max_page = (max_phys_addr / 4096) as usize;
+        self.max_page = (max_phys_addr.div_ceil(4096)) as usize;
 
         // Init bitmap
         let bitmap_bytes = self.max_page.div_ceil(8);
-        self.bitmap = vec![0u8; bitmap_bytes];
+        serial_println!("bitmap size: 0x{:x}", bitmap_bytes);
+        self.bitmap =
+            unsafe { core::slice::from_raw_parts_mut(FREE_ADDR as *mut u8, bitmap_bytes) };
+        self.bitmap.fill(0);
 
         // Mark the unavailable memory
         for desc in map.entries {
             if desc.mem_type != MemoryType::FreeRAM {
-                let start_pfn = (desc.base_addr / 4096) as usize;
-                let count = (desc.length / 4096) as usize;
+                let start_pfn = ((desc.base_addr + 4095) / 4096) as usize;
+                let count = ((desc.length + 4095) / 4096) as usize;
                 for pfn in start_pfn..start_pfn + count {
                     self.set_bit(pfn, 1);
                 }
@@ -61,17 +65,19 @@ impl FrameAlloc {
             self.set_bit(pfn, 1);
         }
 
+        // Mark frame allocator bitmap itself.
+        self.self_used_page = (bitmap_bytes + 4095) / 4096;
+        serial_println!("Used page size: {}", self.self_used_page);
+        for pfn in USED_PAGE..USED_PAGE + self.self_used_page {
+            self.set_bit(pfn, 1);
+        }
+
         // Set up position
-        self.pos = USED_PAGE;
+        self.pos = USED_PAGE + self.self_used_page;
     }
 
     /// Allocate a part of contiguous frame
     pub fn allocate_contiguous(&mut self, n: usize) -> Option<PhysFrame> {
-        // Check: is current position out of maxpage
-        if self.pos >= self.max_page {
-            self.pos = USED_PAGE;
-        }
-
         // Construct scanner
         let scan = |s: usize| -> Option<usize> {
             let mut cur = s;
@@ -91,27 +97,23 @@ impl FrameAlloc {
             None
         };
 
-        let start = scan(self.pos).or_else(|| scan(USED_PAGE))?;
+        let start = scan(self.pos as usize).or_else(|| scan(USED_PAGE))?;
 
         // Contiguous set bit
         for i in 0..n {
             self.set_bit(start + i, 1);
         }
-        self.pos = start + n;
+        self.pos += n;
 
-        Some(PhysFrame::containing_address(PhysAddr::new(
-            (start << 12) as u64,
-        )))
+        Some(PhysFrame::from_pfn(start as u64))
     }
 
     /// Deallocate a part of frame
     pub fn deallocate_contiguous(&mut self, frame: PhysFrame, n: usize) {
-        let physaddr = frame.start_address();
-        let addr = physaddr.as_u64();
-        let pfn = (addr >> 12) as usize;
+        let pfn = frame.pfn() as usize;
 
         // Check: Low-kernel memory is NOT unallocatable
-        if pfn <= USED_PAGE {
+        if pfn <= USED_PAGE + self.self_used_page {
             return;
         }
 
