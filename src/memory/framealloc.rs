@@ -1,17 +1,16 @@
 //! The frame allocator.
-use crate::serial_println;
 use proka_bootloader::{
     get_bootinfo,
     memory::{MemoryMap, MemoryType},
 };
-use spin::{Lazy, Mutex};
+use spin::{LazyLock, mutex::SpinMutex};
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
 
 /// The global frame allocator
-pub static FRAME_ALLOCATOR: Lazy<Mutex<FrameAlloc>> = Lazy::new(|| {
+pub static FRAME_ALLOCATOR: LazyLock<SpinMutex<FrameAlloc>> = LazyLock::new(|| {
     let mut frame_allocator = FrameAlloc::default();
     frame_allocator.init(unsafe { get_bootinfo().memory() });
-    Mutex::new(frame_allocator)
+    SpinMutex::new(frame_allocator)
 });
 
 /// The bits to start allocation
@@ -44,7 +43,6 @@ impl FrameAlloc {
 
         // Init bitmap
         let bitmap_bytes = self.max_page.div_ceil(8);
-        serial_println!("bitmap size: 0x{:x}", bitmap_bytes);
         self.bitmap =
             unsafe { core::slice::from_raw_parts_mut(FREE_ADDR as *mut u8, bitmap_bytes) };
         self.bitmap.fill(0);
@@ -67,7 +65,6 @@ impl FrameAlloc {
 
         // Mark frame allocator bitmap itself.
         self.self_used_page = (bitmap_bytes + 4095) / 4096;
-        serial_println!("Used page size: {}", self.self_used_page);
         for pfn in USED_PAGE..USED_PAGE + self.self_used_page {
             self.set_bit(pfn, 1);
         }

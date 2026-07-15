@@ -17,7 +17,7 @@ use pci_types::{
     Bar::{Memory32, Memory64},
     EndpointHeader, HeaderType, PciHeader,
 };
-use spin::{Lazy, RwLock};
+use spin::{LazyLock, RwLock};
 use x86_64::{
     PhysAddr, align_up,
     structures::paging::{
@@ -27,7 +27,7 @@ use x86_64::{
 };
 
 /// The driver type index.
-pub static DRVTYPE_INDEX: Lazy<RwLock<Vec<DrvTypeTable>>> = Lazy::new(|| {
+pub static DRVTYPE_INDEX: LazyLock<RwLock<Vec<DrvTypeTable>>> = LazyLock::new(|| {
     let table = Vec::new();
     RwLock::new(table)
 });

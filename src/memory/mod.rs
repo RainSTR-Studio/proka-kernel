@@ -8,7 +8,7 @@ use crate::println;
 use self::framealloc::FRAME_ALLOCATOR;
 pub use paging::{PDPT_HPROC_ADDR, PML4_ADDR};
 use proka_bootloader::{get_bootinfo, memory::MemoryType};
-use spin::{Lazy, Mutex, Once};
+use spin::{LazyLock, Mutex, Once};
 use x86_64::{
     PhysAddr, VirtAddr,
     registers::model_specific::{Efer, EferFlags},
@@ -21,8 +21,8 @@ use x86_64::{
 // PML4 phys addr
 const PML4: u64 = 0x100000;
 
-pub static MAPPER: Lazy<Mutex<MappedPageTable<'static, IdentityPageTableMapper>>> =
-    Lazy::new(|| unsafe {
+pub static MAPPER: LazyLock<Mutex<MappedPageTable<'static, IdentityPageTableMapper>>> =
+    LazyLock::new(|| unsafe {
         let pml4 = &mut *(PML4 as *mut PageTable);
         let table = MappedPageTable::new(pml4, IdentityPageTableMapper);
         Mutex::new(table)
@@ -32,7 +32,7 @@ pub static MAPPER: Lazy<Mutex<MappedPageTable<'static, IdentityPageTableMapper>>
 ///
 /// The first one is the whole memory, and the second
 /// is the free-only memory.
-pub static TOTAL_RAM: Lazy<Once<(u64, u64)>> = Lazy::new(|| {
+pub static TOTAL_RAM: LazyLock<Once<(u64, u64)>> = LazyLock::new(|| {
     let ram = Once::new();
     ram.call_once(|| {
         let memory_map = unsafe { get_bootinfo().memory() };
@@ -83,7 +83,7 @@ pub fn init() {
 
     // Print total memory
     // Safety: Once the TOTAL_RAM used, the TOTAL_RAM
-    // has already initialized by lazy_static.
+    // has already initialized by LazyLock_static.
     let total_ram = TOTAL_RAM.get().unwrap();
     println!(
         "[INFO] Total RAM: {}MiB, {}MiB is usable",

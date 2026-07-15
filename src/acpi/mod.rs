@@ -11,7 +11,7 @@ use crate::{
 use acpi::{AcpiTables, Handle, Handler, aml::Interpreter, platform::AcpiPlatform};
 use core::ptr::NonNull;
 use pci_types::ConfigRegionAccess;
-use spin::Lazy;
+use spin::LazyLock;
 use x86_64::{
     PhysAddr, align_up,
     instructions::port::Port,
@@ -19,7 +19,7 @@ use x86_64::{
 };
 
 /// The ACPI Root table.
-pub static ACPI_PLATFORM: Lazy<AcpiPlatform<AcpiHandler>> = Lazy::new(|| unsafe {
+pub static ACPI_PLATFORM: LazyLock<AcpiPlatform<AcpiHandler>> = LazyLock::new(|| unsafe {
     let addr = proka_bootloader::get_bootinfo().acpi() as usize;
     let acpi = AcpiTables::from_rsdp(AcpiHandler, addr).expect("ACPI table init failed");
 
@@ -27,7 +27,7 @@ pub static ACPI_PLATFORM: Lazy<AcpiPlatform<AcpiHandler>> = Lazy::new(|| unsafe 
 });
 
 /// The AML interpreter.
-pub static AMLINT: Lazy<Interpreter<AcpiHandler>> = Lazy::new(|| {
+pub static AMLINT: LazyLock<Interpreter<AcpiHandler>> = LazyLock::new(|| {
     let interpreter = Interpreter::new_from_platform(&ACPI_PLATFORM);
     interpreter.expect("Failed to load AML interpreter")
 });
