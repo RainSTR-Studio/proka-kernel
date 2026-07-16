@@ -94,20 +94,20 @@ pub extern "C" fn syscall_handler() {
 
     let entry = entry.unwrap(); // Safety: Already asserted is `None` or `Some`.
 
-    // Check: Is `entry.page_table` zero?
-    if entry.page_table == 0 {
-        // Invalid page table address.
-        return;
-    }
-
     // Switch to process's page table, call and return
+    let ret_val: i64;
     unsafe {
         asm!(
             // Save info
             "mov rbx, {user_stack}",
             "mov r13, {user_table}",
             "mov rsp, {stack}",
+            // See we should switch table or not.
+            "cmp {page_table}, 0",
+            "je 6f",
             "mov cr3, {page_table}",
+            // Switch table done (or skipped).
+            "6:",
             "push rbx",
             "push r13",
             // Push arg registers
@@ -141,8 +141,12 @@ pub extern "C" fn syscall_handler() {
             in("r8") arg5,
             out("r11") _,
             out("rcx") _,
+            out("rax") ret_val,
         )
     }
+    
+    // Since we get return value, we can write to registers and return...
+    sysreturn(ret_val as u64);
 }
 
 /// Return from syscall handler.

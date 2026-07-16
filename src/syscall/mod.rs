@@ -19,16 +19,6 @@ pub static SYSCALL: RwLock<Vec<SyscallEntry>> = {
     RwLock::new(syscalls)
 };
 
-/// The syscall return type.
-#[repr(C)]
-pub enum ReturnType {
-    /// Returns success with a number.
-    Success(i64),
-
-    /// Returns error with specified error num.
-    Error(i32),
-}
-
 /// The syscall entry.
 #[derive(Debug, Clone, Copy)]
 pub struct SyscallEntry {
@@ -45,7 +35,7 @@ pub struct SyscallEntry {
     pub stack: u64,
 
     /// The dest entry point addr after switching table.
-    pub entry: extern "C" fn(u64, u64, u64, u64, u64) -> ReturnType,
+    pub entry: extern "C" fn(u64, u64, u64, u64, u64) -> i64,
 }
 
 pub fn init() {
@@ -67,10 +57,18 @@ pub fn init() {
     SFMask::write(RFlags::DIRECTION_FLAG);
 
     // It's time to register kernel's own syscall...
+    // For syscall 0 (process management)
+    SYSCALL.write().push(SyscallEntry {
+        sysnum: 0,
+        page_table: 0,
+        stack: 0xffff8000005ff000,
+        entry: process::process,
+    });
+    
     // For syscall 1 (power action)
     SYSCALL.write().push(SyscallEntry {
         sysnum: 1,
-        page_table: 0x100000,
+        page_table: 0,
         stack: 0xffff8000005ffff0,
         entry: power::power,
     });

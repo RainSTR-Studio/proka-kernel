@@ -1,6 +1,7 @@
 //! The process system.
 extern crate alloc;
 use alloc::vec::Vec;
+use x86_64::structures::paging::mapper::CleanUp;
 use x86_64::structures::paging::{
     MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
 };
@@ -364,6 +365,7 @@ fn create_driver(frame: u64) -> Result<(), Error> {
 /// If an unsupported process domain is provided, it will be ignored,
 /// and process removal will continue normally.
 pub fn remove(proctype: ProcType, index: usize) -> Result<(), Error> {
+    // Match process type to decide the way to go.
     match proctype {
         ProcType::Normal => remove_normal(index)?,
         ProcType::Driver => remove_driver(index)?,
@@ -384,6 +386,11 @@ fn remove_normal(index: usize) -> Result<(), Error> {
         return Err(Error::ProcessNotExist);
     }
 
+    // Clean up the page table...
+    let pml4 = unsafe { &mut *(proc.table_addr as *mut PageTable) };
+    let mut mapper = unsafe { MappedPageTable::new(pml4, IdentityPageTableMapper) };
+    unsafe { mapper.clean_up(&mut *FRAME_ALLOCATOR.lock()) }
+
     proc.remove();
 
     NORMAL_QUEUE.lock().retain(|item| *item != index);
@@ -402,6 +409,11 @@ fn remove_driver(index: usize) -> Result<(), Error> {
     if !proc.present {
         return Err(Error::ProcessNotExist);
     }
+
+    // Clean up the page table...
+    let pml4 = unsafe { &mut *(proc.table_addr as *mut PageTable) };
+    let mut mapper = unsafe { MappedPageTable::new(pml4, IdentityPageTableMapper) };
+    unsafe { mapper.clean_up(&mut *FRAME_ALLOCATOR.lock()) }
 
     proc.remove();
 

@@ -176,7 +176,7 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62c5e513feed5c62a4056022b3bd1588f6f96eb61c6583604c1d42dba31d780d"
 dependencies = [
- "bitflags 2.13.0",
+ "bitflags 2.13.1",
  "bytemuck",
  "chrono",
  "hadris-common",
