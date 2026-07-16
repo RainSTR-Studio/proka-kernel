@@ -24,7 +24,11 @@ use proka_bootloader::header::Header;
 // Kernel header definition
 #[unsafe(link_section = ".header")]
 #[used]
-static KERNEL_HEADER: Header = Header::default();
+static KERNEL_HEADER: Header = {
+    let mut header = Header::default();
+    header.version = [0, 5, 1];     // 0.5.1
+    header
+};
 
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".main")]
