@@ -50,8 +50,8 @@ impl FrameAlloc {
         // Mark the unavailable memory
         for desc in map.entries {
             if desc.mem_type != MemoryType::FreeRAM {
-                let start_pfn = ((desc.base_addr + 4095) / 4096) as usize;
-                let count = ((desc.length + 4095) / 4096) as usize;
+                let start_pfn = desc.base_addr.div_ceil(4096) as usize;
+                let count = desc.length.div_ceil(4096) as usize;
                 for pfn in start_pfn..start_pfn + count {
                     self.set_bit(pfn, 1);
                 }
@@ -64,7 +64,7 @@ impl FrameAlloc {
         }
 
         // Mark frame allocator bitmap itself.
-        self.self_used_page = (bitmap_bytes + 4095) / 4096;
+        self.self_used_page = bitmap_bytes.div_ceil(0x1000);
         for pfn in USED_PAGE..USED_PAGE + self.self_used_page {
             self.set_bit(pfn, 1);
         }
@@ -94,7 +94,7 @@ impl FrameAlloc {
             None
         };
 
-        let start = scan(self.pos as usize).or_else(|| scan(USED_PAGE))?;
+        let start = scan(self.pos).or_else(|| scan(USED_PAGE))?;
 
         // Contiguous set bit
         for i in 0..n {

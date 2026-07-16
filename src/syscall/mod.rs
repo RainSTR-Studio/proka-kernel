@@ -61,7 +61,7 @@ pub fn init() {
     SYSCALL.write().push(SyscallEntry {
         sysnum: 0,
         page_table: 0,
-        stack: 0xffff8000005ff000,
+        stack: 0xffff8000005ffff0,
         entry: process::process,
     });
     

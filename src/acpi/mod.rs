@@ -112,8 +112,7 @@ impl Handler for AcpiHandler {
             // Here we'd like to use PCIe method
             // To read this, we need to get the config access...
             let access = get_access(address.segment()).expect("No! This segment not exist!");
-            let value = unsafe { access.read(address, offset) };
-            value
+            unsafe { access.read(address, offset) }
         } else {
             // We have to use PCI.
             let access = PciCfgAccess;

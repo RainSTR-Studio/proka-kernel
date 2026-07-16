@@ -21,7 +21,7 @@ pub static IS_PCIE: Once<bool> = Once::new();
 pub fn init() {
     // Init PCIe
     IS_PCIE.call_once(|| {
-        if let Err(_) = self::pcie::init() {
+        if self::pcie::init().is_err() {
             warn!("The PCIe initialization has got some errors, falling back to common PCI...");
             self::pci::init();
             false
