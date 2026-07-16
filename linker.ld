@@ -33,15 +33,6 @@ SECTIONS {
     /* Move to the next memory page */
     . = ALIGN(CONSTANT(MAXPAGESIZE));
 
-    .gdata : {
-        __GDATA_START = .;
-        *(.gdata*)
-        __GDATA_END = .;
-    }
-
-    /* Move to the next memory page */
-    . = ALIGN(CONSTANT(MAXPAGESIZE));
-
     .bss : {
         *(.bss*)
     }

@@ -4,10 +4,14 @@ pub mod power;
 // According to the documentation of the [`acpi`] crate,
 // we first need to implement a [`Handler`] trait.
 
-use crate::memory::{MAPPER, framealloc::FRAME_ALLOCATOR};
+use crate::{
+    devices::{IS_PCIE, pci::PciCfgAccess, pcie::get_access},
+    memory::{MAPPER, framealloc::FRAME_ALLOCATOR},
+};
 use acpi::{AcpiTables, Handle, Handler, aml::Interpreter, platform::AcpiPlatform};
 use core::ptr::NonNull;
-use spin::Lazy;
+use pci_types::ConfigRegionAccess;
+use spin::LazyLock;
 use x86_64::{
     PhysAddr, align_up,
     instructions::port::Port,
@@ -15,15 +19,15 @@ use x86_64::{
 };
 
 /// The ACPI Root table.
-pub static ACPI_PLATFORM: Lazy<AcpiPlatform<AcpiHandler>> = Lazy::new(|| unsafe {
+pub static ACPI_PLATFORM: LazyLock<AcpiPlatform<AcpiHandler>> = LazyLock::new(|| unsafe {
     let addr = proka_bootloader::get_bootinfo().acpi() as usize;
     let acpi = AcpiTables::from_rsdp(AcpiHandler, addr).expect("ACPI table init failed");
-    let platform = AcpiPlatform::new(acpi, AcpiHandler).expect("Failed to init ACPI platform");
-    platform
+
+    AcpiPlatform::new(acpi, AcpiHandler).expect("Failed to init ACPI platform")
 });
 
 /// The AML interpreter.
-pub static AMLINT: Lazy<Interpreter<AcpiHandler>> = Lazy::new(|| {
+pub static AMLINT: LazyLock<Interpreter<AcpiHandler>> = LazyLock::new(|| {
     let interpreter = Interpreter::new_from_platform(&ACPI_PLATFORM);
     interpreter.expect("Failed to load AML interpreter")
 });
@@ -87,16 +91,49 @@ impl Handler for AcpiHandler {
         unsafe { Port::new(port).read() }
     }
 
-    fn read_pci_u16(&self, _address: acpi::PciAddress, _offset: u16) -> u16 {
-        0
+    fn read_pci_u16(&self, address: acpi::PciAddress, offset: u16) -> u16 {
+        // Check is this PCIe...
+        if *IS_PCIE.get().unwrap() {
+            // Here we'd like to use PCIe method
+            // To read this, we need to get the config access...
+            let access = get_access(address.segment()).expect("No! This segment not exist!");
+            let value = unsafe { access.read(address, offset) };
+            value as u16
+        } else {
+            // We have to use PCI.
+            let access = PciCfgAccess;
+            unsafe { access.read(address, offset) as u16 }
+        }
     }
 
-    fn read_pci_u32(&self, _address: acpi::PciAddress, _offset: u16) -> u32 {
-        0
+    fn read_pci_u32(&self, address: acpi::PciAddress, offset: u16) -> u32 {
+        // Check is this PCIe...
+        if *IS_PCIE.get().unwrap() {
+            // Here we'd like to use PCIe method
+            // To read this, we need to get the config access...
+            let access = get_access(address.segment()).expect("No! This segment not exist!");
+            let value = unsafe { access.read(address, offset) };
+            value
+        } else {
+            // We have to use PCI.
+            let access = PciCfgAccess;
+            unsafe { access.read(address, offset) }
+        }
     }
 
-    fn read_pci_u8(&self, _address: acpi::PciAddress, _offset: u16) -> u8 {
-        0
+    fn read_pci_u8(&self, address: acpi::PciAddress, offset: u16) -> u8 {
+        // Check is this PCIe...
+        if *IS_PCIE.get().unwrap() {
+            // Here we'd like to use PCIe method
+            // To read this, we need to get the config access...
+            let access = get_access(address.segment()).expect("No! This segment not exist!");
+            let value = unsafe { access.read(address, offset) };
+            value as u8
+        } else {
+            // We have to use PCI.
+            let access = PciCfgAccess;
+            unsafe { access.read(address, offset) as u8 }
+        }
     }
 
     fn read_u8(&self, address: usize) -> u8 {
@@ -161,21 +198,50 @@ impl Handler for AcpiHandler {
         acpi::Handle(0)
     }
 
-    fn stall(&self, microseconds: u64) {
-        for _ in 0..microseconds {
-            core::hint::spin_loop()
+    fn write_pci_u32(&self, address: acpi::PciAddress, offset: u16, value: u32) {
+        // Check is this PCIe...
+        if *IS_PCIE.get().unwrap() {
+            // Here we'd like to use PCIe method
+            // To write this, we need to get the config access...
+            let access = get_access(address.segment()).expect("No! This segment not exist!");
+            unsafe { access.write(address, offset, value) };
+        } else {
+            // We have to use PCI.
+            let access = PciCfgAccess;
+            unsafe { access.write(address, offset, value) };
         }
     }
 
-    fn sleep(&self, milliseconds: u64) {
-        for _ in 0..milliseconds {
-            core::hint::spin_loop()
+    fn write_pci_u16(&self, address: acpi::PciAddress, offset: u16, value: u16) {
+        // Check is this PCIe...
+        if *IS_PCIE.get().unwrap() {
+            // Here we'd like to use PCIe method
+            // To write this, we need to get the config access...
+            let access = get_access(address.segment()).expect("No! This segment not exist!");
+            unsafe { access.write(address, offset, value as u32) };
+        } else {
+            // We have to use PCI.
+            let access = PciCfgAccess;
+            unsafe { access.write(address, offset, value as u32) };
         }
     }
 
-    fn write_pci_u32(&self, _address: acpi::PciAddress, _offset: u16, _value: u32) {}
-    fn write_pci_u16(&self, _address: acpi::PciAddress, _offset: u16, _value: u16) {}
-    fn write_pci_u8(&self, _address: acpi::PciAddress, _offset: u16, _value: u8) {}
+    fn write_pci_u8(&self, address: acpi::PciAddress, offset: u16, value: u8) {
+        // Check is this PCIe...
+        if *IS_PCIE.get().unwrap() {
+            // Here we'd like to use PCIe method
+            // To write this, we need to get the config access...
+            let access = get_access(address.segment()).expect("No! This segment not exist!");
+            unsafe { access.write(address, offset, value as u32) };
+        } else {
+            // We have to use PCI.
+            let access = PciCfgAccess;
+            unsafe { access.write(address, offset, value as u32) };
+        }
+    }
+
+    fn stall(&self, _microseconds: u64) {}
+    fn sleep(&self, _milliseconds: u64) {}
     fn release(&self, _mutex: Handle) {}
 }
 

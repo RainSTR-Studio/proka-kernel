@@ -2,7 +2,9 @@
 //!
 //! Originally by moyanj <me@moyanjdc.top>
 use crate::println;
+use crate::scheduler::{CURRENT_ID, IS_DRIVER};
 use core::arch::asm;
+use core::sync::atomic::Ordering;
 use x86_64::{
     VirtAddr,
     registers::control::Cr2,
@@ -11,7 +13,6 @@ use x86_64::{
 
 macro_rules! exception {
     ($name:ident, $msg:expr) => {
-        #[unsafe(link_section = ".gdata")]
         pub extern "x86-interrupt" fn $name(stack_frame: InterruptStackFrame) {
             // Switch to kernel page table
             unsafe {
@@ -22,10 +23,18 @@ macro_rules! exception {
                 )
             }
 
+            // Query the current process ID.
+            let pid = CURRENT_ID.load(Ordering::Relaxed);
+            let proc_type = if IS_DRIVER.load(Ordering::Relaxed) {
+                "DRIVER"
+            } else {
+                "USER"
+            };
+
             // Do next...
             println!(
-                "\x1b[31m[ERROR] CPU EXCEPTION: {}\n{:#?}\x1b[0m",
-                $msg, stack_frame
+                "\x1b[31m[ERROR] CPU EXCEPTION: {} [ID: {}] [PROCESS TYPE: {}]\n{:#?}\x1b[0m",
+                $msg, pid, proc_type, stack_frame
             );
             hlt_loop() // TODO: Replace it to recovor logic
         }
@@ -34,7 +43,6 @@ macro_rules! exception {
 
 macro_rules! exception_with_error_code {
     ($name:ident, $msg:expr) => {
-        #[unsafe(link_section = ".gdata")]
         pub extern "x86-interrupt" fn $name(
             stack_frame: InterruptStackFrame,
             error_code: u64, // Uses u64 as error code
@@ -48,9 +56,18 @@ macro_rules! exception_with_error_code {
                 )
             }
 
+            // Query the current process ID.
+            let pid = CURRENT_ID.load(Ordering::Relaxed);
+            let proc_type = if IS_DRIVER.load(Ordering::Relaxed) {
+                "DRIVER"
+            } else {
+                "USER"
+            };
+
+            // Do next...
             println!(
-                "\x1b[31m[ERROR] CPU EXCEPTION! {} [ERR: {:#x}]\n{:#?}\x1b[0m",
-                $msg, error_code, stack_frame
+                "\x1b[31m[ERROR] CPU EXCEPTION: {}, error code: {} [ID: {}] [PROCESS TYPE: {}]\n{:#?}\x1b[0m",
+                $msg, error_code, pid, proc_type, stack_frame
             );
             hlt_loop()
         }
@@ -77,7 +94,7 @@ exception_with_error_code!(control_protection, "CONTROL PROTECTION EXCEPTION");
 
 // Special handler -------------------------------------------------
 // #DF handler
-#[unsafe(link_section = ".gdata")]
+
 pub extern "x86-interrupt" fn double_fault(stack_frame: InterruptStackFrame, error_code: u64) -> ! {
     // Switch to kernel table
     unsafe {
@@ -97,7 +114,7 @@ pub extern "x86-interrupt" fn double_fault(stack_frame: InterruptStackFrame, err
 }
 
 // #PF handler
-#[unsafe(link_section = ".gdata")]
+
 pub extern "x86-interrupt" fn pagefault(
     stack_frame: InterruptStackFrame,
     error_code: PageFaultErrorCode,
@@ -124,7 +141,7 @@ pub extern "x86-interrupt" fn pagefault(
 }
 
 // Breakpoint handler
-#[unsafe(link_section = ".gdata")]
+
 pub extern "x86-interrupt" fn breakpoint(stack_frame: InterruptStackFrame) {
     unsafe {
         asm!(
@@ -138,7 +155,7 @@ pub extern "x86-interrupt" fn breakpoint(stack_frame: InterruptStackFrame) {
 }
 
 // Machine check handler
-#[unsafe(link_section = ".gdata")]
+
 pub extern "x86-interrupt" fn machine_check(stack_frame: InterruptStackFrame) -> ! {
     unsafe {
         asm!(

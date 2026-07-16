@@ -2,10 +2,10 @@
 extern crate alloc;
 use super::{Context, Error, MAX_PS, Status};
 use alloc::{vec, vec::Vec};
-use spin::{Lazy, Mutex};
+use spin::{LazyLock, RwLock};
 
-pub static DRIVER_PROCESS: Lazy<Mutex<DriverProcessTable>> =
-    Lazy::new(|| Mutex::new(DriverProcessTable::default()));
+pub static DRIVER_PROCESS: LazyLock<RwLock<DriverProcessTable>> =
+    LazyLock::new(|| RwLock::new(DriverProcessTable::new()));
 
 /// The driver process list.
 #[repr(C)]
@@ -16,9 +16,15 @@ pub struct DriverProcessTable {
 }
 
 impl DriverProcessTable {
-    pub fn default() -> Self {
+    pub fn new() -> Self {
         let process = vec![DriverProcess::default(); MAX_PS];
         Self { process, count: 0 }
+    }
+}
+
+impl Default for DriverProcessTable {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

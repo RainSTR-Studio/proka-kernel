@@ -6,7 +6,7 @@ use x86_64::structures::tss::TaskStateSegment;
 const IST1_COMMON: u64 = 0xFFFF8000400FF000;
 const IST2_CRIT: u64 = 0xFFFF8000401FF000;
 
-#[unsafe(link_section = ".gdata")]
+/// The TSS segment.
 pub static TSS: TaskStateSegment = {
     let mut tss = TaskStateSegment::new();
     tss.privilege_stack_table[0] = VirtAddr::new(IST1_COMMON);

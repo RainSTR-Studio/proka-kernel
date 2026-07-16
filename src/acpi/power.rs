@@ -9,11 +9,11 @@ use acpi::{address::AddressSpace, aml::namespace::AmlName};
 use alloc::vec::Vec;
 use core::str::FromStr;
 use log::{debug, warn};
-use spin::Lazy;
+use spin::LazyLock;
 use x86_64::instructions::port::Port;
 
 /// The FADT table.
-static FADT: Lazy<Fadt> = Lazy::new(|| {
+static FADT: LazyLock<Fadt> = LazyLock::new(|| {
     let fadt = ACPI_PLATFORM.tables.find_table::<Fadt>().unwrap();
     *fadt
 });
@@ -32,10 +32,7 @@ pub fn reboot() -> ! {
         const KBD_RESET: u8 = 0xFE;
 
         unsafe {
-            let value = Port::<u8>::new(KBD_PORT).read();
-            while (value & 0x02) != 0 {
-                Port::<u8>::new(KBD_PORT).write(KBD_RESET);
-            }
+            Port::<u8>::new(KBD_PORT).write(KBD_RESET);
         }
 
         // Commonly, the PC has shut down.

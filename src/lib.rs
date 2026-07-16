@@ -10,6 +10,7 @@
 #![feature(abi_x86_interrupt)]
 #![test_runner(crate::test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
+#![allow(clippy::empty_loop)]
 
 /// The kernel version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -24,7 +25,7 @@ pub mod handler;
 pub mod initprt;
 pub mod logger;
 pub mod memory;
-pub mod mmio;
+pub mod devices;
 pub mod output;
 pub mod panic;
 pub mod process;

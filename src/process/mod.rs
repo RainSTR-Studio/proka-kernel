@@ -7,11 +7,13 @@ use x86_64::structures::paging::{
 pub mod driver;
 pub mod normal;
 use crate::memory::IdentityPageTableMapper;
+use crate::memory::PDPT_HPROC_ADDR;
+use crate::memory::PML4_ADDR;
 use crate::memory::framealloc::FRAME_ALLOCATOR;
-use crate::memory::{PDPT_HPROC_ADDR, PML4_ADDR};
+use crate::memory::paging::PDPT_HIGH_ADDR;
 use crate::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
 use crate::tables::gdt::GDT;
-use log::{debug, error, trace, warn};
+use log::{debug, trace, warn};
 use proka_exec::{Parser, header::ExecMode};
 use x86_64::registers::rflags::RFlags;
 use x86_64::{PhysAddr, VirtAddr, align_up};
@@ -145,10 +147,8 @@ struct SectionData {
 ///
 /// If an unsupported process domain is provided, it will be ignored,
 /// and process creation will continue normally.
-pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
+pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
     // First, parse the current data
-    let proctype: ProcType;
-    let pml4: u64;
     let mut section_info: Vec<SectionData> = Vec::new(); // (addr, pages)
     let parser = Parser::init(data).map_err(|_| Error::InvalidFormat)?;
 
@@ -160,7 +160,7 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
     trace!("Process: data validation passed");
 
     // Decide the process type through the header info
-    proctype = match parser.header().mode {
+    let proctype: ProcType = match parser.header().mode {
         ExecMode::UserApp => ProcType::Normal,
         ExecMode::CoreDrv => ProcType::Driver,
     };
@@ -176,16 +176,9 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
         // Get the page needed
         let len = section.length;
         let pages = align_up(section.length as u64, 4096) / 4096;
-        let frame = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(pages as usize)
-        {
-            trace!(
-                "Allocated {:?} for storing data with pages {} (actually {})",
-                frame, pages, len
-            );
-            frame
-        } else {
-            error!("Memory not enough");
-            return Err(Error::MemoryNotEnough);
+        let frame = match FRAME_ALLOCATOR.lock().allocate_contiguous(pages as usize) {
+            Some(frame) => frame,
+            None => return Err(Error::MemoryNotEnough),
         };
         let addr = frame.start_address().as_u64();
 
@@ -208,11 +201,9 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
 
     // After collecting info, its time to make up a page table.
     // But first, we need to make up an PML4
-    pml4 = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(1) {
-        trace!("Allocated frame {:?} for proc PML4", frame);
-        frame.start_address().as_u64()
-    } else {
-        return Err(Error::MemoryNotEnough);
+    let pml4: u64 = match FRAME_ALLOCATOR.lock().allocate_contiguous(1) {
+        Some(frame) => frame.start_address().as_u64(),
+        None => return Err(Error::MemoryNotEnough),
     };
 
     // Copy kernel's PML4 to do more handling
@@ -221,22 +212,27 @@ pub unsafe fn create(data: &'static [u8], priority: u8) -> Result<(), Error> {
         core::ptr::copy(PML4_ADDR as *const PageTable, pml4 as *mut PageTable, 1);
         &mut *(pml4 as *mut PageTable)
     };
-    for i in 0..256 {
-        pml4_table[i].set_unused();
+    pml4_table.zero();
+    if proctype == ProcType::Driver {
+        // This defend driver write the kernel's page table to prevent
+        // table was destoryed.
+        pml4_table[256].set_addr(
+            PhysAddr::new(PDPT_HPROC_ADDR),
+            PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+        );
+    } else {
+        pml4_table[256].set_addr(
+            PhysAddr::new(PDPT_HIGH_ADDR),
+            PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+        );
     }
-    pml4_table[256].set_addr(
-        PhysAddr::new(PDPT_HPROC_ADDR),
-        PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-    );
     let mut proc_mapper = unsafe { MappedPageTable::new(pml4_table, IdentityPageTableMapper) };
 
     // Time to allocate 2MiB for stack
     const STACK_PAGES: usize = 2; // Pages of stack needed
-    let stack_base = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(STACK_PAGES) {
-        trace!("Allocated frame {:?} for proc stack", frame);
-        frame.start_address().as_u64()
-    } else {
-        return Err(Error::MemoryNotEnough);
+    let stack_base = match FRAME_ALLOCATOR.lock().allocate_contiguous(STACK_PAGES) {
+        Some(frame) => frame.start_address().as_u64(),
+        None => return Err(Error::MemoryNotEnough),
     };
 
     for i in 0..STACK_PAGES as u64 {
@@ -322,7 +318,7 @@ fn create_normal(frame: u64, priority: u8) -> Result<(), Error> {
     let process = self::normal::NormalProcess::create(frame, priority)?;
 
     // Check which process is usable
-    let mut table = NORMAL_PROCESS.lock();
+    let mut table = NORMAL_PROCESS.write();
     let mut pid: usize = 0;
     for i in 0..MAX_PS {
         if !table.process[i].present {
@@ -344,7 +340,7 @@ fn create_driver(frame: u64) -> Result<(), Error> {
     let process = self::driver::DriverProcess::create(frame)?;
 
     // Check which process is usable
-    let mut table = DRIVER_PROCESS.lock();
+    let mut table = DRIVER_PROCESS.write();
     let mut did: usize = 0;
     for i in 0..MAX_PS {
         if !table.process[i].present {
@@ -381,7 +377,7 @@ fn remove_normal(index: usize) -> Result<(), Error> {
         return Err(Error::InvalidIndex);
     }
 
-    let mut table = NORMAL_PROCESS.lock();
+    let mut table = NORMAL_PROCESS.write();
     let proc = &mut table.process[index];
 
     if !proc.present {
@@ -400,7 +396,7 @@ fn remove_driver(index: usize) -> Result<(), Error> {
         return Err(Error::InvalidIndex);
     }
 
-    let mut table = DRIVER_PROCESS.lock();
+    let mut table = DRIVER_PROCESS.write();
     let proc = &mut table.process[index];
 
     if !proc.present {
