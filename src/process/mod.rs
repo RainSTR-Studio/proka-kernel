@@ -13,7 +13,7 @@ use crate::memory::framealloc::FRAME_ALLOCATOR;
 use crate::memory::paging::PDPT_HIGH_ADDR;
 use crate::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
 use crate::tables::gdt::GDT;
-use log::{debug, error, trace, warn};
+use log::{debug, trace, warn};
 use proka_exec::{Parser, header::ExecMode};
 use x86_64::registers::rflags::RFlags;
 use x86_64::{PhysAddr, VirtAddr, align_up};
@@ -176,16 +176,9 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
         // Get the page needed
         let len = section.length;
         let pages = align_up(section.length as u64, 4096) / 4096;
-        let frame = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(pages as usize)
-        {
-            trace!(
-                "Allocated {:?} for storing data with pages {} (actually {})",
-                frame, pages, len
-            );
-            frame
-        } else {
-            error!("Memory not enough");
-            return Err(Error::MemoryNotEnough);
+        let frame = match FRAME_ALLOCATOR.lock().allocate_contiguous(pages as usize) {
+            Some(frame) => frame,
+            None => return Err(Error::MemoryNotEnough),
         };
         let addr = frame.start_address().as_u64();
 
@@ -208,11 +201,9 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
 
     // After collecting info, its time to make up a page table.
     // But first, we need to make up an PML4
-    let pml4: u64 = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(1) {
-        trace!("Allocated frame {:?} for proc PML4", frame);
-        frame.start_address().as_u64()
-    } else {
-        return Err(Error::MemoryNotEnough);
+    let pml4: u64 = match FRAME_ALLOCATOR.lock().allocate_contiguous(1) {
+        Some(frame) => frame.start_address().as_u64(),
+        None => return Err(Error::MemoryNotEnough),
     };
 
     // Copy kernel's PML4 to do more handling
@@ -239,11 +230,9 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
 
     // Time to allocate 2MiB for stack
     const STACK_PAGES: usize = 2; // Pages of stack needed
-    let stack_base = if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(STACK_PAGES) {
-        trace!("Allocated frame {:?} for proc stack", frame);
-        frame.start_address().as_u64()
-    } else {
-        return Err(Error::MemoryNotEnough);
+    let stack_base = match FRAME_ALLOCATOR.lock().allocate_contiguous(STACK_PAGES) {
+        Some(frame) => frame.start_address().as_u64(),
+        None => return Err(Error::MemoryNotEnough),
     };
 
     for i in 0..STACK_PAGES as u64 {

@@ -11,7 +11,7 @@ use crate::{
 use acpi::{AcpiTables, Handle, Handler, aml::Interpreter, platform::AcpiPlatform};
 use core::ptr::NonNull;
 use pci_types::ConfigRegionAccess;
-use spin::Lazy;
+use spin::LazyLock;
 use x86_64::{
     PhysAddr, align_up,
     instructions::port::Port,
@@ -19,7 +19,7 @@ use x86_64::{
 };
 
 /// The ACPI Root table.
-pub static ACPI_PLATFORM: Lazy<AcpiPlatform<AcpiHandler>> = Lazy::new(|| unsafe {
+pub static ACPI_PLATFORM: LazyLock<AcpiPlatform<AcpiHandler>> = LazyLock::new(|| unsafe {
     let addr = proka_bootloader::get_bootinfo().acpi() as usize;
     let acpi = AcpiTables::from_rsdp(AcpiHandler, addr).expect("ACPI table init failed");
 
@@ -27,7 +27,7 @@ pub static ACPI_PLATFORM: Lazy<AcpiPlatform<AcpiHandler>> = Lazy::new(|| unsafe 
 });
 
 /// The AML interpreter.
-pub static AMLINT: Lazy<Interpreter<AcpiHandler>> = Lazy::new(|| {
+pub static AMLINT: LazyLock<Interpreter<AcpiHandler>> = LazyLock::new(|| {
     let interpreter = Interpreter::new_from_platform(&ACPI_PLATFORM);
     interpreter.expect("Failed to load AML interpreter")
 });
@@ -198,18 +198,6 @@ impl Handler for AcpiHandler {
         acpi::Handle(0)
     }
 
-    fn stall(&self, microseconds: u64) {
-        for _ in 0..microseconds {
-            core::hint::spin_loop()
-        }
-    }
-
-    fn sleep(&self, milliseconds: u64) {
-        for _ in 0..milliseconds {
-            core::hint::spin_loop()
-        }
-    }
-
     fn write_pci_u32(&self, address: acpi::PciAddress, offset: u16, value: u32) {
         // Check is this PCIe...
         if *IS_PCIE.get().unwrap() {
@@ -223,7 +211,7 @@ impl Handler for AcpiHandler {
             unsafe { access.write(address, offset, value) };
         }
     }
-    
+
     fn write_pci_u16(&self, address: acpi::PciAddress, offset: u16, value: u16) {
         // Check is this PCIe...
         if *IS_PCIE.get().unwrap() {
@@ -251,6 +239,9 @@ impl Handler for AcpiHandler {
             unsafe { access.write(address, offset, value as u32) };
         }
     }
+
+    fn stall(&self, _microseconds: u64) {}
+    fn sleep(&self, _milliseconds: u64) {}
     fn release(&self, _mutex: Handle) {}
 }
 

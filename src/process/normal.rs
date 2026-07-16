@@ -2,10 +2,10 @@
 extern crate alloc;
 use super::{Context, Error, MAX_PS, Status};
 use alloc::{vec, vec::Vec};
-use spin::{Lazy, RwLock};
+use spin::{LazyLock, RwLock};
 
-pub static NORMAL_PROCESS: Lazy<RwLock<NormalProcessTable>> =
-    Lazy::new(|| RwLock::new(NormalProcessTable::new()));
+pub static NORMAL_PROCESS: LazyLock<RwLock<NormalProcessTable>> =
+    LazyLock::new(|| RwLock::new(NormalProcessTable::new()));
 
 /// The normal process list.
 #[repr(C)]

@@ -36,7 +36,8 @@ impl ConfigRegionAccess for PcieCfgAccess {
             + address.bus() as u64 * 0x100000
             + address.device() as u64 * 0x8000
             + address.function() as u64 * 0x1000;
-        let exact_addr = pci_base + offset as u64;
+        let offset_aligned = offset & 0xfc;
+        let exact_addr = pci_base + offset_aligned as u64;
 
         // Convert to raw pointer.
         let ptr = exact_addr as *const u32;
@@ -48,7 +49,8 @@ impl ConfigRegionAccess for PcieCfgAccess {
             + address.bus() as u64 * 0x100000
             + address.device() as u64 * 0x8000
             + address.function() as u64 * 0x1000;
-        let exact_addr = pci_base + offset as u64;
+        let offset_aligned = offset & 0xfc;
+        let exact_addr = pci_base + offset_aligned as u64;
 
         // Convert to raw pointer.
         let ptr = exact_addr as *mut u32;

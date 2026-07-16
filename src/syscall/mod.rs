@@ -71,7 +71,7 @@ pub fn init() {
     SYSCALL.write().push(SyscallEntry {
         sysnum: 1,
         page_table: 0x100000,
-        stack: 0xffff800002fffff0,
+        stack: 0xffff8000005ffff0,
         entry: power::power,
     });
 }

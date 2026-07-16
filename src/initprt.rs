@@ -10,7 +10,7 @@ use proka_exec::{Parser, header::ExecMode};
 use serde::Deserialize;
 
 // Constants
-pub const INITPRT_BASE: u64 = 0xffff800003000000; // loaded
+pub const INITPRT_BASE: u64 = 0xffff800000600000; // loaded
 pub const INITPRT_LENGTH: usize = 0x1000000; // 16MiB
 
 /*

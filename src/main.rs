@@ -24,7 +24,11 @@ use proka_bootloader::header::Header;
 // Kernel header definition
 #[unsafe(link_section = ".header")]
 #[used]
-static KERNEL_HEADER: Header = Header::default();
+static KERNEL_HEADER: Header = {
+    let mut header = Header::default();
+    header.version = [0, 5, 1];     // 0.5.1
+    header
+};
 
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".main")]
@@ -51,15 +55,15 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::logger::init();
     info!("Initialized log system.");
 
-    // Init ACPI
-    info!("Starting to initialize ACPI...");
-    proka_kernel::acpi::init();
-    success!("Completed ACPI initialization process.");
-
     // Start do MMIO mapping
     info!("Starting the device initialization process...");
     proka_kernel::devices::init();
     success!("Completed device initialization process.");
+
+    // Init ACPI
+    info!("Starting to initialize ACPI...");
+    proka_kernel::acpi::init();
+    success!("Completed ACPI initialization process.");
 
     // Init APIC
     info!("Initializing APIC...");

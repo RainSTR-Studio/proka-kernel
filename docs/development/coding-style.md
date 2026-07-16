@@ -130,7 +130,7 @@ pub unsafe fn set_page_table(page_table_addr: usize) {
 **全局状态**：
 - 使用 `Mutex`、`RwLock` 或 `Atomic` 保护共享状态
 - 避免裸的全局变量
-- 使用 `lazy_static` 或 `once_cell` 进行初始化
+- 使用 `LazyLock_static` 或 `once_cell` 进行初始化
 
 ## 贡献与提交约定
 
