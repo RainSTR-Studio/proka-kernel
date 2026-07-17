@@ -72,4 +72,6 @@ pub fn init() {
         stack: 0xffff8000005ffff0,
         entry: power::power,
     });
+
+    // TODO: Add more types of syscall (0-16)
 }

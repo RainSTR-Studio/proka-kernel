@@ -8,14 +8,14 @@
 //!  - arg2: The subtype, which is the pointer of `&str` within 16 bytes length.
 extern crate alloc;
 use crate::{
-    devices::{IS_PCIE, PCILIST, pcie::get_access},
+    devices::{IS_PCIE, PCILIST, pci::PciCfgAccess, pcie::get_access},
     memory::{IdentityPageTableMapper, framealloc::FRAME_ALLOCATOR},
     process::DRIVER_PROCESS,
 };
 use alloc::vec::Vec;
 use pci_types::{
     Bar::{Memory32, Memory64},
-    EndpointHeader, HeaderType, PciHeader,
+    ConfigRegionAccess, EndpointHeader, HeaderType, PciHeader,
 };
 use spin::{LazyLock, RwLock};
 use x86_64::{
@@ -117,49 +117,83 @@ pub fn driver_type_reg(arg1: u64, _arg2: u64, did: u16) {
                 continue;
             }
 
-            // Get MMIO
-            let end_point = EndpointHeader::from_header(header, cfg_access).unwrap();
-            // TODO: Adapt BAR0-BAR5
-            let mmio = match end_point.bar(0, cfg_access) {
-                Some(bar) => bar,
-                None => continue,
-            };
+            // Do MMIO mapping...
+            map_mmio(cfg_access, header, &mut mapper);
+        } else {
+            // For non-PCIe branch
+            // Get config access
+            let cfg_access = PciCfgAccess;
 
-            // Match...
-            let (addr, size) = match mmio {
-                Memory32 {
-                    address,
-                    size,
-                    prefetchable: _,
-                } => (address as u64, size as u64),
-                Memory64 {
-                    address,
-                    size,
-                    prefetchable: _,
-                } => (address, size),
-                _ => continue,
-            };
+            // Get base class
+            let base_class = header.revision_and_class(cfg_access).1;
 
-            // Do identity mapping...
-            let flags = PageTableFlags::PRESENT
-                | PageTableFlags::WRITABLE
-                | PageTableFlags::WRITE_THROUGH
-                | PageTableFlags::NO_CACHE
-                | PageTableFlags::NO_EXECUTE;
-            let pages = align_up(size, Size2MiB::SIZE) / Size2MiB::SIZE;
-            for i in 0..pages {
-                let frame = PhysFrame::<Size2MiB>::containing_address(PhysAddr::new(
-                    addr + i * Size2MiB::SIZE,
-                ));
+            // Check: Is this base class our wanted?
+            let drv_type = DrvType::from_base_class(base_class);
+            if drv_type != typ {
+                continue;
+            }
 
-                unsafe {
-                    let mut frame_alloc = FRAME_ALLOCATOR.lock();
-                    match mapper.identity_map(frame, flags, &mut *frame_alloc) {
-                        Ok(flusher) => flusher.flush(),
-                        Err(MapToError::PageAlreadyMapped(_)) => (),
-                        Err(e) => panic!("Cannot map that page: {:?}", e),
-                    }
-                }
+            // Check: Is this a endpoint device?
+            // If yes, we can get the MMIO.
+            if header.header_type(cfg_access) != HeaderType::Endpoint {
+                continue;
+            }
+
+            // Do MMIO mapping...
+            map_mmio(cfg_access, header, &mut mapper);
+        }
+    }
+}
+
+fn map_mmio<C>(
+    cfg_access: C,
+    header: PciHeader,
+    mapper: &mut MappedPageTable<'_, IdentityPageTableMapper>,
+) where
+    C: ConfigRegionAccess + Copy,
+{
+    // F
+
+    // Get MMIO
+    let end_point = EndpointHeader::from_header(header, cfg_access).unwrap();
+    // TODO: Adapt BAR0-BAR5
+    let mmio = match end_point.bar(0, cfg_access) {
+        Some(bar) => bar,
+        None => return,
+    };
+
+    // Match...
+    let (addr, size) = match mmio {
+        Memory32 {
+            address,
+            size,
+            prefetchable: _,
+        } => (address as u64, size as u64),
+        Memory64 {
+            address,
+            size,
+            prefetchable: _,
+        } => (address, size),
+        _ => return,
+    };
+
+    // Do identity mapping...
+    let flags = PageTableFlags::PRESENT
+        | PageTableFlags::WRITABLE
+        | PageTableFlags::WRITE_THROUGH
+        | PageTableFlags::NO_CACHE
+        | PageTableFlags::NO_EXECUTE;
+    let pages = align_up(size, Size2MiB::SIZE) / Size2MiB::SIZE;
+    for i in 0..pages {
+        let frame =
+            PhysFrame::<Size2MiB>::containing_address(PhysAddr::new(addr + i * Size2MiB::SIZE));
+
+        unsafe {
+            let mut frame_alloc = FRAME_ALLOCATOR.lock();
+            match mapper.identity_map(frame, flags, &mut *frame_alloc) {
+                Ok(flusher) => flusher.flush(),
+                Err(MapToError::PageAlreadyMapped(_)) => (),
+                Err(e) => panic!("Cannot map that page: {:?}", e),
             }
         }
     }
