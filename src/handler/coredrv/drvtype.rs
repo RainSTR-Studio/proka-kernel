@@ -152,8 +152,6 @@ fn map_mmio<C>(
 ) where
     C: ConfigRegionAccess + Copy,
 {
-    // F
-
     // Get MMIO
     let end_point = EndpointHeader::from_header(header, cfg_access).unwrap();
     // TODO: Adapt BAR0-BAR5
