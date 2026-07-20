@@ -1,8 +1,7 @@
 //! The syscall handler.
-use core::arch::{asm, naked_asm};
-
+extern crate alloc;
 use crate::syscall::SYSCALL;
-
+use core::arch::{asm, naked_asm};
 /// The syscall common entry.
 #[unsafe(naked)]
 #[unsafe(no_mangle)]
@@ -24,8 +23,21 @@ pub extern "C" fn syscall_entry() {
         "push r13",
         "push r14",
         "push r15",
+        // Save and switch stack and table.
+        "mov r14, rsp",
+        "mov r15, cr3",
+        "mov r13, 0x100000",
+        "mov cr3, r13",
+        "mov rsp, 0xffff80004007f000",
+        "push r14",
+        "push r15",
         // Enter main function
         "call syscall_handler",
+        // Recover original stack and table.
+        "pop r15",
+        "pop r14",
+        "mov rsp, r14",
+        "mov cr3, r15",
         // Recover common registers
         "pop r15",
         "pop r14",
@@ -50,103 +62,58 @@ pub extern "C" fn syscall_entry() {
 ///
 /// # Arguments
 ///  - RAX: The syscall number
-///  - RDI: The syscall arg 1
-///  - RSI: The syscall arg 2
-///  - R8: The syscall arg 3
-///  - R9: The syscall arg 4
-///  - R10: The syscall arg 5
+///  - RDI, RSI, RDX, R8, R9: The syscall args 1-5 (System V ABI)
 #[unsafe(no_mangle)]
-pub extern "C" fn syscall_handler() {
-    // First, save the user's page table.
-    let user_table: u64;
-    let user_stack: u64;
-    let sysnum: u64;
-    let arg1: u64;
-    let arg2: u64;
-    let arg3: u64;
-    let arg4: u64;
-    let arg5: u64;
+pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) {
+    // Get the syscall number.
+    let call_num: u64;
+    unsafe { asm!("nop", out("rax") call_num) }
 
-    unsafe {
-        asm!(
-            "mov r12, cr3",
-            "mov rdx, rsp",
-            out("r12") user_table,
-            out("rdx") user_stack,
-            out("rax") sysnum,
-            out("rcx") _,
-            out("rdi") arg1,
-            out("rsi") arg2,
-            out("r8") arg3,
-            out("r9") arg4,
-            out("r10") arg5,
-            out("r11") _,
-        )
-    }
+    // Get the syscall from syscall table.
+    let binding = SYSCALL.read();
+    let syscall = binding.iter().find(|s| s.sysnum == call_num);
 
-    // Search for syscall table
-    let table = SYSCALL.read();
-    let entry = table.iter().find(|e| e.sysnum == sysnum);
-    if entry.is_none() {
-        sysreturn(0xffff_ffff_ffff_ffff);
+    // Check: Is this result none
+    if syscall.is_none() {
+        sysreturn(0xffff_ffff_ffff_ffff as u64);
         return;
     }
 
-    let entry = entry.unwrap(); // Safety: Already asserted is `None` or `Some`.
+    // Now we can get the exact table safely.
+    let syscall = syscall.expect("Shouldn't appear!"); // Won't panick!
 
-    // Switch to process's page table, call and return
-    let ret_val: i64;
+    // Since we get return value, we can write to registers and return...
+    let result: u64;
     unsafe {
         asm!(
-            // Save info
-            "mov rbx, {user_stack}",
-            "mov r13, {user_table}",
+            "push rbp",
+            "mov cr3, {table}",
             "mov rsp, {stack}",
-            // See we should switch table or not.
-            "cmp {page_table}, 0",
-            "je 6f",
-            "mov cr3, {page_table}",
-            // Switch table done (or skipped).
-            "6:",
-            "push rbx",
-            "push r13",
-            // Push arg registers
-            "push rdi",
-            "push rsi",
-            "push rdx",
-            "push r10",
-            "push r8",
-            // Call main fn
+            "mov rbp, rsp",
+            "mov rdi, {arg1}",
+            "mov rsi, {arg2}",
+            "mov rdx, {arg3}",
+            "mov r8, {arg4}",
+            "mov r9, {arg5}",
             "call {entry}",
-            // Pop arg one...
-            "pop r8",
-            "pop r10",
-            "pop rdx",
-            "pop rsi",
-            "pop rdi",
-            // Pop essential registers
-            "pop r13",
-            "pop rbx",
-            "mov cr3, r13",
-            "mov rsp, rbx",
-            user_stack = in(reg) user_stack,
-            user_table = in(reg) user_table,
-            page_table = in(reg) entry.page_table,
-            stack = in(reg) entry.stack,
-            entry = in(reg) entry.entry,
-            in("rdi") arg1,
-            in("rsi") arg2,
-            in("rdx") arg3,
-            in("r10") arg4,
-            in("r8") arg5,
-            out("r11") _,
-            out("rcx") _,
-            out("rax") ret_val,
+            "mov rsp, r14",
+            "mov cr3, r15",
+            "pop rbp",
+            entry = in(reg) syscall.entry,
+            stack = in(reg) syscall.stack,
+            table = in(reg) syscall.page_table,
+            arg1 = in(reg) arg1,
+            arg2 = in(reg) arg2,
+            arg3 = in(reg) arg3,
+            arg4 = in(reg) arg4,
+            arg5 = in(reg) arg5,
+            out("rax") result,
+            out("r14") _,
+            out("r15") _,
         )
     }
-    
-    // Since we get return value, we can write to registers and return...
-    sysreturn(ret_val as u64);
+
+    sysreturn(result);
 }
 
 /// Return from syscall handler.

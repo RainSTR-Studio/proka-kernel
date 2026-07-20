@@ -60,7 +60,7 @@ pub fn init() {
     // For syscall 0 (process management)
     SYSCALL.write().push(SyscallEntry {
         sysnum: 0,
-        page_table: 0,
+        page_table: 0x100000,
         stack: 0xffff8000005ffff0,
         entry: process::process,
     });
@@ -68,7 +68,7 @@ pub fn init() {
     // For syscall 1 (power action)
     SYSCALL.write().push(SyscallEntry {
         sysnum: 1,
-        page_table: 0,
+        page_table: 0x100000,
         stack: 0xffff8000005ffff0,
         entry: power::power,
     });
