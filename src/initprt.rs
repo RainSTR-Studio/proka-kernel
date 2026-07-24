@@ -5,7 +5,7 @@ use alloc::{vec, vec::Vec};
 use hadris_fat::{Error, ErrorKind, FatDir, FatFs, IoResult, Read, Seek, SeekFrom};
 #[cfg(debug_assertions)]
 use log::debug;
-use log::warn;
+use log::{info, warn};
 use proka_exec::{Parser, header::ExecMode};
 use serde::Deserialize;
 
@@ -116,6 +116,7 @@ pub fn init() {
     run(&root, "init", ExecMode::UserApp);
 
     // Then, parse the `/drivers/list.toml`.
+    info!("Reading driver list...");
     let drivers = fs
         .open_dir_path("drivers")
         .expect("Failed to load driver path");

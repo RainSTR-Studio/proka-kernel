@@ -64,7 +64,7 @@ pub fn init() {
         stack: 0xffff8000005ffff0,
         entry: process::process,
     });
-    
+
     // For syscall 1 (power action)
     SYSCALL.write().push(SyscallEntry {
         sysnum: 1,

@@ -2,7 +2,8 @@
 //!
 //! Registered as syscall 1.
 use crate::{
-    acpi::power::{poweroff, reboot}, scheduler::{DRIVER_QUEUE, NORMAL_QUEUE},
+    acpi::power::{poweroff, reboot},
+    scheduler::{DRIVER_QUEUE, NORMAL_QUEUE},
 };
 
 /// The power actions.

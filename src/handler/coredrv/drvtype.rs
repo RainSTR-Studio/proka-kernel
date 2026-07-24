@@ -14,7 +14,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use pci_types::{
-    Bar::{Memory32, Memory64},
+    Bar::{self, Memory32, Memory64},
     ConfigRegionAccess, EndpointHeader, HeaderType, PciHeader,
 };
 use spin::{LazyLock, RwLock};
@@ -52,6 +52,16 @@ pub enum DrvType {
 
     /// Invalid driver type.
     Invalid,
+}
+
+/// The format of address.
+#[repr(C, packed)]
+pub struct AddrFormat {
+    /// The base of address.
+    pub base: u64,
+
+    /// The size of address.
+    pub size: u64,
 }
 
 impl DrvType {
@@ -95,7 +105,10 @@ pub fn driver_type_reg(arg1: u64, _arg2: u64, did: u16) {
     let mut mapper = unsafe { MappedPageTable::new(table, IdentityPageTableMapper) };
 
     /* Do MMIO mapping for driver. */
-    // First, iterate all of the PCI address (valid)...
+    // Create a list which records `Bar`
+    let mut bar_list: Vec<AddrFormat> = Vec::new();
+
+    // Let's iterate all of the PCI address (valid)...
     for addr in PCILIST.read().iter() {
         let header = PciHeader::new(*addr);
         if *IS_PCIE.get().unwrap() {
@@ -139,9 +152,43 @@ pub fn driver_type_reg(arg1: u64, _arg2: u64, did: u16) {
                 continue;
             }
 
-            // Do MMIO mapping...
-            map_mmio(cfg_access, header, &mut mapper);
+            // Do MMIO mapping and get BAR...
+            let bar = map_mmio(cfg_access, header, &mut mapper);
+
+            // Check: Is bar none?
+            if bar.is_none() {
+                continue;
+            }
+
+            // Construct a [`AddrFormat`] and push into list...
+            let bar = bar.expect("This message won't show");
+            let addr_format = match bar {
+                Memory32 {
+                    address,
+                    size,
+                    prefetchable: _,
+                } => AddrFormat {
+                    base: address as u64,
+                    size: size as u64,
+                },
+                Memory64 {
+                    address,
+                    size,
+                    prefetchable: _,
+                } => AddrFormat {
+                    base: address,
+                    size: size,
+                },
+                _ => continue,
+            };
+            bar_list.push(addr_format);
         }
+    }
+
+    // Once the iteration completed, write to driver-public area
+    // Fixed at 0xffff800080000000.
+    unsafe {
+        core::ptr::copy_nonoverlapping(bar_list.as_ptr(), 0xffff800080000000 as *mut AddrFormat, 1)
     }
 }
 
@@ -149,7 +196,8 @@ fn map_mmio<C>(
     cfg_access: C,
     header: PciHeader,
     mapper: &mut MappedPageTable<'_, IdentityPageTableMapper>,
-) where
+) -> Option<Bar>
+where
     C: ConfigRegionAccess + Copy,
 {
     // Get MMIO
@@ -157,7 +205,7 @@ fn map_mmio<C>(
     // TODO: Adapt BAR0-BAR5
     let mmio = match end_point.bar(0, cfg_access) {
         Some(bar) => bar,
-        None => return,
+        None => return None,
     };
 
     // Match...
@@ -172,7 +220,7 @@ fn map_mmio<C>(
             size,
             prefetchable: _,
         } => (address, size),
-        _ => return,
+        _ => return None,
     };
 
     // Do identity mapping...
@@ -189,10 +237,12 @@ fn map_mmio<C>(
         unsafe {
             let mut frame_alloc = FRAME_ALLOCATOR.lock();
             match mapper.identity_map(frame, flags, &mut *frame_alloc) {
-                Ok(flusher) => flusher.flush(),
+                Ok(flusher) => flusher.ignore(),
                 Err(MapToError::PageAlreadyMapped(_)) => (),
                 Err(e) => panic!("Cannot map that page: {:?}", e),
             }
         }
     }
+
+    Some(mmio)
 }

@@ -4,8 +4,8 @@ pub mod heap;
 pub mod paging;
 
 // Uses
-use crate::println;
 use self::framealloc::FRAME_ALLOCATOR;
+use crate::println;
 pub use paging::{PDPT_HPROC_ADDR, PML4_ADDR};
 use proka_bootloader::{get_bootinfo, memory::MemoryType};
 use spin::{LazyLock, Mutex, Once};
@@ -112,7 +112,7 @@ pub fn init() {
         let addr = PhysAddr::new(0xfe000000 + i * 0x200000);
         let frame = PhysFrame::<Size2MiB>::containing_address(addr);
         unsafe {
-            match mapper.identity_map(frame, flags, &mut * FRAME_ALLOCATOR.lock()) {
+            match mapper.identity_map(frame, flags, &mut *FRAME_ALLOCATOR.lock()) {
                 Ok(m) => m.flush(),
                 Err(MapToError::PageAlreadyMapped(_)) => (),
                 Err(e) => panic!("map failed {:?}", e),

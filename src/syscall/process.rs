@@ -27,7 +27,13 @@ impl ProcessSyscallRequest {
 
 /// The entry point of process syscall.
 // TODO: Write this function once the structure of memory got refactored.
-pub extern "C" fn process(request: u64, id_or_priority: u64, buf: u64, len: u64, proctyp: u64) -> i64 {
+pub extern "C" fn process(
+    request: u64,
+    id_or_priority: u64,
+    buf: u64,
+    len: u64,
+    proctyp: u64,
+) -> i64 {
     let request = ProcessSyscallRequest::from_u64(request);
 
     // Check the request type.
@@ -49,8 +55,7 @@ pub extern "C" fn process(request: u64, id_or_priority: u64, buf: u64, len: u64,
             // Create tasks.
             // If `id_or_priority` is larger than u8::MAX, it will cause truncation.
             unsafe {
-                let data =
-                    core::slice::from_raw_parts(buf as *const u8, len as usize);
+                let data = core::slice::from_raw_parts(buf as *const u8, len as usize);
                 if crate::process::create(data, id_or_priority as u8).is_err() {
                     return -1;
                 }

@@ -21,11 +21,11 @@ pub mod config {
 
 pub mod acpi;
 pub mod apic;
+pub mod devices;
 pub mod handler;
 pub mod initprt;
 pub mod logger;
 pub mod memory;
-pub mod devices;
 pub mod output;
 pub mod panic;
 pub mod process;

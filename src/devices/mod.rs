@@ -1,10 +1,10 @@
 //! The MMIO module.
 extern crate alloc;
 use alloc::vec::Vec;
+use log::debug;
 use log::warn;
 use pci_types::PciAddress;
 use spin::{Once, RwLock};
-use log::debug;
 
 pub mod pci;
 pub mod pcie;
@@ -30,5 +30,9 @@ pub fn init() {
         }
     });
 
-    debug!("Is PCIe: {}, PCI list: {:?}", IS_PCIE.get().unwrap(), PCILIST.read());
+    debug!(
+        "Is PCIe: {}, PCI list: {:?}",
+        IS_PCIE.get().unwrap(),
+        PCILIST.read()
+    );
 }

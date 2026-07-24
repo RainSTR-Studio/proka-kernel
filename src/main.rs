@@ -26,7 +26,7 @@ use proka_bootloader::header::Header;
 #[used]
 static KERNEL_HEADER: Header = {
     let mut header = Header::default();
-    header.version = [0, 5, 1];     // 0.5.1
+    header.version = [0, 5, 1]; // 0.5.1
     header
 };
 
