@@ -107,11 +107,13 @@ pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, ar
     unsafe {
         asm!(
             "mov cr3, {table}",
+            "push rbp",
             "mov rbp, rsp",     // Use RBP to save the original stack address
             "mov rsp, {stack}",
-            "push rbp",         // Save to new stack
+            "push rbp",         // Save to new stack #1
             "call {entry}",
-            "pop rsp",          // Restore directly
+            "pop rsp",          // Restore directly  #1
+            "pop rbp",
             entry = in(reg) entry,
             stack = in(reg) stack,
             table = in(reg) page_table,
@@ -121,8 +123,6 @@ pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, ar
             in("rcx") arg4,
             in("r8") arg5,
             out("rax") result,
-            out("r14") _,
-            out("r15") _,
         )
     }
 
