@@ -13,7 +13,7 @@ hadris-fat = { version = "1.2.0", default-features = false, features = ["alloc",
 log = "0.4.29"
 pci_types = "0.10.1"
 proka-bootloader = "0.5.4"
-proka-exec = "0.4.2"
+proka-exec = "0.5.1"
 serde = { version = "1.0.228", default-features = false, features = ["alloc", "derive", "serde_derive"] }
 spin = { version = "0.12.2", features = ["ticket_mutex"] }
 spinning_top = "0.3.0"

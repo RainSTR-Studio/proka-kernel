@@ -1,6 +1,7 @@
 //! The process system.
 extern crate alloc;
 use alloc::vec::Vec;
+use proka_exec::sections::SectionFlag;
 use x86_64::structures::paging::mapper::CleanUp;
 use x86_64::structures::paging::{
     MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
@@ -154,7 +155,7 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
     let parser = Parser::init(data).map_err(|_| Error::InvalidFormat)?;
 
     // Check: Is this is a valid PKE format
-    if !parser.validate() {
+    if parser.validate().is_err() {
         warn!("Validation not passed, aborting process creation...");
         return Err(Error::InvalidFormat);
     }
@@ -167,16 +168,17 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
     };
 
     // Do PKE loading
-    for section in parser.sections() {
+    for section_index in parser.sections() {
+        let section = parser.sections().get_hdr_secindex(section_index);
         // Check is current section loadable
-        if !section.is_loadable {
+        if !section.flag.contains(SectionFlag::LOADABLE) {
             trace!("This section is not loadable, passing...");
             continue;
         }
 
         // Get the page needed
-        let len = section.length;
-        let pages = align_up(section.length as u64, 4096) / 4096;
+        let len = section.size;
+        let pages = align_up(section.size as u64, 4096) / 4096;
         let frame = match FRAME_ALLOCATOR.lock().allocate_contiguous(pages as usize) {
             Some(frame) => frame,
             None => return Err(Error::MemoryNotEnough),
@@ -187,7 +189,7 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
         let info = SectionData {
             addr,
             pages,
-            executable: section.is_execable,
+            executable: section.flag.contains(SectionFlag::EXECABLE),
         };
         section_info.push(info);
 
