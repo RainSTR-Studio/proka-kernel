@@ -4,8 +4,10 @@ pub mod heap;
 pub mod paging;
 
 // Uses
+extern crate alloc;
 use self::framealloc::FRAME_ALLOCATOR;
 use crate::println;
+use alloc::vec::Vec;
 pub use paging::{PDPT_HPROC_ADDR, PML4_ADDR};
 use proka_bootloader::{get_bootinfo, memory::MemoryType};
 use spin::{LazyLock, Mutex, Once};
@@ -142,4 +144,48 @@ pub fn init() {
             }
         }
     }
+}
+
+/// Copy buffer from userspace to kernel heap.
+///
+/// # Arguments
+///  - `user_table`: The page table of the user process;
+///  - `user_addr`: The user address to copy from;
+///  - `size`: The size of the memory to copy;
+///
+/// # Returns
+/// The pointer to the kernel heap memory, which is allocated by this function.
+/// If the copy failed, return None.
+///
+/// # Safety
+/// Caller must ensure that:
+///  - This function must be called in kernel context, and the kernel heap is initialized;
+///  - The `user_table` is a valid page table for the user process;
+///  - The `user_addr` is a valid pointer in the user process's address space;
+pub unsafe fn copy_buffer_to_kernel<T>(
+    user_cr3: u64,
+    user_buf_base: u64,
+    size: u64,
+) -> Option<Vec<T>>
+where
+    T: Sized + Copy + Default,
+{
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut buf = Vec::<T>::new();
+        let user_pml4 = unsafe { &mut *(user_cr3 as *mut PageTable) };
+        let user_mapper = unsafe { MappedPageTable::new(user_pml4, IdentityPageTableMapper) };
+        let buffer_pages = (size + 0xfff) >> 12;
+        for i in 0..buffer_pages {
+            let page = Page::<Size4KiB>::containing_address(
+                VirtAddr::try_new(user_buf_base + i * 0x1000).ok()?,
+            );
+            let frame = user_mapper.translate_page(page).ok()?;
+            let data = unsafe {
+                core::slice::from_raw_parts(frame.start_address().as_u64() as *const T, 4096)
+            };
+            buf.extend_from_slice(data);
+        }
+
+        Some(buf)
+    })
 }
