@@ -84,7 +84,8 @@ pub extern "C" fn syscall_entry() {
 pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> i64 {
     // Get the syscall number.
     let call_num: u64;
-    unsafe { asm!("nop", out("rax") call_num) }
+    let user_table: u64;
+    unsafe { asm!("nop", out("rax") call_num, out("r15") user_table) }
 
     // Get the syscall from syscall table.
     let binding = SYSCALL.read();
@@ -111,12 +112,14 @@ pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, ar
             "mov rbp, rsp",     // Use RBP to save the original stack address
             "mov rsp, {stack}",
             "push rbp",         // Save to new stack #1
+            "mov r15, {user_table}",
             "call {entry}",
             "pop rsp",          // Restore directly  #1
             "pop rbp",
             entry = in(reg) entry,
             stack = in(reg) stack,
             table = in(reg) page_table,
+            user_table = in(reg) user_table,
             in("rdi") arg1,
             in("rsi") arg2,
             in("rdx") arg3,
