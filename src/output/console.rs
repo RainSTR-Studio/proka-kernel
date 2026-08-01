@@ -201,6 +201,10 @@ impl Console {
     fn parse_ansi_command(&mut self, cmd: u8) {
         match cmd {
             b'm' => self.handle_sgr(),
+            b'A' => self.handle_cursor_up(),
+            b'B' => self.handle_cursor_down(),
+            b'C' => self.handle_cursor_right(),
+            b'D' => self.handle_cursor_left(),
             _ => {} // Ignore non-impl command
         }
     }
@@ -271,6 +275,13 @@ impl Console {
     pub fn get_bg_color(&self) -> Color {
         self.bg_color
     }
+
+    /* Cursor handler */
+    // Todo: Implement cursor
+    pub fn handle_cursor_up(&mut self) {}
+    pub fn handle_cursor_down(&mut self) {}
+    pub fn handle_cursor_left(&mut self) {}
+    pub fn handle_cursor_right(&mut self) {}
 }
 
 // Implement the [`Write`] trait to support formatting

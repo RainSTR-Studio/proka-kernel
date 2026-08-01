@@ -320,9 +320,9 @@ checksum = "0a94731b2b37ec2ebc0687e0b4f70ab67e1bd1a36c13c18ae90c2863c908ad3e"
 
 [[package]]
 name = "proka-exec"
-version = "0.5.1"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "007ec4b4c7af3b574a616ed20abba7e2f8b5e94de373bbea2636d86230174323"
+checksum = "5a11a6c491490ec5afbecc00a7133a5db4165e972e568a50debb13e6cd3db48d"
 dependencies = [
  "bitflags 2.13.1",
  "bytemuck",

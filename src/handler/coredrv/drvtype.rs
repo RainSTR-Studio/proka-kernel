@@ -177,7 +177,7 @@ pub fn driver_type_reg(arg1: u64, _arg2: u64, did: u16) {
                     prefetchable: _,
                 } => AddrFormat {
                     base: address,
-                    size: size,
+                    size,
                 },
                 _ => continue,
             };
@@ -203,10 +203,7 @@ where
     // Get MMIO
     let end_point = EndpointHeader::from_header(header, cfg_access).unwrap();
     // TODO: Adapt BAR0-BAR5
-    let mmio = match end_point.bar(0, cfg_access) {
-        Some(bar) => bar,
-        None => return None,
-    };
+    let mmio = end_point.bar(0, cfg_access)?;
 
     // Match...
     let (addr, size) = match mmio {

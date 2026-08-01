@@ -162,9 +162,10 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
     trace!("Process: data validation passed");
 
     // Decide the process type through the header info
-    let proctype: ProcType = match parser.header().mode {
-        ExecMode::UserApp => ProcType::Normal,
-        ExecMode::CoreDrv => ProcType::Driver,
+    let proctype = if parser.header().mode.contains(ExecMode::CoreDrv) {
+        ProcType::Driver
+    } else {
+        ProcType::Normal
     };
 
     // Do PKE loading
