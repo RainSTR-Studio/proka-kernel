@@ -20,7 +20,6 @@ pub fn _print(args: ::core::fmt::Arguments) {
 
 /// Prints to the host through the serial interface.
 #[macro_export]
-#[cfg(debug_assertions)]
 macro_rules! serial_print {
     ($($arg:tt)*) => {
         $crate::output::serial::_print(format_args!($($arg)*));
@@ -29,25 +28,9 @@ macro_rules! serial_print {
 
 /// Prints to the host through the serial interface, appending a newline.
 #[macro_export]
-#[cfg(debug_assertions)]
 macro_rules! serial_println {
     () => ($crate::serial_print!("\n"));
     ($fmt:expr) => ($crate::serial_print!(concat!($fmt, "\n")));
     ($fmt:expr, $($arg:tt)*) => ($crate::serial_print!(
         concat!($fmt, "\n"), $($arg)*));
-}
-
-/* The macros and function not in debug mode (empty) */
-#[macro_export]
-#[cfg(not(debug_assertions))]
-macro_rules! serial_print {
-    ($($arg:tt)*) => {};
-}
-
-#[macro_export]
-#[cfg(not(debug_assertions))]
-macro_rules! serial_println {
-    () => {};
-    ($fmt:expr) => {};
-    ($fmt:expr, $($arg:tt)*) => {};
 }

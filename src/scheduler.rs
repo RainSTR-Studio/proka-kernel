@@ -124,6 +124,9 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             proc.current_table = cr3;
         }
 
+        for _ in 0..0x100000 {
+            core::hint::spin_loop();
+        }
         drop(guard);
         to_driver()
     } else {
@@ -185,6 +188,9 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             proc.context.ss = ss;
         }
 
+        for _ in 0..0x100000 {
+            core::hint::spin_loop();
+        }
         drop(guard);
         to_normal()
     };
