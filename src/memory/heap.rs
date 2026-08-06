@@ -23,7 +23,7 @@ unsafe impl GlobalAlloc for HeapAlloc {
             // Return null if alignment is greater than page size
             return core::ptr::null_mut();
         }
-        let pages = (layout.size() + PAGE_SIZE - 1) / PAGE_SIZE;
+        let pages = layout.size().div_ceil(PAGE_SIZE);
         if let Some(frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(pages) {
             let phys = frame.start_address().as_u64();
             phys as *mut u8
@@ -34,7 +34,7 @@ unsafe impl GlobalAlloc for HeapAlloc {
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
         // Deallocate the frame from frame allocator...
-        let pages = (layout.size() + 0xfff) / 0x1000;
+        let pages = layout.size().div_ceil(PAGE_SIZE);
         let frame = PhysFrame::<Size4KiB>::containing_address(PhysAddr::new(ptr as u64));
         FRAME_ALLOCATOR.lock().deallocate_contiguous(frame, pages);
     }

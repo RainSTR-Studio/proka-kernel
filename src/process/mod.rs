@@ -1,6 +1,8 @@
 //! The process system.
 extern crate alloc;
 use alloc::vec::Vec;
+use proka_exec::sections::SectionFlag;
+use x86_64::structures::paging::mapper::CleanUp;
 use x86_64::structures::paging::{
     MappedPageTable, Mapper, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
 };
@@ -153,29 +155,31 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
     let parser = Parser::init(data).map_err(|_| Error::InvalidFormat)?;
 
     // Check: Is this is a valid PKE format
-    if !parser.validate() {
+    if parser.validate().is_err() {
         warn!("Validation not passed, aborting process creation...");
         return Err(Error::InvalidFormat);
     }
     trace!("Process: data validation passed");
 
     // Decide the process type through the header info
-    let proctype: ProcType = match parser.header().mode {
-        ExecMode::UserApp => ProcType::Normal,
-        ExecMode::CoreDrv => ProcType::Driver,
+    let proctype = if parser.header().mode.contains(ExecMode::CoreDrv) {
+        ProcType::Driver
+    } else {
+        ProcType::Normal
     };
 
     // Do PKE loading
-    for section in parser.sections() {
+    for section_index in parser.sections() {
+        let section = parser.sections().get_hdr_secindex(section_index);
         // Check is current section loadable
-        if !section.is_loadable {
+        if !section.flag.contains(SectionFlag::LOADABLE) {
             trace!("This section is not loadable, passing...");
             continue;
         }
 
         // Get the page needed
-        let len = section.length;
-        let pages = align_up(section.length as u64, 4096) / 4096;
+        let len = section.size;
+        let pages = align_up(section.size as u64, 4096) / 4096;
         let frame = match FRAME_ALLOCATOR.lock().allocate_contiguous(pages as usize) {
             Some(frame) => frame,
             None => return Err(Error::MemoryNotEnough),
@@ -186,7 +190,7 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
         let info = SectionData {
             addr,
             pages,
-            executable: section.is_execable,
+            executable: section.flag.contains(SectionFlag::EXECABLE),
         };
         section_info.push(info);
 
@@ -364,6 +368,7 @@ fn create_driver(frame: u64) -> Result<(), Error> {
 /// If an unsupported process domain is provided, it will be ignored,
 /// and process removal will continue normally.
 pub fn remove(proctype: ProcType, index: usize) -> Result<(), Error> {
+    // Match process type to decide the way to go.
     match proctype {
         ProcType::Normal => remove_normal(index)?,
         ProcType::Driver => remove_driver(index)?,
@@ -384,6 +389,11 @@ fn remove_normal(index: usize) -> Result<(), Error> {
         return Err(Error::ProcessNotExist);
     }
 
+    // Clean up the page table...
+    let pml4 = unsafe { &mut *(proc.table_addr as *mut PageTable) };
+    let mut mapper = unsafe { MappedPageTable::new(pml4, IdentityPageTableMapper) };
+    unsafe { mapper.clean_up(&mut *FRAME_ALLOCATOR.lock()) }
+
     proc.remove();
 
     NORMAL_QUEUE.lock().retain(|item| *item != index);
@@ -402,6 +412,11 @@ fn remove_driver(index: usize) -> Result<(), Error> {
     if !proc.present {
         return Err(Error::ProcessNotExist);
     }
+
+    // Clean up the page table...
+    let pml4 = unsafe { &mut *(proc.table_addr as *mut PageTable) };
+    let mut mapper = unsafe { MappedPageTable::new(pml4, IdentityPageTableMapper) };
+    unsafe { mapper.clean_up(&mut *FRAME_ALLOCATOR.lock()) }
 
     proc.remove();
 

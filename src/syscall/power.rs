@@ -2,7 +2,8 @@
 //!
 //! Registered as syscall 1.
 use crate::{
-    acpi::power::{poweroff, reboot}, scheduler::{DRIVER_QUEUE, NORMAL_QUEUE}, syscall::ReturnType,
+    acpi::power::{poweroff, reboot},
+    scheduler::{DRIVER_QUEUE, NORMAL_QUEUE},
 };
 
 /// The power actions.
@@ -28,7 +29,7 @@ impl PowerActions {
 }
 
 /// The power action syscall entry.
-pub extern "C" fn power(power_action: u64, _: u64, _: u64, _: u64, _: u64) -> ReturnType {
+pub extern "C" fn power(power_action: u64, _: u64, _: u64, _: u64, _: u64) -> i64 {
     unsafe { core::arch::asm!("cli") } // Avoid scheduler switch tasks
     let action = PowerActions::from_u64(power_action);
 

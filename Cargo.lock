@@ -81,12 +81,15 @@ name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
+dependencies = [
+ "bytemuck",
+]
 
 [[package]]
 name = "bytemuck"
-version = "1.25.1"
+version = "1.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6aedf8ae72766347502cf3cb4f41cf5e9cc37d28bee90f1fdaaae15f9cf9424"
+checksum = "95832e849adfb21180ccb6826a99da14e5d266ae5c2e668e1602cf234f153797"
 dependencies = [
  "bytemuck_derive",
 ]
@@ -176,7 +179,7 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62c5e513feed5c62a4056022b3bd1588f6f96eb61c6583604c1d42dba31d780d"
 dependencies = [
- "bitflags 2.13.0",
+ "bitflags 2.13.1",
  "bytemuck",
  "chrono",
  "hadris-common",
@@ -317,9 +320,13 @@ checksum = "0a94731b2b37ec2ebc0687e0b4f70ab67e1bd1a36c13c18ae90c2863c908ad3e"
 
 [[package]]
 name = "proka-exec"
-version = "0.4.3"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9e6ec7c1b5f6321d8890b0052eb978a964a23538a35a3e0a0272f8f84eeb11b"
+checksum = "5a11a6c491490ec5afbecc00a7133a5db4165e972e568a50debb13e6cd3db48d"
+dependencies = [
+ "bitflags 2.13.1",
+ "bytemuck",
+]
 
 [[package]]
 name = "proka-kernel"

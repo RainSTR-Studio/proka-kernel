@@ -36,8 +36,40 @@ pub static AMLINT: LazyLock<Interpreter<AcpiHandler>> = LazyLock::new(|| {
 #[derive(Debug, Clone, Copy)]
 pub struct AcpiHandler;
 
-// Implementations
-// TODO: Implement more method
+// Common implementation
+impl AcpiHandler {
+    /// Read PCI data.
+    pub fn read_pci(&self, address: acpi::PciAddress, offset: u16) -> u32 {
+        // Check is this PCIe...
+        if *IS_PCIE.get().unwrap() {
+            // Here we'd like to use PCIe method
+            // To read this, we need to get the config access...
+            let access = get_access(address.segment()).expect("No! This segment not exist!");
+            unsafe { access.read(address, offset) }
+        } else {
+            // We have to use PCI.
+            let access = PciCfgAccess;
+            unsafe { access.read(address, offset) }
+        }
+    }
+
+    // Write PCI data
+    pub fn write_pci(&self, address: acpi::PciAddress, offset: u16, value: u32) {
+        // Check is this PCIe...
+        if *IS_PCIE.get().unwrap() {
+            // Here we'd like to use PCIe method
+            // To write this, we need to get the config access...
+            let access = get_access(address.segment()).expect("No! This segment not exist!");
+            unsafe { access.write(address, offset, value) };
+        } else {
+            // We have to use PCI.
+            let access = PciCfgAccess;
+            unsafe { access.write(address, offset, value) };
+        }
+    }
+}
+
+// Implementations of [`Handler`] trait
 impl Handler for AcpiHandler {
     unsafe fn map_physical_region<T>(
         &self,
@@ -91,49 +123,16 @@ impl Handler for AcpiHandler {
         unsafe { Port::new(port).read() }
     }
 
+    fn read_pci_u8(&self, address: acpi::PciAddress, offset: u16) -> u8 {
+        self.read_pci(address, offset) as u8
+    }
+
     fn read_pci_u16(&self, address: acpi::PciAddress, offset: u16) -> u16 {
-        // Check is this PCIe...
-        if *IS_PCIE.get().unwrap() {
-            // Here we'd like to use PCIe method
-            // To read this, we need to get the config access...
-            let access = get_access(address.segment()).expect("No! This segment not exist!");
-            let value = unsafe { access.read(address, offset) };
-            value as u16
-        } else {
-            // We have to use PCI.
-            let access = PciCfgAccess;
-            unsafe { access.read(address, offset) as u16 }
-        }
+        self.read_pci(address, offset) as u16
     }
 
     fn read_pci_u32(&self, address: acpi::PciAddress, offset: u16) -> u32 {
-        // Check is this PCIe...
-        if *IS_PCIE.get().unwrap() {
-            // Here we'd like to use PCIe method
-            // To read this, we need to get the config access...
-            let access = get_access(address.segment()).expect("No! This segment not exist!");
-            let value = unsafe { access.read(address, offset) };
-            value
-        } else {
-            // We have to use PCI.
-            let access = PciCfgAccess;
-            unsafe { access.read(address, offset) }
-        }
-    }
-
-    fn read_pci_u8(&self, address: acpi::PciAddress, offset: u16) -> u8 {
-        // Check is this PCIe...
-        if *IS_PCIE.get().unwrap() {
-            // Here we'd like to use PCIe method
-            // To read this, we need to get the config access...
-            let access = get_access(address.segment()).expect("No! This segment not exist!");
-            let value = unsafe { access.read(address, offset) };
-            value as u8
-        } else {
-            // We have to use PCI.
-            let access = PciCfgAccess;
-            unsafe { access.read(address, offset) as u8 }
-        }
+        self.read_pci(address, offset)
     }
 
     fn read_u8(&self, address: usize) -> u8 {
@@ -199,45 +198,15 @@ impl Handler for AcpiHandler {
     }
 
     fn write_pci_u32(&self, address: acpi::PciAddress, offset: u16, value: u32) {
-        // Check is this PCIe...
-        if *IS_PCIE.get().unwrap() {
-            // Here we'd like to use PCIe method
-            // To write this, we need to get the config access...
-            let access = get_access(address.segment()).expect("No! This segment not exist!");
-            unsafe { access.write(address, offset, value) };
-        } else {
-            // We have to use PCI.
-            let access = PciCfgAccess;
-            unsafe { access.write(address, offset, value) };
-        }
+        self.write_pci(address, offset, value)
     }
 
     fn write_pci_u16(&self, address: acpi::PciAddress, offset: u16, value: u16) {
-        // Check is this PCIe...
-        if *IS_PCIE.get().unwrap() {
-            // Here we'd like to use PCIe method
-            // To write this, we need to get the config access...
-            let access = get_access(address.segment()).expect("No! This segment not exist!");
-            unsafe { access.write(address, offset, value as u32) };
-        } else {
-            // We have to use PCI.
-            let access = PciCfgAccess;
-            unsafe { access.write(address, offset, value as u32) };
-        }
+        self.write_pci(address, offset, value as u32)
     }
 
     fn write_pci_u8(&self, address: acpi::PciAddress, offset: u16, value: u8) {
-        // Check is this PCIe...
-        if *IS_PCIE.get().unwrap() {
-            // Here we'd like to use PCIe method
-            // To write this, we need to get the config access...
-            let access = get_access(address.segment()).expect("No! This segment not exist!");
-            unsafe { access.write(address, offset, value as u32) };
-        } else {
-            // We have to use PCI.
-            let access = PciCfgAccess;
-            unsafe { access.write(address, offset, value as u32) };
-        }
+        self.write_pci(address, offset, value as u32)
     }
 
     fn stall(&self, _microseconds: u64) {}

@@ -119,10 +119,13 @@ pub extern "x86-interrupt" fn pagefault(
     stack_frame: InterruptStackFrame,
     error_code: PageFaultErrorCode,
 ) {
+    let pml4: u64;
     unsafe {
         asm!(
+            "mov rdx, cr3",
             "mov rax, 0x100000",
             "mov cr3, rax",
+            out("rdx") pml4,
             options(nomem, nostack, preserves_flags)
         )
     }
@@ -133,8 +136,8 @@ pub extern "x86-interrupt" fn pagefault(
     };
 
     println!(
-        "\x1b[31m[ERROR] EXCEPTION: PAGE FAULT at {:#x}\nError Code: {:?}\nFrame: {:#?}\x1b[0m",
-        fault_address, error_code, stack_frame
+        "\x1b[31m[ERROR] EXCEPTION: PAGE FAULT in table 0x{:x} at {:#x}\nError Code: {:?}\nFrame: {:#?}\x1b[0m",
+        pml4, fault_address, error_code, stack_frame
     );
     // TODO: Exception recovery logic
     hlt_loop()

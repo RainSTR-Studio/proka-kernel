@@ -1,9 +1,6 @@
 //! The scheduler.
 extern crate alloc;
-use crate::{
-    process::{Context, DRIVER_PROCESS, NORMAL_PROCESS},
-    serial_println,
-};
+use crate::process::{Context, DRIVER_PROCESS, NORMAL_PROCESS};
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use spin::Mutex;
@@ -16,12 +13,13 @@ pub static NORMAL_QUEUE: Mutex<Vec<usize>> = Mutex::new(Vec::new());
 pub static DRIVER_QUEUE: Mutex<Vec<usize>> = Mutex::new(Vec::new());
 
 /// Assign is it driver running or normal process.
-pub static IS_DRIVER: AtomicBool = AtomicBool::new(true);
+pub static IS_DRIVER: AtomicBool = AtomicBool::new(false);
 
 // Contains the current PID/DID.
 pub static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
 
 /// The task switcher
+#[unsafe(no_mangle)]
 pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
     // First, we should save the stack info before switching stack...
     let rbp_cur: u64;
@@ -29,10 +27,10 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
     unsafe {
         core::arch::asm!(
             "mov {cr3}, cr3",
-            "mov rax, 0x100000", // Fixed addr, safe
-            "mov cr3, rax",
+            "mov cr3, {krnl_pml4}", // Fixed addr, safe
             "mfence",
             "mov {rbp}, rbp",
+            krnl_pml4 = in(reg) 0x100000u64,
             cr3 = out(reg) cr3,
             rbp = out(reg) rbp_cur,
         );
@@ -64,11 +62,11 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         // Check: Is next proc area queue empty
         if !normal_empty {
             IS_DRIVER.store(false, Ordering::Relaxed);
-            serial_println!("Switch to driver");
         }
 
         // So let's save its RIP and RSP
-        let mut guard = DRIVER_PROCESS.write();
+        // Because of this, we need to use opposite types...
+        let mut guard = NORMAL_PROCESS.write();
         let proc = &mut guard.process[current_id];
 
         // Check: Is driver empty
@@ -123,8 +121,12 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             proc.context.rflags = rflags;
             proc.context.cs = cs;
             proc.context.ss = ss;
+            proc.current_table = cr3;
         }
 
+        for _ in 0..0x100000 {
+            core::hint::spin_loop();
+        }
         drop(guard);
         to_driver()
     } else {
@@ -135,7 +137,7 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         }
 
         // Do the save step as above
-        let mut guard = NORMAL_PROCESS.write();
+        let mut guard = DRIVER_PROCESS.write();
         let proc = &mut guard.process[current_id];
 
         // Check: Is normal list empty
@@ -184,9 +186,11 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             proc.context.rflags = rflags;
             proc.context.cs = cs;
             proc.context.ss = ss;
-            proc.current_table = cr3;
         }
 
+        for _ in 0..0x100000 {
+            core::hint::spin_loop();
+        }
         drop(guard);
         to_normal()
     };

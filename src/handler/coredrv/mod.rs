@@ -1,8 +1,8 @@
 //! The coredrv handler.
 mod drvtype;
+use crate::process::DRIVER_PROCESS;
 pub use drvtype::*;
 use x86_64::structures::idt::InterruptStackFrame;
-use crate::process::DRIVER_PROCESS;
 
 /// The call_num enums of coredrv.
 #[repr(u64)]
@@ -42,6 +42,7 @@ pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
             out("rax") call_num,
             out("rdi") arg1,
             out("rsi") arg2,
+            out("r15") _,
         );
     }
 
