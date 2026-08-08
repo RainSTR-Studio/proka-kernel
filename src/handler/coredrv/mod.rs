@@ -57,6 +57,7 @@ pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
     {
         id as u16 // id is always below 16384
     } else {
+        unsafe { core::arch::asm!("mov cr3, {}", in(reg) pml4) } // Restore the original table
         return;
     };
 
@@ -68,4 +69,6 @@ pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
         // Invalid type
         Callnum::Invalid => (),
     }
+
+    unsafe { core::arch::asm!("mov cr3, {}", in(reg) pml4) } // Restore the original table
 }

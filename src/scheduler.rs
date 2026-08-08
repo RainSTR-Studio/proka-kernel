@@ -2,7 +2,7 @@
 extern crate alloc;
 use crate::process::{Context, DRIVER_PROCESS, NORMAL_PROCESS};
 use alloc::vec::Vec;
-use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use core::{mem::offset_of, sync::atomic::{AtomicBool, AtomicUsize, Ordering}};
 use spin::Mutex;
 use x86_64::structures::idt::InterruptStackFrame;
 
@@ -101,21 +101,21 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         // Before we load it, the RBP has changed, so here
         // we just use offset to get it...
         unsafe {
-            proc.context.rbp = *stack_base.offset(0); // 0
-            proc.context.r15 = *stack_base.offset(-1); // -8
-            proc.context.r14 = *stack_base.offset(-2); // -16
-            proc.context.r13 = *stack_base.offset(-3); // -24
-            proc.context.r12 = *stack_base.offset(-4); // -32
-            proc.context.r11 = *stack_base.offset(-5); // -40
-            proc.context.r10 = *stack_base.offset(-6); // -48
-            proc.context.r9 = *stack_base.offset(-7); // -56
-            proc.context.r8 = *stack_base.offset(-8); // -64
-            proc.context.rdi = *stack_base.offset(-9); // -72
-            proc.context.rsi = *stack_base.offset(-10); // -80
-            proc.context.rdx = *stack_base.offset(-11); // -88
-            proc.context.rcx = *stack_base.offset(-12); // -96
-            proc.context.rbx = *stack_base.offset(-13); // -104
-            proc.context.rax = *stack_base.offset(-14); // -112
+            proc.context.rbp = stack_base.offset(0).read_volatile(); // 0
+            proc.context.r15 = stack_base.offset(-1).read_volatile(); // -8
+            proc.context.r14 = stack_base.offset(-2).read_volatile(); // -16
+            proc.context.r13 = stack_base.offset(-3).read_volatile(); // -24
+            proc.context.r12 = stack_base.offset(-4).read_volatile(); // -32
+            proc.context.r11 = stack_base.offset(-5).read_volatile(); // -40
+            proc.context.r10 = stack_base.offset(-6).read_volatile(); // -48
+            proc.context.r9 = stack_base.offset(-7).read_volatile(); // -56
+            proc.context.r8 = stack_base.offset(-8).read_volatile(); // -64
+            proc.context.rdi = stack_base.offset(-9).read_volatile(); // -72
+            proc.context.rsi = stack_base.offset(-10).read_volatile(); // -80
+            proc.context.rdx = stack_base.offset(-11).read_volatile(); // -88
+            proc.context.rcx = stack_base.offset(-12).read_volatile(); // -96
+            proc.context.rbx = stack_base.offset(-13).read_volatile(); // -104
+            proc.context.rax = stack_base.offset(-14).read_volatile(); // -112
             proc.context.rip = rip;
             proc.context.rsp = rsp;
             proc.context.rflags = rflags;
@@ -124,9 +124,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             proc.current_table = cr3;
         }
 
-        for _ in 0..0x100000 {
-            core::hint::spin_loop();
-        }
         drop(guard);
         to_driver()
     } else {
@@ -166,21 +163,21 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
 
         // Do the same here...
         unsafe {
-            proc.context.rbp = *stack_base.offset(0); // 0
-            proc.context.r15 = *stack_base.offset(-1); // -8
-            proc.context.r14 = *stack_base.offset(-2); // -16
-            proc.context.r13 = *stack_base.offset(-3); // -24
-            proc.context.r12 = *stack_base.offset(-4); // -32
-            proc.context.r11 = *stack_base.offset(-5); // -40
-            proc.context.r10 = *stack_base.offset(-6); // -48
-            proc.context.r9 = *stack_base.offset(-7); // -56
-            proc.context.r8 = *stack_base.offset(-8); // -64
-            proc.context.rdi = *stack_base.offset(-9); // -72
-            proc.context.rsi = *stack_base.offset(-10); // -80
-            proc.context.rdx = *stack_base.offset(-11); // -88
-            proc.context.rcx = *stack_base.offset(-12); // -96
-            proc.context.rbx = *stack_base.offset(-13); // -104
-            proc.context.rax = *stack_base.offset(-14); // -112
+            proc.context.rbp = stack_base.offset(0).read_volatile(); // 0
+            proc.context.r15 = stack_base.offset(-1).read_volatile(); // -8
+            proc.context.r14 = stack_base.offset(-2).read_volatile(); // -16
+            proc.context.r13 = stack_base.offset(-3).read_volatile(); // -24
+            proc.context.r12 = stack_base.offset(-4).read_volatile(); // -32
+            proc.context.r11 = stack_base.offset(-5).read_volatile(); // -40
+            proc.context.r10 = stack_base.offset(-6).read_volatile(); // -48
+            proc.context.r9 = stack_base.offset(-7).read_volatile(); // -56
+            proc.context.r8 = stack_base.offset(-8).read_volatile(); // -64
+            proc.context.rdi = stack_base.offset(-9).read_volatile(); // -72
+            proc.context.rsi = stack_base.offset(-10).read_volatile(); // -80
+            proc.context.rdx = stack_base.offset(-11).read_volatile(); // -88
+            proc.context.rcx = stack_base.offset(-12).read_volatile(); // -96
+            proc.context.rbx = stack_base.offset(-13).read_volatile(); // -104
+            proc.context.rax = stack_base.offset(-14).read_volatile(); // -112
             proc.context.rip = rip;
             proc.context.rsp = rsp;
             proc.context.rflags = rflags;
@@ -188,9 +185,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             proc.context.ss = ss;
         }
 
-        for _ in 0..0x100000 {
-            core::hint::spin_loop();
-        }
         drop(guard);
         to_normal()
     };
@@ -202,121 +196,60 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
         return;
     };
 
-    // Copy all register values from tuple (Context, cr3)
-    let rax = context.0.rax;
-    let rcx = context.0.rcx;
-    let rdx = context.0.rdx;
-    let rsi = context.0.rsi;
-    let rdi = context.0.rdi;
-    let r8 = context.0.r8;
-    let r9 = context.0.r9;
-    let r10 = context.0.r10;
-    let r11 = context.0.r11;
-    let rbx = context.0.rbx;
-    let r12 = context.0.r12;
-    let r13 = context.0.r13;
-    let r14 = context.0.r14;
-    let r15 = context.0.r15;
-    let rip = context.0.rip;
-    let cs = context.0.cs;
-    let rflags = context.0.rflags;
-    let rsp = context.0.rsp;
-    let rbp = context.0.rbp;
-    let ss = context.0.ss;
-    let cr3 = context.1;
-
     unsafe {
-        // Push return stack
         core::arch::asm!(
-            "push {ss}",
-            "push {rsp}",
-            "push {rflags}",
-            "push {cs}",
-            "push {rip}",
-            ss = in(reg) ss,
-            rsp = in(reg) rsp,
-            rflags = in(reg) rflags,
-            cs = in(reg) cs,
-            rip = in(reg) rip,
-        );
-
-        // Push callee-saved group 1
-        core::arch::asm!(
-            "push {rbx}",
-            "push {r12}",
-            "push {r13}",
-            "push {r14}",
-            rbx = in(reg) rbx,
-            r12 = in(reg) r12,
-            r13 = in(reg) r13,
-            r14 = in(reg) r14,
-        );
-
-        // Push callee-saved group 2
-        core::arch::asm!(
-            "push {r15}",
-            "push {rax}",
-            r15 = in(reg) r15,
-            rax = in(reg) rax,
-        );
-
-        // Push scratch group 1
-        core::arch::asm!(
-            "push {rcx}",
-            "push {rdx}",
-            "push {rsi}",
-            rcx = in(reg) rcx,
-            rdx = in(reg) rdx,
-            rsi = in(reg) rsi,
-        );
-
-        // Push scratch group 2
-        core::arch::asm!(
-            "push {rdi}",
-            "push {r8}",
-            "push {r9}",
-            "push {r10}",
-            rdi = in(reg) rdi,
-            r8 = in(reg) r8,
-            r9 = in(reg) r9,
-            r10 = in(reg) r10,
-        );
-
-        // Push scratch group 3
-        core::arch::asm!(
-            "push {r11}",
-            "push {rbp}",
-            r11 = in(reg) r11,
-            rbp = in(reg) rbp,
-        );
-
-        // Emit EOI
-        crate::apic::eoi();
-
-        // Pop all regs in one block
-        core::arch::asm!(
-            "mov rax, {cr3}",
-            "mov cr3, rax",
+            // Push return stack
+            "push qword ptr [rdi + {off_ss}]",
+            "push qword ptr [rdi + {off_rsp}]",
+            "push qword ptr [rdi + {off_rflags}]",
+            "push qword ptr [rdi + {off_cs}]",
+            "push qword ptr [rdi + {off_rip}]",
+            // Switch table
+            "mov cr3, rax",     // Was passed by using `in("rax") context.1`
             "mfence",
-            "pop rbp",
-            "pop r11",
-            "pop r10",
-            "pop r9",
-            "pop r8",
-            "pop rdi",
-            "pop rsi",
-            "pop rdx",
-            "pop rcx",
-            "pop rax",
-            "pop r15",
-            "pop r14",
-            "pop r13",
-            "pop r12",
-            "pop rbx",
+            // Restore all registers
+            "mov rax, qword ptr [rdi + {off_rax}]",
+            "mov rbx, qword ptr [rdi + {off_rbx}]",
+            "mov rcx, qword ptr [rdi + {off_rcx}]",
+            "mov rdx, qword ptr [rdi + {off_rdx}]",
+            "mov rsi, qword ptr [rdi + {off_rsi}]",
+            "mov rbp, qword ptr [rdi + {off_rbp}]",
+            "mov r8, qword ptr [rdi + {off_r8}]",
+            "mov r9, qword ptr [rdi + {off_r9}]",
+            "mov r10, qword ptr [rdi + {off_r10}]",
+            "mov r11, qword ptr [rdi + {off_r11}]",
+            "mov r12, qword ptr [rdi + {off_r12}]",
+            "mov r13, qword ptr [rdi + {off_r13}]",
+            "mov r14, qword ptr [rdi + {off_r14}]",
+            "mov r15, qword ptr [rdi + {off_r15}]",
+            "mov rdi, qword ptr [rdi + {off_rdi}]",
             "iretq",
-            cr3 = in(reg) cr3,
-            options(noreturn)
+
+            off_ss = const offset_of!(Context, ss),
+            off_rsp = const offset_of!(Context, rsp),
+            off_rflags = const offset_of!(Context, rflags),
+            off_cs = const offset_of!(Context, cs),
+            off_rip = const offset_of!(Context, rip),
+            off_rax = const offset_of!(Context, rax),
+            off_rbx = const offset_of!(Context, rbx),
+            off_rcx = const offset_of!(Context, rcx),
+            off_rdx = const offset_of!(Context, rdx),
+            off_rsi = const offset_of!(Context, rsi),
+            off_rbp = const offset_of!(Context, rbp),
+            off_r8 = const offset_of!(Context, r8),
+            off_r9 = const offset_of!(Context, r9),
+            off_r10 = const offset_of!(Context, r10),
+            off_r11 = const offset_of!(Context, r11),
+            off_r12 = const offset_of!(Context, r12),
+            off_r13 = const offset_of!(Context, r13),
+            off_r14 = const offset_of!(Context, r14),
+            off_r15 = const offset_of!(Context, r15),
+            off_rdi = const offset_of!(Context, rdi),
+
+            in("rdi") &context.0,
+            in("rax") context.1,
         );
+
     }
 }
 
