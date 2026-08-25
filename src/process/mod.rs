@@ -319,7 +319,8 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
 
 /// Create a normal process.
 fn create_normal(frame: u64, priority: u8) -> Result<(), Error> {
-    let process = self::normal::NormalProcess::create(frame, priority)?;
+    // TODO: `proka-exec` support stack size
+    let process = self::normal::NormalProcess::create(frame, priority, 0x100000)?;
 
     // Check which process is usable
     let mut table = NORMAL_PROCESS.write();
@@ -341,7 +342,8 @@ fn create_normal(frame: u64, priority: u8) -> Result<(), Error> {
 
 /// Create a driver process.
 fn create_driver(frame: u64) -> Result<(), Error> {
-    let process = self::driver::DriverProcess::create(frame)?;
+    // TODO: `proka-exec` support stack size
+    let process = self::driver::DriverProcess::create(frame, 0x100000)?;
 
     // Check which process is usable
     let mut table = DRIVER_PROCESS.write();

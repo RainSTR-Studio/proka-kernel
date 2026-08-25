@@ -47,6 +47,15 @@ pub struct NormalProcess {
     /// The page table which is currently using.
     pub current_table: u64,
 
+    /// The stack bottom address.
+    pub stack_bottom: u64,
+
+    /// The heap bottom address.
+    pub heap_bottom: u64,
+
+    /// The heap top address.
+    pub heap_top: u64,
+
     /// The process's page table.
     pub table_addr: u64,
 }
@@ -54,13 +63,16 @@ pub struct NormalProcess {
 impl NormalProcess {
     /// Create a process.
     #[inline]
-    pub fn create(frame: u64, priority: u8) -> Result<Self, Error> {
+    pub fn create(frame: u64, priority: u8, stack_size: u64) -> Result<Self, Error> {
         Ok(Self {
             present: true,
             status: Status::Ready,
             priority,
             context: Context::normal(),
             current_table: frame,
+            stack_bottom: Context::normal().rsp - stack_size,
+            heap_top: 0x180000000,
+            heap_bottom: 0x180000000,
             table_addr: frame,
         })
     }

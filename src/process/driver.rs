@@ -41,6 +41,15 @@ pub struct DriverProcess {
     /// The process context.
     pub context: Context,
 
+    /// The bottom of the stack.
+    pub stack_bottom: u64,
+
+    /// Current heap bottom.
+    pub heap_bottom: u64,
+
+    /// Current heap top.
+    pub heap_top: u64,
+
     /// The process's page table.
     pub table_addr: u64,
 }
@@ -48,11 +57,14 @@ pub struct DriverProcess {
 impl DriverProcess {
     /// Create a process.
     #[inline]
-    pub fn create(frame: u64) -> Result<Self, Error> {
+    pub fn create(frame: u64, stack_size: u64) -> Result<Self, Error> {
         Ok(Self {
             present: true,
             status: Status::Ready,
             context: Context::driver(),
+            stack_bottom: Context::driver().rsp - stack_size,
+            heap_top: 0x180000000,
+            heap_bottom: 0x180000000,
             table_addr: frame,
         })
     }
