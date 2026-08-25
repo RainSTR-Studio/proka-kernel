@@ -26,6 +26,11 @@ pub extern "C" fn allocate(size: u64, _: u64, _: u64, _: u64, _: u64) -> i64 {
         let user_table: u64;
         unsafe { core::arch::asm!("nop", out("r15") user_table) }
 
+        // Check: Is specified size larger than u32::MAX or zeroed
+        if size > u32::MAX.into() || size == 0 {
+            return -1
+        }
+
         // Query the page table which is using by one user process.
         let mut binding = NORMAL_PROCESS.write();
         let Some(process) = binding
@@ -33,7 +38,7 @@ pub extern "C" fn allocate(size: u64, _: u64, _: u64, _: u64, _: u64) -> i64 {
             .iter_mut()
             .find(|item| item.table_addr == user_table)
         else {
-            return -1;
+            return -2;
         };
 
         // And create a [`MappedPageTable`] instance
@@ -45,7 +50,7 @@ pub extern "C" fn allocate(size: u64, _: u64, _: u64, _: u64, _: u64) -> i64 {
         // Calc the pages we needed and pre-allocate them.
         let pages = size.div_ceil(Size4KiB::SIZE);
         let Some(base_frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(pages as usize) else {
-            return -2;
+            return -3;
         };
 
         // Map them
@@ -66,7 +71,8 @@ pub extern "C" fn allocate(size: u64, _: u64, _: u64, _: u64, _: u64) -> i64 {
         }
 
         // Increase the heap top and return the size which was allocated.
-        process.heap_top += pages * Size4KiB::SIZE;
-        size as i64
+        let allocated_size = pages * Size4KiB::SIZE;
+        process.heap_top += allocated_size;
+        allocated_size as i64
     })
 }
