@@ -1,6 +1,6 @@
 //! The syscall module.
 extern crate alloc;
-pub mod allocate;
+pub mod memory;
 pub mod power;
 pub mod process;
 use crate::{handler::syscall_entry, tables::gdt::GDT};
@@ -79,7 +79,7 @@ pub fn init() {
         sysnum: 2,
         page_table: 0x100000,
         stack: 0xffff8000005ffff0,
-        entry: allocate::allocate,
+        entry: memory::memory,
     });
 
     // TODO: Add more types of syscall (0-16)

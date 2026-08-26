@@ -11,6 +11,7 @@ glob = "0.3.0"
 acpi = { git = "https://github.com/rust-osdev/acpi.git", branch = "main" }
 hadris-fat = { version = "1.2.0", default-features = false, features = ["alloc", "lfn", "read", "sync"] }
 log = "0.4.29"
+num_enum = { version = "0.7.6", default-features = false }
 pci_types = "0.10.1"
 proka-bootloader = "0.5.4"
 proka-exec = "0.6.1"

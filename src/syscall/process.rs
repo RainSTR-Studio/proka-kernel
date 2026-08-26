@@ -1,28 +1,18 @@
 //! The task manager in syscall.
 //!
 //! Registered as syscall 0.
-
+use num_enum::TryFromPrimitive;
 use crate::process::ProcType;
 
 /// The process syscall request type.
+#[derive(Debug, PartialEq, Eq, TryFromPrimitive)]
+#[repr(u64)]
 pub enum ProcessSyscallRequest {
     /// Request to kill tasks.
     KillTasks,
 
     /// Request to create tasks.
     CreateTasks,
-}
-
-impl ProcessSyscallRequest {
-    /// Convert to this type from u64.
-    #[inline]
-    pub fn from_u64(request: u64) -> Self {
-        match request {
-            0 => Self::KillTasks,
-            1 => Self::CreateTasks,
-            _ => panic!("Invalid process syscall request: {}", request),
-        }
-    }
 }
 
 /// The entry point of process syscall.
@@ -44,14 +34,16 @@ pub extern "C" fn process(
 
     // Check: Is `None` was returned?
     if kernel_buf.is_none() {
-        return -1;
+        return -2;
     }
 
     // So we can safely unwrap it.
     let kernel_buf = kernel_buf.unwrap();
 
     // Parse the request type.
-    let request = ProcessSyscallRequest::from_u64(request);
+    let Ok(request) = ProcessSyscallRequest::try_from(request) else {
+        return -3;
+    };
 
     // Check the request type.
     match request {
@@ -61,11 +53,11 @@ pub extern "C" fn process(
             let typ = match proctyp {
                 0 => ProcType::Normal,
                 1 => ProcType::Driver,
-                _ => return -1,
+                _ => return -4,
             };
 
             if crate::process::remove(typ, id_or_priority as usize).is_err() {
-                return -1;
+                return -5;
             };
         }
         ProcessSyscallRequest::CreateTasks => {
@@ -73,7 +65,7 @@ pub extern "C" fn process(
             // If `id_or_priority` is larger than u8::MAX, it will cause truncation.
             unsafe {
                 if crate::process::create(&kernel_buf, id_or_priority as u8).is_err() {
-                    return -1;
+                    return -6;
                 }
             };
         }
