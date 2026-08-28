@@ -1,8 +1,8 @@
 //! The task manager in syscall.
 //!
 //! Registered as syscall 0.
-use num_enum::TryFromPrimitive;
 use crate::process::ProcType;
+use num_enum::TryFromPrimitive;
 
 /// The process syscall request type.
 #[derive(Debug, PartialEq, Eq, TryFromPrimitive)]

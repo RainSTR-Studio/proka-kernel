@@ -1,11 +1,11 @@
 //! The power action in syscall.
 //!
 //! Registered as syscall 1.
-use num_enum::TryFromPrimitive;
 use crate::{
     acpi::power::{poweroff, reboot},
     scheduler::{DRIVER_QUEUE, NORMAL_QUEUE},
 };
+use num_enum::TryFromPrimitive;
 
 /// The power actions.
 #[derive(Debug, PartialEq, Eq, TryFromPrimitive)]
