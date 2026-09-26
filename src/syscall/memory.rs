@@ -156,8 +156,7 @@ fn deallocate(addr: u64) -> i64 {
             .heap_range
             .iter()
             .enumerate()
-            .filter(|item| item.1.contains(&addr))
-            .next()
+            .find(|item| item.1.contains(&addr))
         else {
             return -17;
         };

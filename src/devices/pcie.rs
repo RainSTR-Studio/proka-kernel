@@ -58,6 +58,8 @@ impl ConfigRegionAccess for PcieCfgAccess {
     }
 }
 
+// XXX: Use 2 unit result can make code much more readable
+#[allow(clippy::result_unit_err)]
 pub fn init() -> Result<(), ()> {
     // First of all, we need to find the PCIe's base address
     // So, we shall read the ACPI table (MCFG).
