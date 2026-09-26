@@ -5,7 +5,6 @@ use crate::{
     process::NORMAL_PROCESS,
 };
 use alloc::vec::Vec;
-use core::ops::Add;
 use num_enum::TryFromPrimitive;
 use x86_64::{
     VirtAddr,
@@ -88,20 +87,34 @@ fn allocate(size: u64) -> i64 {
 
         // Map them
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+        let mut allocated_pages = Vec::new();
         for i in 0..pages {
-            let Some(base_frame) = FRAME_ALLOCATOR.lock().allocate_frame() else {
+            let Some(phys) = FRAME_ALLOCATOR.lock().allocate_frame() else {
+                // Fallback: dealloc mapped page and return
+                for &page in &allocated_pages {
+                    if let Ok((frame, flusher)) = mapper.unmap(page) {
+                        FRAME_ALLOCATOR.lock().deallocate_frame(frame);
+                        flusher.ignore();
+                    }
+                }
                 return -18;
             };
             let virt =
                 Page::<Size4KiB>::containing_address(VirtAddr::new(heap_top + i * Size4KiB::SIZE));
-            let phys = base_frame.add(i);
             unsafe {
                 let Ok(flusher) = mapper.map_to(virt, phys, flags, &mut *FRAME_ALLOCATOR.lock())
                 else {
-                    let allocated_size = virt.start_address().as_u64() - heap_top;
-                    return allocated_size as i64;
+                    // Fallback: dealloc mapped memory and return error
+                    for &page in &allocated_pages {
+                        if let Ok((frame, flusher)) = mapper.unmap(page) {
+                            FRAME_ALLOCATOR.lock().deallocate_frame(frame);
+                            flusher.ignore();
+                        }
+                    }
+                    return -18;
                 };
                 flusher.ignore();
+                allocated_pages.push(virt);
             }
         }
 
@@ -139,19 +152,15 @@ fn deallocate(addr: u64) -> i64 {
         };
 
         // Get the dealloc range which contains the provided address
-        let dealloc_range = process
+        let Some(dealloc_range) = process
             .heap_range
             .iter()
             .filter(|item| item.contains(&addr))
-            .collect::<Vec<_>>();
-
-        // Check: is dealloc range empty or more than 2
-        if dealloc_range.is_empty() || dealloc_range.len() >= 2 {
+            .next()
+            .cloned()
+        else {
             return -17;
-        }
-
-        // SAFETY: Already checked not empty
-        let dealloc_range = dealloc_range[0];
+        };
 
         // Create mapper
         let mut mapper = unsafe {
@@ -162,8 +171,8 @@ fn deallocate(addr: u64) -> i64 {
         let size = dealloc_range.end - dealloc_range.start;
         let pages = size.div_ceil(Size4KiB::SIZE);
         for i in 0..pages {
-            let page =
-                Page::<Size4KiB>::containing_address(VirtAddr::new(addr + i * Size4KiB::SIZE));
+            let va = dealloc_range.start + i * Size4KiB::SIZE;
+            let page = Page::<Size4KiB>::containing_address(VirtAddr::new(va));
             unsafe {
                 let Ok((frame, flusher)) = mapper.unmap(page) else {
                     continue;
