@@ -2,6 +2,7 @@
 extern crate alloc;
 use super::{Context, Error, MAX_PS, Status};
 use alloc::{vec, vec::Vec};
+use core::range::Range;
 use spin::{LazyLock, RwLock};
 
 pub static DRIVER_PROCESS: LazyLock<RwLock<DriverProcessTable>> =
@@ -47,8 +48,8 @@ pub struct DriverProcess {
     /// Current heap bottom.
     pub heap_bottom: u64,
 
-    /// Current heap top.
-    pub heap_top: u64,
+    /// Current allocated heap range.
+    pub heap_range: Vec<Range<u64>>,
 
     /// The process's page table.
     pub table_addr: u64,
@@ -63,7 +64,7 @@ impl DriverProcess {
             status: Status::Ready,
             context: Context::driver(),
             stack_bottom: Context::driver().rsp - stack_size,
-            heap_top: 0x180000000,
+            heap_range: Vec::new(),
             heap_bottom: 0x180000000,
             table_addr: frame,
         })

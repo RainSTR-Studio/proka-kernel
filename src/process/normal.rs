@@ -2,6 +2,7 @@
 extern crate alloc;
 use super::{Context, Error, MAX_PS, Status};
 use alloc::{vec, vec::Vec};
+use core::range::Range;
 use spin::{LazyLock, RwLock};
 
 pub static NORMAL_PROCESS: LazyLock<RwLock<NormalProcessTable>> =
@@ -50,11 +51,11 @@ pub struct NormalProcess {
     /// The stack bottom address.
     pub stack_bottom: u64,
 
+    /// The allocated heap range.
+    pub heap_range: Vec<Range<u64>>,
+
     /// The heap bottom address.
     pub heap_bottom: u64,
-
-    /// The heap top address.
-    pub heap_top: u64,
 
     /// The process's page table.
     pub table_addr: u64,
@@ -71,7 +72,7 @@ impl NormalProcess {
             context: Context::normal(),
             current_table: frame,
             stack_bottom: Context::normal().rsp - stack_size,
-            heap_top: 0x180000000,
+            heap_range: Vec::new(),
             heap_bottom: 0x180000000,
             table_addr: frame,
         })

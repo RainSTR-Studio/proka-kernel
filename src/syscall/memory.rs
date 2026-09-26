@@ -1,15 +1,17 @@
 //! Syscall to allocate memory.
+extern crate alloc;
 use crate::{
     memory::{IdentityPageTableMapper, framealloc::FRAME_ALLOCATOR},
     process::NORMAL_PROCESS,
 };
+use alloc::vec::Vec;
 use core::ops::Add;
 use num_enum::TryFromPrimitive;
 use x86_64::{
     VirtAddr,
     structures::paging::{
-        FrameDeallocator, MappedPageTable, Mapper, Page, PageSize, PageTable, PageTableFlags,
-        Size4KiB,
+        FrameAllocator, FrameDeallocator, MappedPageTable, Mapper, Page, PageSize, PageTable,
+        PageTableFlags, Size4KiB,
     },
 };
 
@@ -32,7 +34,7 @@ pub extern "C" fn memory(typ: u64, size: u64, addr: u64, _: u64, _: u64) -> i64 
 
     match typ {
         MemorySyscallType::Allocate => allocate(size),
-        MemorySyscallType::Deallocate => deallocate(addr, size),
+        MemorySyscallType::Deallocate => deallocate(addr),
     }
 }
 
@@ -67,6 +69,14 @@ fn allocate(size: u64) -> i64 {
             return -17;
         };
 
+        // Get the heap top
+        let heap_top = process
+            .heap_range
+            .iter()
+            .map(|item| item.end)
+            .max()
+            .unwrap_or(0x180000000);
+
         // And create a [`MappedPageTable`] instance
         let mut mapper = unsafe {
             let user_table_wrapped = &mut *(user_table as *mut PageTable);
@@ -75,21 +85,20 @@ fn allocate(size: u64) -> i64 {
 
         // Calc the pages we needed and pre-allocate them.
         let pages = size.div_ceil(Size4KiB::SIZE);
-        let Some(base_frame) = FRAME_ALLOCATOR.lock().allocate_contiguous(pages as usize) else {
-            return -18;
-        };
 
         // Map them
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
         for i in 0..pages {
-            let virt = Page::<Size4KiB>::containing_address(VirtAddr::new(
-                process.heap_top + i * Size4KiB::SIZE,
-            ));
+            let Some(base_frame) = FRAME_ALLOCATOR.lock().allocate_frame() else {
+                return -18;
+            };
+            let virt =
+                Page::<Size4KiB>::containing_address(VirtAddr::new(heap_top + i * Size4KiB::SIZE));
             let phys = base_frame.add(i);
             unsafe {
                 let Ok(flusher) = mapper.map_to(virt, phys, flags, &mut *FRAME_ALLOCATOR.lock())
                 else {
-                    let allocated_size = virt.start_address().as_u64() - process.heap_top;
+                    let allocated_size = virt.start_address().as_u64() - heap_top;
                     return allocated_size as i64;
                 };
                 flusher.ignore();
@@ -97,8 +106,10 @@ fn allocate(size: u64) -> i64 {
         }
 
         // Increase the heap top and return the addr which was allocated.
-        let addr = process.heap_top;
-        process.heap_top += pages * Size4KiB::SIZE;
+        let addr = heap_top;
+        process
+            .heap_range
+            .push((addr..addr + Size4KiB::SIZE * pages).into());
         addr as i64 // SAFETY: address is always low address
     })
 }
@@ -107,12 +118,11 @@ fn allocate(size: u64) -> i64 {
 ///
 /// # Arguments
 ///  - `addr`: The virtual address of this process;
-///  - `size`: The size which you want to deallocate.
 ///
 /// # Returns
 ///  - positive: succeed, 0..i64::MAX, commonly 0
 ///  - negative: error
-fn deallocate(addr: u64, size: u64) -> i64 {
+fn deallocate(addr: u64) -> i64 {
     x86_64::instructions::interrupts::without_interrupts(|| {
         // Get user table
         let user_table: u64;
@@ -128,24 +138,20 @@ fn deallocate(addr: u64, size: u64) -> i64 {
             return -16;
         };
 
-        // Check: Is the size we want to deallocated is larger than (top - bottom)
-        // SAFETY: `heap_top` is always larger than `heap_bottom`.
-        let available_dealloc_size = process.heap_top - process.heap_bottom;
-        if available_dealloc_size < size {
+        // Get the dealloc range which contains the provided address
+        let dealloc_range = process
+            .heap_range
+            .iter()
+            .filter(|item| item.contains(&addr))
+            .collect::<Vec<_>>();
+
+        // Check: is dealloc range empty or more than 2
+        if dealloc_range.is_empty() || dealloc_range.len() >= 2 {
             return -17;
         }
 
-        // Check: Is the deallocated memory range is invalid
-        // First assertion: check `addr`
-        if addr > process.heap_top || addr < process.heap_bottom {
-            return -18;
-        }
-
-        // Second assertion: check is range overflow
-        let range_top = addr + size + 1;
-        if range_top > process.heap_top || range_top < process.heap_bottom {
-            return -19;
-        }
+        // SAFETY: Already checked not empty
+        let dealloc_range = dealloc_range[0];
 
         // Create mapper
         let mut mapper = unsafe {
@@ -153,6 +159,7 @@ fn deallocate(addr: u64, size: u64) -> i64 {
             MappedPageTable::new(wrapped_mapper, IdentityPageTableMapper)
         };
 
+        let size = dealloc_range.end - dealloc_range.start;
         let pages = size.div_ceil(Size4KiB::SIZE);
         for i in 0..pages {
             let page =
@@ -166,8 +173,15 @@ fn deallocate(addr: u64, size: u64) -> i64 {
             };
         }
 
-        // Decrease the heap top and return
-        process.heap_top -= pages * Size4KiB::SIZE;
+        // Remove the dealloc range
+        let Some(idx) = process
+            .heap_range
+            .iter()
+            .position(|seg| seg.start <= dealloc_range.start && dealloc_range.end <= seg.end)
+        else {
+            return -18;
+        };
+        process.heap_range.remove(idx);
         0
     })
 }
