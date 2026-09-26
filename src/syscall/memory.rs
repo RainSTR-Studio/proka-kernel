@@ -93,7 +93,7 @@ fn allocate(size: u64) -> i64 {
                 // Fallback: dealloc mapped page and return
                 for &page in &allocated_pages {
                     if let Ok((frame, flusher)) = mapper.unmap(page) {
-                        FRAME_ALLOCATOR.lock().deallocate_frame(frame);
+                        unsafe { FRAME_ALLOCATOR.lock().deallocate_frame(frame) }
                         flusher.ignore();
                     }
                 }
@@ -152,12 +152,12 @@ fn deallocate(addr: u64) -> i64 {
         };
 
         // Get the dealloc range which contains the provided address
-        let Some(dealloc_range) = process
+        let Some((idx, dealloc_range)) = process
             .heap_range
             .iter()
-            .filter(|item| item.contains(&addr))
+            .enumerate()
+            .filter(|item| item.1.contains(&addr))
             .next()
-            .cloned()
         else {
             return -17;
         };
@@ -183,13 +183,6 @@ fn deallocate(addr: u64) -> i64 {
         }
 
         // Remove the dealloc range
-        let Some(idx) = process
-            .heap_range
-            .iter()
-            .position(|seg| seg.start <= dealloc_range.start && dealloc_range.end <= seg.end)
-        else {
-            return -18;
-        };
         process.heap_range.remove(idx);
         0
     })
