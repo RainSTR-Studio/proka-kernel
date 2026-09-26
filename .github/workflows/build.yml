@@ -16,5 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
+    - name: Build in Debug mode
+      run: make
+
+    - name: Build in Release mode
+      run: PROFILE=release make
