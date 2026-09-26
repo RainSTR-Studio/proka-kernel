@@ -1,10 +1,16 @@
 //! Exception handler.
 //!
 //! Originally by moyanj <me@moyanjdc.top>
+use crate::memory::IdentityPageTableMapper;
+use crate::memory::framealloc::FRAME_ALLOCATOR;
 use crate::println;
+use crate::process::{DRIVER_PROCESS, NORMAL_PROCESS, ProcType};
 use crate::scheduler::{CURRENT_ID, IS_DRIVER};
 use core::arch::asm;
 use core::sync::atomic::Ordering;
+use x86_64::structures::paging::{
+    FrameAllocator, MappedPageTable, Mapper, Page, PageTable, PageTableFlags, Size4KiB,
+};
 use x86_64::{
     VirtAddr,
     registers::control::Cr2,
@@ -114,10 +120,9 @@ pub extern "x86-interrupt" fn double_fault(stack_frame: InterruptStackFrame, err
 }
 
 // #PF handler
-
 pub extern "x86-interrupt" fn pagefault(
-    stack_frame: InterruptStackFrame,
-    error_code: PageFaultErrorCode,
+    _stack_frame: InterruptStackFrame,
+    _error_code: PageFaultErrorCode,
 ) {
     let pml4: u64;
     unsafe {
@@ -135,12 +140,78 @@ pub extern "x86-interrupt" fn pagefault(
         Err(_) => VirtAddr::zero(),
     };
 
-    println!(
-        "\x1b[31m[ERROR] EXCEPTION: PAGE FAULT in table 0x{:x} at {:#x}\nError Code: {:?}\nFrame: {:#?}\x1b[0m",
-        pml4, fault_address, error_code, stack_frame
-    );
-    // TODO: Exception recovery logic
-    hlt_loop()
+    // Time to query the process...
+    if IS_DRIVER.load(Ordering::Relaxed) {
+        let binding = DRIVER_PROCESS.read();
+        let (index, process) = binding
+            .process
+            .iter()
+            .enumerate()
+            .find(|item| pml4 == item.1.table_addr)
+            .expect("Process (driver) in the page table is mismatched...");
+
+        // Check: is the #PF place in stack range?
+        if (process.stack_bottom..0x7ffffffff000).contains(&fault_address.as_u64()) {
+            // We should map the missing place...
+            let mut mapper = unsafe {
+                let table_wrapped = &mut *(pml4 as *mut PageTable);
+                MappedPageTable::new(table_wrapped, IdentityPageTableMapper)
+            };
+
+            // Map 1 4KiB page...
+            let page = Page::<Size4KiB>::containing_address(fault_address);
+            let Some(frame) = FRAME_ALLOCATOR.lock().allocate_frame() else {
+                crate::process::remove(ProcType::Driver, index).unwrap();
+                hlt_loop()
+            };
+            let flags =
+                PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+            unsafe {
+                mapper
+                    .map_to(page, frame, flags, &mut *FRAME_ALLOCATOR.lock())
+                    .expect("Failed to map stack in #PF")
+                    .ignore()
+            }
+        }
+
+        crate::process::remove(ProcType::Driver, index).unwrap();
+        hlt_loop()
+    } else {
+        let binding = NORMAL_PROCESS.read();
+        let (index, process) = binding
+            .process
+            .iter()
+            .enumerate()
+            .find(|item| pml4 == item.1.table_addr || pml4 == item.1.current_table)
+            .expect("Process (normal) om this page table is mismatched...");
+
+        // Check: is #PF in stack range
+        if (process.stack_bottom..0x7ffffffff000).contains(&fault_address.as_u64()) {
+            // Create mapper
+            let mut mapper = unsafe {
+                let table_wrapped = &mut *(pml4 as *mut PageTable);
+                MappedPageTable::new(table_wrapped, IdentityPageTableMapper)
+            };
+
+            // Map 1 4KiB page only...
+            let page = Page::<Size4KiB>::containing_address(fault_address);
+            let Some(frame) = FRAME_ALLOCATOR.lock().allocate_frame() else {
+                crate::process::remove(ProcType::Normal, index).unwrap();
+                hlt_loop()
+            };
+            let flags =
+                PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+            unsafe {
+                mapper
+                    .map_to(page, frame, flags, &mut *FRAME_ALLOCATOR.lock())
+                    .expect("Failed to map stack in #PF")
+                    .ignore()
+            }
+        }
+
+        crate::process::remove(ProcType::Normal, index).unwrap();
+        hlt_loop()
+    }
 }
 
 // Breakpoint handler

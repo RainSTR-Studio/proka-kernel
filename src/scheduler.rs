@@ -2,7 +2,10 @@
 extern crate alloc;
 use crate::process::{Context, DRIVER_PROCESS, NORMAL_PROCESS};
 use alloc::vec::Vec;
-use core::{mem::offset_of, sync::atomic::{AtomicBool, AtomicUsize, Ordering}};
+use core::{
+    mem::offset_of,
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+};
 use spin::Mutex;
 use x86_64::structures::idt::InterruptStackFrame;
 
@@ -249,7 +252,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             in("rdi") &context.0,
             in("rax") context.1,
         );
-
     }
 }
 
