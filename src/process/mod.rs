@@ -324,15 +324,18 @@ fn create_normal(frame: u64, priority: u8) -> Result<(), Error> {
 
     // Check which process is usable
     let mut table = NORMAL_PROCESS.write();
-    let mut pid: usize = 0;
-    for i in 0..MAX_PS {
-        if !table.process[i].present {
-            table.process[i] = process.clone();
-            pid = i;
+    let mut pid = None;
+
+    for (i, entry) in table.process.iter_mut().enumerate() {
+        if !entry.present {
+            *entry = process.clone();
+            pid = Some(i);
             break;
         }
-        continue;
     }
+
+    let pid = pid.unwrap();
+
     debug!("Allocated PID {} for this new normal process", pid);
 
     // Push into queue and return
@@ -347,15 +350,16 @@ fn create_driver(frame: u64) -> Result<(), Error> {
 
     // Check which process is usable
     let mut table = DRIVER_PROCESS.write();
-    let mut did: usize = 0;
-    for i in 0..MAX_PS {
-        if !table.process[i].present {
-            table.process[i] = process.clone();
-            did = i;
+    let mut did = None;
+    for (i, entry) in table.process.iter_mut().enumerate() {
+        if !entry.present {
+            *entry = process.clone();
+            did = Some(i);
             break;
         }
-        continue;
     }
+    let did = did.unwrap();
+
     debug!("Allocated DID {} for this new driver process", did);
 
     // Push into queue and return
