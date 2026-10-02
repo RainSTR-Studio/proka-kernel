@@ -29,10 +29,10 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Clippy check
-        run: make clippy
+        run: ./build.py clippy
 
       - name: Build in Debug mode
-        run: make
+        run: ./build.py
 
       - name: Build in Release mode
-        run: PROFILE=release make
+        run: ./build.py --profile release
