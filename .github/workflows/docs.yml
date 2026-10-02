@@ -30,7 +30,7 @@ jobs:
           echo "$(pwd)/bin" >> $GITHUB_PATH
 
       - name: Build Documentation
-        run: make doc
+        run: ./build.py doc
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
