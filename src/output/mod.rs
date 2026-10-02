@@ -39,7 +39,8 @@ macro_rules! println {
 #[cfg(not(feature = "output"))]
 macro_rules! println {
     () => {
-        $crate::print!("\n")                                      };
+        $crate::print!("\n")
+    };
     ($($arg:tt)*) => {};
 }
 
