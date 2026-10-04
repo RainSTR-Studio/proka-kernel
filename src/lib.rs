@@ -6,7 +6,7 @@
 
 #![no_std]
 #![cfg_attr(test, no_main)]
-#![cfg_attr(not(feature = "output"), allow(unused))]
+#![cfg_attr(not(feature = "output_fb"), allow(unused))]
 #![feature(custom_test_frameworks)]
 #![feature(abi_x86_interrupt)]
 #![test_runner(crate::test::test_runner)]

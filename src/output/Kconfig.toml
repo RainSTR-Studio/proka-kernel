@@ -1,0 +1,15 @@
+title = "Kernel Output Configuration"
+
+[[config]]
+name = "ENABLE_FRAMEBUFFER"
+type = "bool"
+default = true
+desc = "Enables kernel-embedded output system (framebuffer)"
+feature = ["output_fb"]
+
+[[config]]
+name = "ENABLE_SERIAL"
+type = "bool"
+default = true
+desc = "Enables kernel-embedded output system (QEMU serial)"
+feature = ["output_serial"]
