@@ -7,9 +7,3 @@ default = "info"
 desc = "Set kernel log level"
 options = ["trace", "debug", "info", "warn", "error"]
 
-[[config]]
-name = "ENABLE_OUTPUT"
-type = "bool"
-default = true
-desc = "Enables kernel-embedded output system (framebuffer)"
-feature = ["output"]
