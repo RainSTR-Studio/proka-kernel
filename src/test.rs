@@ -149,24 +149,19 @@ pub enum QemuExitCode {
 
 /// The function to quit the QEMU
 pub fn exit_qemu(exit_code: QemuExitCode) {
-    use x86_64::instructions::port::Port;
-
-    unsafe {
-        let mut port = Port::new(0xf4);
-        port.write(exit_code as u32);
-    }
+    proka_kernel_x86_64::cpu::exit_qemu(exit_code as u32);
 }
 
 // The kernel entry, which will start up the test
 #[cfg(test)]
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main() -> ! {
-    crate::tables::gdt::init(); // Initialize GDT
-    crate::tables::idt::init(); // Initialize IDT
+    proka_kernel_x86_64::tables::gdt::init(); // Initialize GDT
+    proka_kernel_x86_64::tables::idt::init(); // Initialize IDT
     crate::memory::init(); // Initialize memory management
-    crate::logger::init(); // Init log system
+    crate::logger::init(proka_kernel::config::LOG_LEVEL); // Init log system
     crate::test_main();
     loop {
-        x86_64::instructions::hlt();
+        proka_kernel_x86_64::cpu::hlt();
     }
 }

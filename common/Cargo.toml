@@ -1,0 +1,17 @@
+[package]
+name = "proka-common"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+log = { workspace = true }
+spin = { workspace = true }
+proka-bootloader = { workspace = true }
+
+# For console compilation only
+x86_64 = { workspace = true }
+
+[features]
+default = []
+output_fb = []
+output_serial = []
