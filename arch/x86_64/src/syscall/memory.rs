@@ -1,9 +1,7 @@
 //! Syscall to allocate memory.
 extern crate alloc;
 use crate::{
-    memory::framealloc::FRAME_ALLOCATOR,
-    memory::IdentityPageTableMapper,
-    process::NORMAL_PROCESS,
+    memory::IdentityPageTableMapper, memory::framealloc::FRAME_ALLOCATOR, process::NORMAL_PROCESS,
 };
 use alloc::vec::Vec;
 use num_enum::TryFromPrimitive;

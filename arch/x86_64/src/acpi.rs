@@ -3,10 +3,10 @@
 // we first need to implement a [`Handler`] trait.
 
 use crate::{
-    memory::framealloc::FRAME_ALLOCATOR,
-    pci::PciCfgAccess,
     devices::{IS_PCIE, pcie::get_access},
     memory::MAPPER,
+    memory::framealloc::FRAME_ALLOCATOR,
+    pci::PciCfgAccess,
 };
 use acpi::{AcpiTables, Handle, Handler, aml::Interpreter, platform::AcpiPlatform};
 use core::ptr::NonNull;

@@ -3,7 +3,6 @@
 //! The x86_64 MSR setup (STAR/LSTAR/SFMASK) is delegated to
 //! `proka-kernel-x86_64::syscall::init_msr`; the generic registration
 //! into `proka-common::syscall::SYSCALL` is done here.
-
 use proka_common::syscall::{SYSCALL, SyscallEntry};
 
 /// Syscall initializator.

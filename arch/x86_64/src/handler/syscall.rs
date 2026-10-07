@@ -1,7 +1,7 @@
 //! The syscall handler.
 extern crate alloc;
-use proka_common::syscall::SYSCALL;
 use core::arch::{asm, naked_asm};
+use proka_common::syscall::SYSCALL;
 
 /// The syscall common entry.
 ///

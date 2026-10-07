@@ -5,10 +5,10 @@ pub mod paging;
 
 extern crate alloc;
 use self::framealloc::FRAME_ALLOCATOR;
-use proka_common::println;
-use alloc::vec::Vec;
 pub use self::paging::{PDPT_HPROC_ADDR, PML4_ADDR};
+use alloc::vec::Vec;
 use proka_bootloader::{get_bootinfo, memory::MemoryType};
+use proka_common::println;
 use spin::{LazyLock, Mutex, Once};
 use x86_64::{
     PhysAddr, VirtAddr,

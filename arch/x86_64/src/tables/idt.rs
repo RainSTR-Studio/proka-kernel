@@ -1,6 +1,6 @@
 //! The IDT table
-use crate::handler::*;
 use crate::coredrv::coredrv;
+use crate::handler::*;
 use crate::scheduler::switch_task;
 use spin::LazyLock;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};

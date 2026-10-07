@@ -7,13 +7,13 @@
 //!  - arg1: The main type of this driver. See [`DrvType`] for more info;
 //!  - arg2: The subtype, which is the pointer of `&str` within 16 bytes length.
 extern crate alloc;
+use crate::memory::framealloc::FRAME_ALLOCATOR;
+use crate::pci::PciCfgAccess;
 use crate::{
     devices::{IS_PCIE, PCILIST, pcie::get_access},
     memory::IdentityPageTableMapper,
     process::DRIVER_PROCESS,
 };
-use crate::memory::framealloc::FRAME_ALLOCATOR;
-use crate::pci::PciCfgAccess;
 use alloc::vec::Vec;
 use pci_types::{
     Bar::{self, Memory32, Memory64},

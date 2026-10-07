@@ -1,11 +1,7 @@
 //! The PCIe module.
 extern crate alloc;
 use super::PCILIST;
-use crate::{
-    acpi::ACPI_PLATFORM,
-    memory::framealloc::FRAME_ALLOCATOR,
-    memory::MAPPER,
-};
+use crate::{acpi::ACPI_PLATFORM, memory::MAPPER, memory::framealloc::FRAME_ALLOCATOR};
 use acpi::sdt::mcfg::Mcfg;
 use pci_types::{ConfigRegionAccess, PciAddress, PciHeader};
 use x86_64::{
