@@ -334,6 +334,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a94731b2b37ec2ebc0687e0b4f70ab67e1bd1a36c13c18ae90c2863c908ad3e"
 
 [[package]]
+name = "proka-common"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "proka-bootloader",
+ "spin 0.12.2",
+ "x86_64",
+]
+
+[[package]]
 name = "proka-exec"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -347,14 +357,30 @@ dependencies = [
 name = "proka-kernel"
 version = "0.2.3"
 dependencies = [
- "acpi",
  "anaxa-builder",
  "glob",
+ "hadris-fat",
+ "log",
+ "proka-bootloader",
+ "proka-common",
+ "proka-exec",
+ "proka-kernel-x86_64",
+ "serde",
+ "spin 0.12.2",
+ "toml 1.1.3+spec-1.1.0",
+]
+
+[[package]]
+name = "proka-kernel-x86_64"
+version = "0.2.3"
+dependencies = [
+ "acpi",
  "hadris-fat",
  "log",
  "num_enum",
  "pci_types",
  "proka-bootloader",
+ "proka-common",
  "proka-exec",
  "serde",
  "spin 0.12.2",

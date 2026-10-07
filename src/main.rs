@@ -33,10 +33,10 @@ static KERNEL_HEADER: Header = {
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".main")]
 pub extern "C" fn kernel_main() -> ! {
-    // Init GDT
-    proka_kernel::tables::gdt::init();
-    // Init IDT
-    proka_kernel::tables::idt::init();
+    // Init GDT (x86_64)
+    proka_kernel_x86_64::tables::gdt::init();
+    // Init IDT (x86_64)
+    proka_kernel_x86_64::tables::idt::init();
 
     // Print messages
     println!("[INFO] Successfully loaded kernel.");
@@ -52,7 +52,7 @@ pub extern "C" fn kernel_main() -> ! {
     println!("[INFO] Initialized memory manager.");
 
     // Init logger for convenient
-    proka_kernel::logger::init();
+    proka_kernel::logger::init(proka_kernel::config::LOG_LEVEL);
     info!("Initialized log system.");
 
     // Start do MMIO mapping
@@ -65,9 +65,9 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel::acpi::init();
     success!("Completed ACPI initialization process.");
 
-    // Init APIC
+    // Init APIC (x86_64)
     info!("Initializing APIC...");
-    proka_kernel::apic::init();
+    proka_kernel_x86_64::apic::init();
     success!("Completed APIC initialization.");
 
     // Init syscall
@@ -82,9 +82,9 @@ pub extern "C" fn kernel_main() -> ! {
 
     // Enable interrupt
     success!("All kernel staff load done, let's goooo!");
-    x86_64::instructions::interrupts::enable();
+    proka_kernel_x86_64::cpu::enable_interrupts();
 
     loop {
-        x86_64::instructions::hlt();
+        proka_kernel_x86_64::cpu::hlt();
     }
 }
