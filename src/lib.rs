@@ -2,8 +2,8 @@
 //!
 //! This crate owns the generic kernel logic and boot-time `init`
 //! orchestration. All x86_64-specific code is delegated to the
-//! `proka-kernel-x86_64` crate (under `arch/x86_64`), and shared
-//! definitions live in `proka-common`.
+//! `proka-kernel-arch` crate (under `arch/x86_64`), and shared
+//! definitions live in `proka-kernel-common`.
 
 #![no_std]
 #![feature(custom_test_frameworks)]
@@ -19,7 +19,7 @@
 // Re-export the common printing macros so that both the kernel binary
 // (`#[macro_use] extern crate proka_kernel`) and this crate's own modules
 // (`use crate::println`) can use them.
-pub use proka_common::{print, println, success};
+pub use proka_kernel_common::{print, println, success};
 
 /// The kernel version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -1,14 +1,14 @@
 //! The syscall module (kernel-level orchestration).
 //!
 //! The x86_64 MSR setup (STAR/LSTAR/SFMASK) is delegated to
-//! `proka-kernel-x86_64::syscall::init_msr`; the generic registration
-//! into `proka-common::syscall::SYSCALL` is done here.
-use proka_common::syscall::{SYSCALL, SyscallEntry};
+//! `proka-kernel-arch::syscall::init_msr`; the generic registration
+//! into `proka-kernel-common::syscall::SYSCALL` is done here.
+use proka_kernel_common::syscall::{SYSCALL, SyscallEntry};
 
 /// Syscall initializator.
 pub fn init() {
     // Architecture-specific half: prepare the MSR-based syscall entry.
-    proka_kernel_x86_64::syscall::init_msr();
+    proka_kernel_arch::syscall::init_msr();
 
     // Generic half: register the kernel's own syscalls.
     // For syscall 0 (process management)
@@ -16,7 +16,7 @@ pub fn init() {
         sysnum: 0,
         page_table: 0x100000,
         stack: 0xffff8000005ffff0,
-        entry: proka_kernel_x86_64::syscall::process::process,
+        entry: proka_kernel_arch::syscall::process::process,
     });
 
     // For syscall 1 (power action)
@@ -24,7 +24,7 @@ pub fn init() {
         sysnum: 1,
         page_table: 0x100000,
         stack: 0xffff8000005ffff0,
-        entry: proka_kernel_x86_64::syscall::power::power,
+        entry: proka_kernel_arch::syscall::power::power,
     });
 
     // For syscall 2 (memory allocation)
@@ -32,7 +32,7 @@ pub fn init() {
         sysnum: 2,
         page_table: 0x100000,
         stack: 0xffff8000005ffff0,
-        entry: proka_kernel_x86_64::syscall::memory::memory,
+        entry: proka_kernel_arch::syscall::memory::memory,
     });
 
     // TODO: Add more types of syscall (0-16)

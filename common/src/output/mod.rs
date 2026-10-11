@@ -12,7 +12,7 @@ use crate::output::console::_print as console_print;
 /// Serial output hook.
 ///
 /// The actual serial driver is architecture-specific and lives in
-/// `proka-kernel-x86_64`. The kernel registers its `_print` function
+/// `proka-kernel-arch`. The kernel registers its `_print` function
 /// here during boot, so the public `println!` macro can stay
 /// architecture-independent.
 #[cfg(feature = "output_serial")]

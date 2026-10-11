@@ -1,5 +1,5 @@
 [workspace]
-members = ["arch/x86_64", ".", "common"]
+members = ["arch", "common", "."]
 resolver = "2"
 
 [package]
@@ -14,8 +14,8 @@ glob = "0.3.0"
 
 [workspace.dependencies]
 # Self-dependencies
-proka-common = { path = "common" }
-proka-kernel-x86_64 = { path = "arch/x86_64" }
+proka-kernel-common = { path = "common" }
+proka-kernel-arch = { path = "arch" }
 
 # 3rd-party dependencies
 acpi = { git = "https://github.com/rust-osdev/acpi.git", branch = "main" }
@@ -39,8 +39,8 @@ edition = "2024"
 license = "GPL-3.0"
 
 [dependencies]
-proka-common = { workspace = true }
-proka-kernel-x86_64 = { workspace = true }
+proka-kernel-common = { workspace = true }
+proka-kernel-arch = { workspace = true }
 proka-bootloader = { workspace = true }
 proka-exec = { workspace = true }
 hadris-fat = { workspace = true }
@@ -58,5 +58,5 @@ incremental = false
 
 [features]
 default = []
-output_fb = ["proka-common/output_fb", "proka-kernel-x86_64/output_fb"]
-output_serial = ["proka-common/output_serial", "proka-kernel-x86_64/output_serial"]
+output_fb = ["proka-kernel-common/output_fb", "proka-kernel-arch/output_fb"]
+output_serial = ["proka-kernel-common/output_serial", "proka-kernel-arch/output_serial"]

@@ -16,7 +16,7 @@ use crate::memory::paging::PDPT_HIGH_ADDR;
 use crate::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
 use crate::tables::gdt::GDT;
 use log::{debug, trace, warn};
-pub use proka_common::process::{Error, ProcType, Status};
+pub use proka_kernel_common::process::{Error, ProcType, Status};
 use proka_exec::{Parser, header::ExecMode};
 use x86_64::registers::rflags::RFlags;
 use x86_64::{PhysAddr, VirtAddr, align_up};

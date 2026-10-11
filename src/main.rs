@@ -34,9 +34,9 @@ static KERNEL_HEADER: Header = {
 #[unsafe(link_section = ".main")]
 pub extern "C" fn kernel_main() -> ! {
     // Init GDT (x86_64)
-    proka_kernel_x86_64::tables::gdt::init();
+    proka_kernel_arch::tables::gdt::init();
     // Init IDT (x86_64)
-    proka_kernel_x86_64::tables::idt::init();
+    proka_kernel_arch::tables::idt::init();
 
     // Print messages
     println!("[INFO] Successfully loaded kernel.");
@@ -67,7 +67,7 @@ pub extern "C" fn kernel_main() -> ! {
 
     // Init APIC (x86_64)
     info!("Initializing APIC...");
-    proka_kernel_x86_64::apic::init();
+    proka_kernel_arch::apic::init();
     success!("Completed APIC initialization.");
 
     // Init syscall
@@ -82,9 +82,9 @@ pub extern "C" fn kernel_main() -> ! {
 
     // Enable interrupt
     success!("All kernel staff load done, let's goooo!");
-    proka_kernel_x86_64::cpu::enable_interrupts();
+    proka_kernel_arch::cpu::enable_interrupts();
 
     loop {
-        proka_kernel_x86_64::cpu::hlt();
+        proka_kernel_arch::cpu::hlt();
     }
 }

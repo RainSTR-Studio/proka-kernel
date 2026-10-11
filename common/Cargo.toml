@@ -1,5 +1,5 @@
 [package]
-name = "proka-common"
+name = "proka-kernel-common"
 version = "0.1.0"
 edition = "2024"
 
