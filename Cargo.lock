@@ -383,12 +383,11 @@ dependencies = [
 
 [[package]]
 name = "proka-kernel-common"
-version = "0.1.0"
+version = "0.2.3"
 dependencies = [
  "log",
  "proka-bootloader",
  "spin 0.12.2",
- "x86_64",
 ]
 
 [[package]]

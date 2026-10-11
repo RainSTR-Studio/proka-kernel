@@ -295,23 +295,8 @@ impl Write for Console {
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    // Architecture-specific section: guard console writes against
-    // interrupt reentrancy only on x86_64 (no-op elsewhere).
-    #[cfg(target_arch = "x86_64")]
-    {
-        use x86_64::instructions::interrupts;
-        interrupts::without_interrupts(|| {
-            CONSOLE
-                .lock()
-                .write_fmt(args)
-                .expect("Failed to write to console");
-        });
-    }
-    #[cfg(not(target_arch = "x86_64"))]
-    {
-        CONSOLE
-            .lock()
-            .write_fmt(args)
-            .expect("Failed to write to console");
-    }
+    CONSOLE
+        .lock()
+        .write_fmt(args)
+        .expect("Failed to write to console");
 }
