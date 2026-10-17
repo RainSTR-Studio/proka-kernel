@@ -1,155 +1,54 @@
-//! The frame allocator.
-use proka_bootloader::{
-    get_bootinfo,
-    memory::{MemoryMap, MemoryType},
-};
+//! x86_64 frame allocator.
+//!
+//! This is a thin adapter over the architecture-independent bitmap core in
+//! `proka_kernel_common::memory::framealloc`. All of the actual memory
+//! tracking (which PFNs are free, contiguous allocation) lives there and is
+//! shared with every other architecture; this module only plugs in the
+//! x86_64 physical-frame type (`PhysFrame`) and the x86 `FrameAllocator` /
+//! `FrameDeallocator` trait implementations that the x86 page-table code
+//! requires.
+use proka_bootloader::{get_bootinfo, memory::MemoryMap};
+use proka_kernel_common::memory::{framealloc::FrameAlloc as CoreAlloc, heap::FrameProvider};
 use spin::{LazyLock, mutex::SpinMutex};
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
 
-/// The global frame allocator
+/// The global frame allocator.
 pub static FRAME_ALLOCATOR: LazyLock<SpinMutex<FrameAlloc>> = LazyLock::new(|| {
-    let mut frame_allocator = FrameAlloc::default();
-    frame_allocator.init(unsafe { get_bootinfo().memory() });
-    SpinMutex::new(frame_allocator)
+    let mut allocator = FrameAlloc::default();
+    allocator.init(unsafe { get_bootinfo().memory() });
+    SpinMutex::new(allocator)
 });
 
-/// The bits to start allocation
+/// The bits to start allocation.
 const USED_PAGE: usize = 0x1e00;
 
 /// The start address which is free for frame allocator.
-const FREE_ADDR: u64 = 0x1e00000;
+const FREE_ADDR: usize = 0x1e00000;
 
+/// The x86_64 frame allocator, wrapping the arch-independent bitmap core.
 #[derive(Default)]
-pub struct FrameAlloc {
-    bitmap: &'static mut [u8],
-    max_page: usize,
-    self_used_page: usize,
-    pos: usize,
-}
+pub struct FrameAlloc(CoreAlloc);
 
 impl FrameAlloc {
-    /// Init the frame allocator.
+    /// Init the frame allocator from the boot memory map.
     pub fn init(&mut self, map: &MemoryMap) {
-        // Get the max addr
-        let max_phys_addr = map
-            .entries
-            .iter()
-            .filter(|d| d.mem_type == MemoryType::FreeRAM)
-            .map(|d| d.base_addr + d.length)
-            .max()
-            .unwrap();
-
-        self.max_page = (max_phys_addr.div_ceil(4096)) as usize;
-
-        // Init bitmap
-        let bitmap_bytes = self.max_page.div_ceil(8);
-        self.bitmap =
-            unsafe { core::slice::from_raw_parts_mut(FREE_ADDR as *mut u8, bitmap_bytes) };
-        self.bitmap.fill(0);
-
-        // Mark the unavailable memory
-        for desc in map.entries {
-            if desc.mem_type != MemoryType::FreeRAM {
-                let start_pfn = desc.base_addr.div_ceil(4096) as usize;
-                let count = desc.length.div_ceil(4096) as usize;
-                for pfn in start_pfn..start_pfn + count {
-                    self.set_bit(pfn, 1);
-                }
-            }
-        }
-
-        // Mark kernel used memory as used (avoid allocating low memory)
-        for pfn in 0..USED_PAGE {
-            self.set_bit(pfn, 1);
-        }
-
-        // Mark frame allocator bitmap itself.
-        self.self_used_page = bitmap_bytes.div_ceil(0x1000);
-        for pfn in USED_PAGE..USED_PAGE + self.self_used_page {
-            self.set_bit(pfn, 1);
-        }
-
-        // Set up position
-        self.pos = USED_PAGE + self.self_used_page;
+        self.0.init(map, USED_PAGE, FREE_ADDR);
     }
 
-    /// Allocate a part of contiguous frame
+    /// Allocate a part of contiguous frames.
     pub fn allocate_contiguous(&mut self, n: usize) -> Option<PhysFrame> {
-        // Construct scanner
-        let scan = |s: usize| -> Option<usize> {
-            let mut cur = s;
-            while cur + n <= self.max_page {
-                let mut ok = true;
-                for i in 0..n {
-                    if self.get_bit(cur + i) == 1 {
-                        ok = false;
-                        break;
-                    }
-                }
-                if ok {
-                    return Some(cur);
-                }
-                cur += 1;
-            }
-            None
-        };
-
-        let start = scan(self.pos).or_else(|| scan(USED_PAGE))?;
-
-        // Contiguous set bit
-        for i in 0..n {
-            self.set_bit(start + i, 1);
-        }
-        self.pos += n;
-
-        Some(PhysFrame::from_pfn(start as u64))
+        self.0
+            .allocate_contiguous(n)
+            .map(|pfn| PhysFrame::from_pfn(pfn as u64))
     }
 
-    /// Deallocate a part of frame
+    /// Deallocate a part of frames.
     pub fn deallocate_contiguous(&mut self, frame: PhysFrame, n: usize) {
-        let pfn = frame.pfn() as usize;
-
-        // Check: Low-kernel memory is NOT unallocatable
-        if pfn <= USED_PAGE + self.self_used_page {
-            return;
-        }
-
-        for i in 0..n {
-            self.set_bit(pfn + i, 0);
-        }
-    }
-
-    /// Mark a page frame (pfn) with the given value (0 or 1)
-    fn set_bit(&mut self, pfn: usize, value: u8) {
-        let byte_idx = pfn / 8;
-        let bit_idx = pfn % 8;
-
-        if byte_idx >= self.bitmap.len() {
-            return;
-        }
-
-        match value {
-            0 => self.bitmap[byte_idx] &= !(1 << bit_idx), // Mark as free
-            1 => self.bitmap[byte_idx] |= 1 << bit_idx,    // Mark as used
-            _ => {}
-        }
-    }
-
-    /// Get the current bit value for a page frame
-    #[inline]
-    fn get_bit(&self, pfn: usize) -> u8 {
-        let byte_idx = pfn / 8;
-        let bit_idx = pfn % 8;
-
-        if byte_idx >= self.bitmap.len() {
-            return 1;
-        }
-
-        (self.bitmap[byte_idx] >> bit_idx) & 1
+        self.0.deallocate_contiguous(frame.pfn() as usize, n)
     }
 }
 
-// Trait implementations
+// Trait implementations (x86_64 page-table interface).
 unsafe impl FrameAllocator<Size4KiB> for FrameAlloc {
     fn allocate_frame(&mut self) -> Option<PhysFrame> {
         self.allocate_contiguous(1)
@@ -160,4 +59,30 @@ impl FrameDeallocator<Size4KiB> for FrameAlloc {
     unsafe fn deallocate_frame(&mut self, frame: PhysFrame) {
         self.deallocate_contiguous(frame, 1)
     }
+}
+
+/// Provider wiring: hands the arch-independent heap access to the x86_64
+/// frame allocator (as raw PFNs).
+struct FrameAllocProvider;
+
+static FRAME_ALLOC_PROVIDER: FrameAllocProvider = FrameAllocProvider;
+
+impl FrameProvider for FrameAllocProvider {
+    fn allocate_contiguous(&self, n: usize) -> Option<usize> {
+        FRAME_ALLOCATOR
+            .lock()
+            .allocate_contiguous(n)
+            .map(|frame| frame.pfn() as usize)
+    }
+
+    fn deallocate_contiguous(&self, pfn: usize, n: usize) {
+        FRAME_ALLOCATOR
+            .lock()
+            .deallocate_contiguous(PhysFrame::from_pfn(pfn as u64), n)
+    }
+}
+
+/// Register this architecture's frame provider so the shared heap works.
+pub fn register_provider() {
+    proka_kernel_common::memory::heap::set_frame_provider(&FRAME_ALLOC_PROVIDER);
 }

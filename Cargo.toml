@@ -47,6 +47,8 @@ hadris-fat = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 spin = { workspace = true }
+acpi = { workspace = true }
+pci_types = { workspace = true }
 toml = { workspace = true }
 
 [profile.release]

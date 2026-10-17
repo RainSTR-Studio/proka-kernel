@@ -1,6 +1,5 @@
 //! x86_64 specified memory management.
 pub mod framealloc;
-pub mod heap;
 pub mod paging;
 
 extern crate alloc;
@@ -63,6 +62,10 @@ unsafe impl PageTableFrameMapping for IdentityPageTableMapper {
 
 /// Memory manager initializator.
 pub fn init() {
+    // Wire the arch-independent heap to the x86_64 frame allocator before
+    // anything in the memory path can allocate.
+    crate::memory::framealloc::register_provider();
+
     // Before enabling new page table, we shall clear the place where page table needed.
     // Safety: This address is authorized as page table's addr
     unsafe {

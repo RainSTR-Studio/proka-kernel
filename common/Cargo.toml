@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 log = { workspace = true }
+pci_types = { workspace = true }
 spin = { workspace = true }
 proka-bootloader = { workspace = true }
 

@@ -16,7 +16,7 @@ use x86_64::{
 ///
 /// This is the architecture-specific half of syscall setup; the generic
 /// syscall registration table lives in `proka_kernel_common::syscall`.
-pub fn init_msr() {
+pub fn init_reg() {
     // Firstly, update STAR registers
     let sel = GDT.1;
     Star::write(

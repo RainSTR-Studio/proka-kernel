@@ -6,7 +6,6 @@ pub mod cpu;
 pub mod devices;
 pub mod handler;
 pub mod memory;
-pub mod pci;
 pub mod power;
 pub mod process;
 pub mod scheduler;

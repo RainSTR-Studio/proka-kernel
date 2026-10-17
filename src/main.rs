@@ -33,10 +33,14 @@ static KERNEL_HEADER: Header = {
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".main")]
 pub extern "C" fn kernel_main() -> ! {
-    // Init GDT (x86_64)
-    proka_kernel_arch::tables::gdt::init();
-    // Init IDT (x86_64)
-    proka_kernel_arch::tables::idt::init();
+    // x86_64 only operations
+    #[cfg(target_arch = "x86_64")]
+    {
+        // Init GDT (x86_64)
+        proka_kernel_arch::tables::gdt::init();
+        // Init IDT (x86_64)
+        proka_kernel_arch::tables::idt::init();
+    }
 
     // Print messages
     println!("[INFO] Successfully loaded kernel.");

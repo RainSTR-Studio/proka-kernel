@@ -1,14 +1,10 @@
 //! The syscall module (kernel-level orchestration).
-//!
-//! The x86_64 MSR setup (STAR/LSTAR/SFMASK) is delegated to
-//! `proka-kernel-arch::syscall::init_msr`; the generic registration
-//! into `proka-kernel-common::syscall::SYSCALL` is done here.
 use proka_kernel_common::syscall::{SYSCALL, SyscallEntry};
 
 /// Syscall initializator.
 pub fn init() {
-    // Architecture-specific half: prepare the MSR-based syscall entry.
-    proka_kernel_arch::syscall::init_msr();
+    // Architecture-specific half: prepare the syscall entry.
+    proka_kernel_arch::syscall::init_reg();
 
     // Generic half: register the kernel's own syscalls.
     // For syscall 0 (process management)

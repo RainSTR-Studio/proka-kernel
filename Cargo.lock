@@ -357,10 +357,12 @@ dependencies = [
 name = "proka-kernel"
 version = "0.2.3"
 dependencies = [
+ "acpi",
  "anaxa-builder",
  "glob",
  "hadris-fat",
  "log",
+ "pci_types",
  "proka-bootloader",
  "proka-exec",
  "proka-kernel-arch",
@@ -401,6 +403,7 @@ name = "proka-kernel-common"
 version = "0.2.3"
 dependencies = [
  "log",
+ "pci_types",
  "proka-bootloader",
  "spin 0.12.2",
 ]

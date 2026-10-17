@@ -1,6 +1,6 @@
 //! The traditional PCI module.
-use crate::devices::PCILIST;
 use pci_types::{ConfigRegionAccess, PciAddress, PciHeader};
+use proka_kernel_common::devices::PCILIST;
 use x86_64::instructions::port::Port;
 const PCI_CFG: u16 = 0xcf8;
 const PCI_DATA: u16 = 0xcfc;

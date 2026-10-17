@@ -1,16 +1,14 @@
 //! The ACPI module
 // According to the documentation of the [`acpi`] crate,
 // we first need to implement a [`Handler`] trait.
-
 use crate::{
-    devices::{IS_PCIE, pcie::get_access},
-    memory::MAPPER,
+    devices::pci::PciCfgAccess, devices::pcie::get_access, memory::MAPPER,
     memory::framealloc::FRAME_ALLOCATOR,
-    pci::PciCfgAccess,
 };
 use acpi::{AcpiTables, Handle, Handler, aml::Interpreter, platform::AcpiPlatform};
 use core::ptr::NonNull;
 use pci_types::ConfigRegionAccess;
+use proka_kernel_common::devices::IS_PCIE;
 use spin::LazyLock;
 use x86_64::{
     PhysAddr, align_up,
