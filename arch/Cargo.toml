@@ -1,0 +1,34 @@
+[package]
+name = "proka-kernel-arch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+proka-kernel-common = { workspace = true }
+acpi = { workspace = true }
+hadris-fat = { workspace = true }
+log = { workspace = true }
+num_enum = { workspace = true }
+pci_types = { workspace = true }
+proka-bootloader = { workspace = true }
+proka-exec = { workspace = true }
+serde = { workspace = true }
+spin = { workspace = true }
+spinning_top = { workspace = true }
+toml = { workspace = true }
+uart_16550 = { workspace = true, optional = true }
+x2apic = { workspace = true }
+x86_64 = { workspace = true }
+
+[features]
+default = []
+output_fb = []
+output_serial = ["dep:uart_16550"]
+
+[build-dependencies]
+anyhow = "1.0.104"
+prettyplease = "0.3.0"
+proc-macro2 = "1.0.107"
+quote = "1.0.47"
+syn = "3.0.9"

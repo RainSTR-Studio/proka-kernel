@@ -1,30 +1,27 @@
-//! The MMIO module.
+//! The device init module.
+//!
+//! The PCI device list and the "PCIe or legacy PCI" flag are
+//! architecture-independent and live in `proka_kernel_common::devices`;
+//! this module re-exports them and keeps the probing orchestration.
 extern crate alloc;
-use alloc::vec::Vec;
 use log::debug;
 use log::warn;
-use pci_types::PciAddress;
-use spin::{Once, RwLock};
-
-pub mod pci;
+pub use proka_kernel_common::devices::{IS_PCIE, PCILIST};
 pub mod pcie;
-
-/// The PCI device list.
-pub static PCILIST: RwLock<Vec<PciAddress>> = {
-    let pcis = Vec::new();
-    RwLock::new(pcis)
-};
-
-/// Symbol to assign that is this PCIe or not.
-pub static IS_PCIE: Once<bool> = Once::new();
 
 pub fn init() {
     // Init PCIe
     IS_PCIE.call_once(|| {
         if self::pcie::init().is_err() {
-            warn!("The PCIe initialization has got some errors, falling back to common PCI...");
-            self::pci::init();
-            false
+            #[cfg(target_arch = "x86_64")]
+            {
+                warn!("The PCIe initialization has got some errors, falling back to common PCI...");
+                proka_kernel_arch::devices::pci::init();
+                false
+            }
+
+            #[cfg(not(target_arch = "x86_64"))]
+            panic!("Could not initialize PCIe");
         } else {
             true
         }

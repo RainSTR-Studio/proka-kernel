@@ -23,11 +23,14 @@ import logging
 BOLD = "\033[1m"
 RESET = "\033[0m"
 CYAN = "\033[36m"
+RED = "\033[31m"
 
 class CustomFormatter(logging.Formatter):
     def format(self, record):
         if record.levelno == logging.INFO:
             return f"{BOLD}[INFO]{RESET} {record.getMessage()}"
+        elif record.levelno == logging.CRITICAL:
+            return f"{BOLD}{RED}[CRITICAL]{RESET} {record.getMessage()}"
         return super().format(record)
 
 # Configure logging
@@ -60,7 +63,11 @@ def run(cmd, cwd=BASE_DIR, env=None, check=True):
     full_env = os.environ.copy()
     if env:
         full_env.update(env)
-    subprocess.run(cmd, cwd=cwd, env=full_env, check=check)
+    try:
+        subprocess.run(cmd, cwd=cwd, env=full_env, check=check)
+    except:
+        logger.critical("Failed to execute command")
+        sys.exit(1)
 
 
 def find_tool(name, fallback):
