@@ -1,4 +1,5 @@
 //! The syscall module (kernel-level orchestration).
+pub mod power;
 use proka_kernel_common::syscall::{SYSCALL, SyscallEntry};
 
 /// Syscall initializator.
@@ -20,7 +21,7 @@ pub fn init() {
         sysnum: 1,
         page_table: 0x100000,
         stack: 0xffff8000005ffff0,
-        entry: proka_kernel_arch::syscall::power::power,
+        entry: self::power::power,
     });
 
     // For syscall 2 (memory allocation)

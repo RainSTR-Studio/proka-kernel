@@ -362,6 +362,7 @@ dependencies = [
  "glob",
  "hadris-fat",
  "log",
+ "num_enum",
  "pci_types",
  "proka-bootloader",
  "proka-exec",

@@ -1,6 +1,5 @@
 //! x86_64 specific syscall initializator.
 pub mod memory;
-pub mod power;
 pub mod process;
 
 use crate::{handler::syscall_entry, tables::gdt::GDT};

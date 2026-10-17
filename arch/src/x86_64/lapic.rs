@@ -32,7 +32,7 @@ pub static COUNT: [AtomicU32; MAX_CPUS] = [const { AtomicU32::new(0) }; MAX_CPUS
 pub fn apic_id() -> usize {
     unsafe {
         // IA32_APIC_BASE (MSR 0x1B).
-        let apic_base = Msr::new(0x1B).read() as u64;
+        let apic_base = Msr::new(0x1B).read();
         let x2apic_enabled = apic_base & (1 << 10) != 0;
         if x2apic_enabled {
             // x2APIC: the x2APIC ID lives in the low byte of MSR 0x802.

@@ -40,6 +40,7 @@ license = "GPL-3.0"
 
 [dependencies]
 proka-kernel-common = { workspace = true }
+num_enum = { workspace = true }
 proka-kernel-arch = { workspace = true }
 proka-bootloader = { workspace = true }
 proka-exec = { workspace = true }
