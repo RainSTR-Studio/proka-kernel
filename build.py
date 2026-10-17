@@ -67,7 +67,7 @@ def run(cmd, cwd=BASE_DIR, env=None, check=True):
         subprocess.run(cmd, cwd=cwd, env=full_env, check=check)
     except:
         logger.critical("Failed to execute command")
-        sys.exit()
+        sys.exit(1)
 
 
 def find_tool(name, fallback):
