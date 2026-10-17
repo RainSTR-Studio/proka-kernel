@@ -30,7 +30,7 @@ spin = { version = "0.12.2", features = ["ticket_mutex"] }
 spinning_top = "0.3.0"
 toml = { version = "1.1.2", default-features = false, features = ["parse", "serde"] }
 uart_16550 = "0.4.0"
-x2apic = "0.5.0"
+x2apic = { path = "vendor/x2apic" }
 x86_64 = "0.15.5"
 
 [workspace.package]
