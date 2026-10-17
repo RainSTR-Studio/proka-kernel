@@ -1,11 +1,9 @@
 //! The power action in syscall.
 //!
 //! Registered as syscall 1.
-use crate::{
-    acpi::power::{poweroff, reboot},
-};
+use crate::acpi::power::{poweroff, reboot};
 use num_enum::TryFromPrimitive;
-use proka_kernel_arch::scheduler::{NORMAL_QUEUE, DRIVER_QUEUE};
+use proka_kernel_arch::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
 
 /// The power actions.
 #[derive(Debug, PartialEq, Eq, TryFromPrimitive)]
@@ -20,6 +18,7 @@ pub enum PowerActions {
 
 /// The power action syscall entry.
 pub extern "C" fn power(power_action: u64, _: u64, _: u64, _: u64, _: u64) -> i64 {
+    proka_kernel_arch::cpu::disable_interrupts();
     let Ok(action) = PowerActions::try_from(power_action) else {
         return -2;
     };

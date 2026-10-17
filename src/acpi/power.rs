@@ -1,7 +1,5 @@
 //! The power system which is based on ACPI.
 extern crate alloc;
-use proka_kernel_arch::acpi::ACPI_PLATFORM;
-use proka_kernel_arch::acpi::AMLINT;
 use acpi::aml::object::Object::Package;
 use acpi::registers::Pm1ControlBit;
 use acpi::sdt::fadt::Fadt;
@@ -9,6 +7,8 @@ use acpi::{address::AddressSpace, aml::namespace::AmlName};
 use alloc::vec::Vec;
 use core::str::FromStr;
 use log::{debug, warn};
+use proka_kernel_arch::acpi::ACPI_PLATFORM;
+use proka_kernel_arch::acpi::AMLINT;
 use proka_kernel_arch::power::{hard_poweroff, hard_reboot};
 use spin::LazyLock;
 

@@ -7,6 +7,11 @@ pub fn enable_interrupts() {
     x86_64::instructions::interrupts::enable();
 }
 
+/// Disable interrupts on the current CPU.
+pub fn disable_interrupts() {
+    x86_64::instructions::interrupts::disable();
+}
+
 /// Halt the current CPU until the next interrupt.
 pub fn hlt() {
     x86_64::instructions::hlt();
