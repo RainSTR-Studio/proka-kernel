@@ -25,3 +25,10 @@ x86_64 = { workspace = true }
 default = []
 output_fb = []
 output_serial = ["dep:uart_16550"]
+
+[build-dependencies]
+anyhow = "1.0.104"
+prettyplease = "0.3.0"
+proc-macro2 = "1.0.107"
+quote = "1.0.47"
+syn = "3.0.9"
