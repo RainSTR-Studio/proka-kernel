@@ -1,8 +1,6 @@
 //! The kernel-builtin output system.
-extern crate alloc;
 use crate::output::font8x16::FONT8X16;
 use crate::output::{color, color::Color};
-use alloc::{vec, vec::Vec};
 use core::fmt::{self, Write};
 use proka_bootloader::get_bootinfo;
 use spin::{LazyLock, Mutex};
@@ -10,6 +8,10 @@ use spin::{LazyLock, Mutex};
 // Constants
 const FONT_W: u64 = 8;
 const FONT_H: u64 = 16;
+
+// Maximum number of ANSI SGR parameters the parser can hold.
+// Standard sequences rarely need more than a handful; 16 is a safe bound.
+const MAX_ANSI_PARAMS: usize = 16;
 
 // Some statics which is global
 pub static CONSOLE: LazyLock<Mutex<Console>> = LazyLock::new(|| Mutex::new(Console::init()));
@@ -34,7 +36,8 @@ pub struct Console {
     fg_color: Color,
     bg_color: Color,
     parse_state: ParseState,
-    ansi_params: Vec<u16>,
+    ansi_params: [u16; MAX_ANSI_PARAMS],
+    ansi_param_count: usize,
     current_param: u16, // Current ANSI param
 }
 
@@ -55,7 +58,8 @@ impl Console {
             fg_color: color::WHITE,
             bg_color: color::BLACK,
             parse_state: ParseState::Normal,
-            ansi_params: Vec::new(),
+            ansi_params: [0; MAX_ANSI_PARAMS],
+            ansi_param_count: 0,
             current_param: 0,
         }
     }
@@ -98,7 +102,7 @@ impl Console {
             ParseState::Escape => {
                 if c == b'[' {
                     self.parse_state = ParseState::EscapeBracket;
-                    self.ansi_params.clear();
+                    self.ansi_param_count = 0;
                     self.current_param = 0;
                 } else {
                     // Invalid symbol, fall back
@@ -112,10 +116,10 @@ impl Console {
                     self.current_param = self.current_param * 10 + (c - b'0') as u16;
                     self.parse_state = ParseState::CollectingParams;
                 } else if c == b';' {
-                    self.ansi_params.push(self.current_param);
+                    self.push_param();
                     self.current_param = 0;
                 } else {
-                    self.ansi_params.push(self.current_param);
+                    self.push_param();
                     self.parse_ansi_command(c);
                     self.parse_state = ParseState::Normal;
                 }
@@ -124,11 +128,11 @@ impl Console {
                 if c.is_ascii_digit() {
                     self.current_param = self.current_param * 10 + (c - b'0') as u16;
                 } else if c == b';' {
-                    self.ansi_params.push(self.current_param);
+                    self.push_param();
                     self.current_param = 0;
                     self.parse_state = ParseState::EscapeBracket;
                 } else {
-                    self.ansi_params.push(self.current_param);
+                    self.push_param();
                     self.parse_ansi_command(c);
                     self.parse_state = ParseState::Normal;
                 }
@@ -197,6 +201,19 @@ impl Console {
         self.position.0 += FONT_W;
     }
 
+    /// Store the current ANSI parameter into the fixed-size buffer.
+    ///
+    /// The parser is intentionally allocation-free so that the console can be
+    /// used before the heap allocator is initialized. If the buffer is full,
+    /// extra parameters are silently dropped.
+    fn push_param(&mut self) {
+        if self.ansi_param_count < MAX_ANSI_PARAMS {
+            self.ansi_params[self.ansi_param_count] = self.current_param;
+            self.ansi_param_count += 1;
+        }
+        self.current_param = 0;
+    }
+
     /// Handle ANSI commands
     fn parse_ansi_command(&mut self, cmd: u8) {
         match cmd {
@@ -211,13 +228,15 @@ impl Console {
 
     // SGR command handler
     fn handle_sgr(&mut self) {
-        let params = if self.ansi_params.is_empty() {
-            vec![0]
+        // With no explicit parameters, ANSI treats the sequence as "0" (reset).
+        let count = if self.ansi_param_count == 0 {
+            self.ansi_params[0] = 0;
+            1
         } else {
-            self.ansi_params.clone()
+            self.ansi_param_count
         };
-        for param in params {
-            match param {
+        for param in &self.ansi_params[..count] {
+            match *param {
                 0 => {
                     // Reset
                     self.fg_color = color::WHITE;
@@ -244,7 +263,7 @@ impl Console {
                 _ => {}
             }
         }
-        self.ansi_params.clear();
+        self.ansi_param_count = 0;
         self.current_param = 0;
     }
 
