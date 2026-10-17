@@ -42,6 +42,9 @@ pub extern "C" fn kernel_main() -> ! {
         proka_kernel_arch::tables::idt::init();
     }
 
+    // Init serial
+    proka_kernel_arch::serial::register_hook();
+
     // Print messages
     println!("[INFO] Successfully loaded kernel.");
 
