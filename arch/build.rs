@@ -1,10 +1,10 @@
 //! Build script of Proka Arch-Specified module.
+use anyhow::anyhow;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use std::process::{Command, Stdio};
-use std::io::Write;
-use anyhow::anyhow;
 use std::fs;
+use std::io::Write;
+use std::process::{Command, Stdio};
 
 fn main() -> anyhow::Result<()> {
     let mut arch_raw = fs::read_to_string("archlist")?;
@@ -49,9 +49,11 @@ fn main() -> anyhow::Result<()> {
         for arch in archlist {
             origin.push_str(&format!("target_arch = \"{arch}\","));
         }
-        origin.push_str(r#")))]
+        origin.push_str(
+            r#")))]
 compile_error!("You are trying to compile this project by using an unsupported architecture.");
-"#);
+"#,
+        );
         origin
     };
 
@@ -61,6 +63,11 @@ compile_error!("You are trying to compile this project by using an unsupported a
     );
 
     fs::write("src/lib.rs", final_code)?;
+    Command::new("rustfmt")
+        .arg("src/lib.rs")
+        .arg("--edition")
+        .arg("2024")
+        .status()?;
 
     Ok(())
 }
@@ -92,9 +99,7 @@ pub fn format_code(unformatted_code: &str) -> anyhow::Result<String> {
     }
 
     match child.wait_with_output() {
-        Ok(output) if output.status.success() => {
-            Ok(String::from_utf8(output.stdout)?)
-        }
+        Ok(output) if output.status.success() => Ok(String::from_utf8(output.stdout)?),
         _ => Err(anyhow!("stdout error")),
     }
 }

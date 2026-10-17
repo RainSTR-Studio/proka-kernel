@@ -14,6 +14,5 @@ mod x86_64;
 #[cfg(target_arch = "x86_64")]
 pub use x86_64::*;
 
-
 #[cfg(not(all(target_arch = "x86_64",)))]
 compile_error!("You are trying to compile this project by using an unsupported architecture.");
