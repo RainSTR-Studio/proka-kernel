@@ -1,10 +1,10 @@
 //! The PCIe module.
 extern crate alloc;
 use super::PCILIST;
-use proka_kernel_arch::acpi::ACPI_PLATFORM;
 use acpi::sdt::mcfg::Mcfg;
-use proka_kernel_common::devices::pcie::PcieCfgAccess;
 use pci_types::{PciAddress, PciHeader};
+use proka_kernel_arch::acpi::ACPI_PLATFORM;
+use proka_kernel_common::devices::pcie::PcieCfgAccess;
 
 // XXX: Use 2 unit result can make code much more readable
 #[allow(clippy::result_unit_err)]

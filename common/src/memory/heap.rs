@@ -5,9 +5,9 @@
 //! (which concrete frame allocator to ask) is plugged in by each
 //! architecture during early boot via [`set_frame_provider`], so this module
 //! never depends on a particular CPU's physical-frame representation.
+use super::framealloc::PAGE_SIZE;
 use core::alloc::{GlobalAlloc, Layout};
 use spin::Once;
-use super::framealloc::PAGE_SIZE;
 
 /// An architecture-independent physical-frame provider.
 ///
@@ -32,8 +32,6 @@ static FRAME_PROVIDER: Once<&'static dyn FrameProvider> = Once::new();
 pub fn set_frame_provider(provider: &'static dyn FrameProvider) {
     let _ = FRAME_PROVIDER.call_once(|| provider);
 }
-
-
 
 /// A heap backed by the physical frame allocator.
 pub struct HeapAlloc;
