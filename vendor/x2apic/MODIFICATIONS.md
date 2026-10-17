@@ -2,7 +2,7 @@
 
 This crate is vendored into Proka‑kernel, copied from upstream x2apic 0.5.0.
 
-Upstream repository: https://github.com/xxx/x2apic
+Upstream repository: https://github.com/kwzhao/x2apic
 Original authors: see original README.md
 License: MIT OR Apache‑2.0
 
