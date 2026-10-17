@@ -75,11 +75,12 @@ pub static IDT_EMPTY: InterruptDescriptorTable = InterruptDescriptorTable::new()
 
 // The APIC calibrator
 extern "x86-interrupt" fn apic_calibrator(_: InterruptStackFrame) {
-    use crate::apic::COUNT;
+    use crate::lapic::{COUNT, apic_id};
     use core::sync::atomic::Ordering;
 
-    // Add the count in each interrupts
-    COUNT.fetch_add(1, Ordering::Relaxed);
+    // Count ticks on the *current* CPU only.
+    let id = apic_id();
+    COUNT[id].fetch_add(1, Ordering::Relaxed);
 }
 
 /// Initialize and load IDT

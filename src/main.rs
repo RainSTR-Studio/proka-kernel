@@ -74,7 +74,7 @@ pub extern "C" fn kernel_main() -> ! {
 
     // Init APIC (x86_64)
     info!("Initializing APIC...");
-    proka_kernel_arch::apic::init();
+    proka_kernel_arch::lapic::init();
     success!("Completed APIC initialization.");
 
     // Init syscall

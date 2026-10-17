@@ -40,6 +40,13 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
     }
     let stack_base = rbp_cur as *const u64;
 
+    // Acknowledge the timer interrupt right after switching to the kernel page
+    // table. This is the actual fix for "the APIC timer only fires once":
+    // without an EOI the LAPIC's in-service bit stays set and, even in periodic
+    // mode, no further timer interrupt is delivered — and the task-switch path
+    // below (which iretq's out of the kernel) can never reach an EOI itself.
+    super::lapic::eoi();
+
     // Get smth bruh
     let normal_empty = NORMAL_QUEUE.lock().is_empty();
     let driver_empty = DRIVER_QUEUE.lock().is_empty();
@@ -51,7 +58,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
 
     // Check is queue is empty.
     if normal_empty && driver_empty {
-        super::apic::eoi();
         return;
     }
 
@@ -78,7 +84,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             // still use it to switch back...
             let cr3 = proc.table_addr;
             drop(guard);
-            super::apic::eoi();
 
             // Check: is cr3 empty
             if cr3 == 0 {
@@ -145,7 +150,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
             // Current ID still usable, because it wasn't changed
             let cr3 = proc.table_addr;
             drop(guard);
-            super::apic::eoi();
 
             // Check: is cr3 empty
             if cr3 == 0 {
@@ -195,7 +199,6 @@ pub extern "x86-interrupt" fn switch_task(stack: InterruptStackFrame) {
     let context = if let Ok(val) = result {
         val
     } else {
-        super::apic::eoi();
         return;
     };
 

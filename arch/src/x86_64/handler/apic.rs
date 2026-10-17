@@ -1,5 +1,5 @@
 //! APIC handler
-use crate::apic::eoi;
+use crate::lapic::eoi;
 use x86_64::structures::idt::InterruptStackFrame;
 
 // Error handler for LAPIC
