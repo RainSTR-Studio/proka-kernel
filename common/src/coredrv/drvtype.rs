@@ -1,8 +1,8 @@
 //! Coredrv's drvtype part generic type definitions.
 extern crate alloc;
 use alloc::vec::Vec;
-use spin::{RwLock, LazyLock};
 use num_enum::FromPrimitive;
+use spin::{LazyLock, RwLock};
 
 /// The driver type index.
 pub static DRVTYPE_INDEX: LazyLock<RwLock<Vec<DrvTypeTable>>> = LazyLock::new(|| {
@@ -32,7 +32,6 @@ pub enum DrvType {
     #[num_enum(default)]
     Invalid = u64::MAX,
 }
-
 
 impl DrvType {
     /// Create this from base class (u8).
