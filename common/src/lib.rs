@@ -17,4 +17,5 @@ pub mod logger;
 pub mod memory;
 pub mod output;
 pub mod process;
+pub mod scheduler;
 pub mod syscall;
