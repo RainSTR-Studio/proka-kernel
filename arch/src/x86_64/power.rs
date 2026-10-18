@@ -25,6 +25,7 @@ pub fn hard_reboot() -> ! {
     unsafe { core::arch::asm!("int3", options(noreturn)) }
 }
 
+/// Hard poweroff.
 pub fn hard_poweroff() -> ! {
     warn!(
         "Failed to use ACPI to perform poweroff, will use old port method to trigger hard poweroff..."

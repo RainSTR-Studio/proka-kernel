@@ -2,28 +2,8 @@
 mod drvtype;
 use crate::process::DRIVER_PROCESS;
 pub use drvtype::*;
+use proka_kernel_common::coredrv::Callnum;
 use x86_64::structures::idt::InterruptStackFrame;
-
-/// The call_num enums of coredrv.
-#[repr(u64)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Callnum {
-    /// Register the driver type.
-    RegDriverType = 1,
-
-    // TODO: Add more callnum for coredrv.
-    /// Invalid call num.
-    Invalid = u64::MAX,
-}
-
-impl Callnum {
-    pub fn from_u64(num: u64) -> Self {
-        match num {
-            1 => Self::RegDriverType,
-            _ => Self::Invalid,
-        }
-    }
-}
 
 /// Common interrupt handler
 pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
@@ -47,7 +27,7 @@ pub extern "x86-interrupt" fn coredrv(_: InterruptStackFrame) {
     }
 
     // Convert
-    let call_num = Callnum::from_u64(call_num);
+    let call_num = Callnum::from(call_num);
 
     // Since we got PML4 address, we can do convert from PML4 to DID.
     let drvproc = &DRIVER_PROCESS.read().process;

@@ -4,10 +4,10 @@
 use crate::memory::IdentityPageTableMapper;
 use crate::memory::framealloc::FRAME_ALLOCATOR;
 use crate::process::{DRIVER_PROCESS, NORMAL_PROCESS, ProcType};
-use crate::scheduler::{CURRENT_ID, IS_DRIVER};
 use core::arch::asm;
 use core::sync::atomic::Ordering;
 use proka_kernel_common::println;
+use proka_kernel_common::scheduler::{CURRENT_ID, IS_DRIVER};
 use x86_64::structures::paging::{
     FrameAllocator, MappedPageTable, Mapper, Page, PageTable, PageTableFlags, Size4KiB,
 };

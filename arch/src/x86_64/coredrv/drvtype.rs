@@ -16,8 +16,8 @@ use pci_types::{
     Bar::{self, Memory32, Memory64},
     ConfigRegionAccess, EndpointHeader, HeaderType, PciHeader,
 };
+use proka_kernel_common::coredrv::drvtype::{DRVTYPE_INDEX, DrvType, DrvTypeTable};
 use proka_kernel_common::devices::{IS_PCIE, PCILIST};
-use spin::{LazyLock, RwLock};
 use x86_64::{
     PhysAddr, align_up,
     structures::paging::{
@@ -25,34 +25,6 @@ use x86_64::{
         mapper::MapToError,
     },
 };
-
-/// The driver type index.
-pub static DRVTYPE_INDEX: LazyLock<RwLock<Vec<DrvTypeTable>>> = LazyLock::new(|| {
-    let table = Vec::new();
-    RwLock::new(table)
-});
-
-/// The driver type table.
-#[derive(Debug, Clone)]
-pub struct DrvTypeTable {
-    /// The ID of this driver.
-    pub id: u16,
-
-    /// The type of this driver.
-    pub typ: DrvType,
-}
-
-/// The type of coredrv.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-#[repr(C)]
-pub enum DrvType {
-    /// Graphics driver.
-    Graphics,
-
-    /// Invalid driver type.
-    Invalid,
-}
 
 /// The format of address.
 #[repr(C, packed)]
@@ -64,26 +36,8 @@ pub struct AddrFormat {
     pub size: u64,
 }
 
-impl DrvType {
-    /// Create this enum from u64...
-    pub fn from_u64(arg1: u64) -> Self {
-        match arg1 {
-            1 => Self::Graphics,
-            _ => Self::Invalid,
-        }
-    }
-
-    /// Create this from base class (u8).
-    pub fn from_base_class(base_class: u8) -> Self {
-        match base_class {
-            0x03 => Self::Graphics,
-            _ => Self::Invalid,
-        }
-    }
-}
-
 pub fn driver_type_reg(arg1: u64, _arg2: u64, did: u16) {
-    let typ = DrvType::from_u64(arg1);
+    let typ = DrvType::from(arg1);
 
     // Check: is type invalid?
     if typ == DrvType::Invalid {
