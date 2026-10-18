@@ -15,5 +15,6 @@ pub mod devices;
 pub mod logger;
 pub mod memory;
 pub mod output;
+pub mod coredrv;
 pub mod process;
 pub mod syscall;
