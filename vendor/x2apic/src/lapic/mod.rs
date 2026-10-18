@@ -82,7 +82,7 @@ impl LocalApic {
 
     /// Returns the local APIC ID.
     pub unsafe fn id(&self) -> u32 {
-        self.regs.id() as u32
+        self.regs.id()
     }
 
     /// Returns the version number of the local APIC.
@@ -137,7 +137,7 @@ impl LocalApic {
 
     /// Returns the current timer count.
     pub unsafe fn timer_current(&self) -> u32 {
-        self.regs.tccr() as u32
+        self.regs.tccr()
     }
 
     /// Sets the logical x2APIC ID.
