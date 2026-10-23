@@ -25,5 +25,5 @@ pub struct SyscallEntry {
     pub stack: u64,
 
     /// The dest entry point addr after switching table.
-    pub entry: extern "C" fn(u64, u64, u64, u64, u64) -> i64,
+    pub entry: extern "C" fn(u64, u64, u64, u64, u64, u64, u64) -> i64,
 }

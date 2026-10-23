@@ -12,6 +12,8 @@ use proka_kernel_common::syscall::SYSCALL;
 /// - RDX: The syscall arg 3
 /// - R8: The syscall arg 4
 /// - R9: The syscall arg 5
+/// - R12: The syscall arg 6 (always buffer addr)
+/// - R13: The syscall arg 7 (always buffer size)
 #[unsafe(naked)]
 #[unsafe(no_mangle)]
 pub extern "C" fn syscall_entry() {
@@ -85,7 +87,17 @@ pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, ar
     // Get the syscall number.
     let call_num: u64;
     let user_table: u64;
-    unsafe { asm!("nop", out("rax") call_num, out("r15") user_table) }
+    let buf_addr: u64;
+    let buf_size: u64;
+    unsafe {
+        asm!(
+            "nop",
+            out("rax") call_num,
+            out("r12") buf_addr,
+            out("r13") buf_size,
+            out("r15") user_table
+        )
+    }
 
     // Get the syscall from syscall table.
     let binding = SYSCALL.read();
@@ -103,6 +115,10 @@ pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, ar
         (syscall.entry, syscall.stack, syscall.page_table)
     };
 
+    // If the user passed bufaddr/bufsize isn't empty, we
+    // should map it to the current syscall process's space.
+    let dbuf_addr = map_to_desc_syscall(buf_addr, buf_size);
+
     // Since we get return value, we can write to registers and return...
     let result: u64;
     unsafe {
@@ -113,6 +129,7 @@ pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, ar
             "mov rsp, {stack}",
             "push rbp",         // Save to new stack #1
             "mov r15, {user_table}",
+            "push {buf_size}",
             "call {entry}",
             "pop rsp",          // Restore directly  #1
             "pop rbp",
@@ -120,14 +137,38 @@ pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, ar
             stack = in(reg) stack,
             table = in(reg) page_table,
             user_table = in(reg) user_table,
+            buf_size = in(reg) buf_size,
             in("rdi") arg1,
             in("rsi") arg2,
             in("rdx") arg3,
             in("rcx") arg4,
             in("r8") arg5,
+            in("r9") dbuf_addr,
             out("rax") result,
         )
     }
 
+    // Demap the target syscall address and return
+    demap(dbuf_addr, buf_size);
     result as i64
 }
+
+/// Map the source's buffer to driver.
+///
+/// # Input
+///  - addr: the source address
+///  - size: the buffer size.
+///
+/// # Output
+///  - dst_addr: the dest process's address.
+fn map_to_desc_syscall(_buf_addr: u64, _buf_size: u64) -> u64 {
+    // TODO: Impl this feature
+    0
+}
+
+/// Reverse of map_to_desc_syscall.
+///
+/// # Input
+///  - dst_addr: the destination syscall process buf addr
+///  - size: the buffer size
+fn demap(_dst_addr: u64, _size: u64) {}

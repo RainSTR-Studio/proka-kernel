@@ -23,6 +23,8 @@ pub extern "C" fn process(
     buf: u64,
     len: u64,
     proctyp: u64,
+    _buf_addr: u64,
+    _buf_size: u64,
 ) -> i64 {
     // Get user table
     let user_table: u64;
