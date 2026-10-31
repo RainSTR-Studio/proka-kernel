@@ -1,6 +1,7 @@
 //! The process system.
 extern crate alloc;
 use alloc::vec::Vec;
+use core::ptr::addr_of;
 use proka_exec::sections::SectionFlag;
 use x86_64::structures::paging::mapper::CleanUp;
 use x86_64::structures::paging::{
@@ -23,6 +24,10 @@ use x86_64::{PhysAddr, VirtAddr, align_up};
 
 pub use self::driver::DRIVER_PROCESS;
 pub use self::normal::NORMAL_PROCESS;
+
+unsafe extern "C" {
+    static __NONEXEC_END: u8;
+}
 
 /// The max process numbers
 pub const MAX_PS: usize = 16384;
@@ -186,6 +191,22 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
         );
     }
     let mut proc_mapper = unsafe { MappedPageTable::new(pml4_table, IdentityPageTableMapper) };
+
+    // Now map the non-execable part as not NOT_EXEC
+    if proctype == ProcType::Driver {
+        let pages = (addr_of!(__NONEXEC_END) as u64 - 0xffff800000000000) / 0x1000;
+        let flags = PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE;
+        for i in 0..pages {
+            let page = Page::<Size4KiB>::containing_address(VirtAddr::new(
+                0xffff800000000000 + i * 0x1000,
+            ));
+
+            // SAFETY: update flags is for user process safety
+            unsafe {
+                let _ = proc_mapper.update_flags(page, flags);
+            }
+        }
+    }
 
     // Time to allocate 2MiB for stack
     const STACK_PAGES: usize = 2; // Pages of stack needed

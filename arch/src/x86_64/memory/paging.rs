@@ -18,11 +18,6 @@ const PDT_GS_ADDR: u64 = 0x108000; // Global interrupt stack PDT (resolve confli
 const PDT_GRW_ADDR: u64 = 0x109000; // Global Read-Write area
 const PDT_LOW2_ADDR: u64 = 0x10a000;
 
-unsafe extern "C" {
-    static __GDATA_START: u8;
-    static __GDATA_END: u8;
-}
-
 /// Initialize page tables for higher-half kernel
 pub fn init() {
     // Init page table
