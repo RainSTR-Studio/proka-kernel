@@ -1,4 +1,6 @@
 //! The paging module.
+use core::ptr::addr_of;
+
 use x86_64::PhysAddr;
 use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::*;
@@ -17,6 +19,10 @@ const PDT_HPROC_ADDR: u64 = 0x107000;
 const PDT_GS_ADDR: u64 = 0x108000; // Global interrupt stack PDT (resolve conflict)
 const PDT_GRW_ADDR: u64 = 0x109000; // Global Read-Write area
 const PDT_LOW2_ADDR: u64 = 0x10a000;
+
+unsafe extern "C" {
+    static __NONEXEC_END: u8;
+}
 
 /// Initialize page tables for higher-half kernel
 pub fn init() {
@@ -123,13 +129,19 @@ pub fn init() {
     pdpt_hproc[0].set_addr(PhysAddr::new(PDT_HPROC_ADDR), PageTableFlags::PRESENT);
 
     // Iterate to map the whole kernel address
+    let pages_border = (addr_of!(__NONEXEC_END) as u64 - 0xffff800000000000) / 0x1000;
     for i_pdt in 0..24 {
         let pt = unsafe { &mut *(current as *mut PageTable) };
         let base_phys = 0x200000 + (i_pdt as u64 * 0x200000);
+        let flags = if (i_pdt as u64) < pages_border {
+            PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE
+        } else {
+            PageTableFlags::PRESENT
+        };
 
         for i_pt in 0..512 {
             let phys = base_phys + (i_pt as u64 * 0x1000);
-            pt[i_pt].set_addr(PhysAddr::new(phys), PageTableFlags::PRESENT);
+            pt[i_pt].set_addr(PhysAddr::new(phys), flags);
         }
 
         pdt_hproc[i_pdt].set_addr(PhysAddr::new(current), PageTableFlags::PRESENT);
