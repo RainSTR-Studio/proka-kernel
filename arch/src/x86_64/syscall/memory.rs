@@ -25,7 +25,15 @@ enum MemorySyscallType {
 }
 
 /// Main entry of this syscall 2.
-pub extern "C" fn memory(typ: u64, size: u64, addr: u64, _: u64, _: u64) -> i64 {
+pub extern "C" fn memory(
+    typ: u64,
+    size: u64,
+    addr: u64,
+    _: u64,
+    _: u64,
+    _buf_addr: u64,
+    _buf_size: u64,
+) -> i64 {
     let Ok(typ) = MemorySyscallType::try_from(typ) else {
         return -2;
     };

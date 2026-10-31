@@ -17,7 +17,7 @@ pub enum PowerActions {
 }
 
 /// The power action syscall entry.
-pub extern "C" fn power(power_action: u64, _: u64, _: u64, _: u64, _: u64) -> i64 {
+pub extern "C" fn power(power_action: u64, _: u64, _: u64, _: u64, _: u64, _: u64, _: u64) -> i64 {
     proka_kernel_arch::cpu::disable_interrupts();
     let Ok(action) = PowerActions::try_from(power_action) else {
         return -2;
