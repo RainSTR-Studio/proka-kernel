@@ -14,7 +14,7 @@ use x86_64::{
 /// Initialize the x86_64 MSR-based syscall entry (STAR/LSTAR/SFMask).
 ///
 /// This is the architecture-specific half of syscall setup; the generic
-/// syscall registration table lives in `proka_kernel_common::syscall`.
+/// syscall registration table lives in `proka_kernel_core::syscall`.
 pub fn init_reg() {
     // Firstly, update STAR registers
     let sel = GDT.1;

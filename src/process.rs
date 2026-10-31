@@ -1,9 +1,9 @@
 //! Process management (kernel-level orchestration).
 //!
-//! Public process types come from `proka-kernel-common`; the x86_64 process
+//! Public process types come from `proka-kernel-core`; the x86_64 process
 //! loading / page-table logic lives in `proka-kernel-arch::process`.
 
-pub use proka_kernel_common::process::{Error, ProcType, Status};
+pub use proka_kernel_core::process::{Error, ProcType, Status};
 
 /// Create a process and push it into the process list by passing a valid
 /// PKE format data.

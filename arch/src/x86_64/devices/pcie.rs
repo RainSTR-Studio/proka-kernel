@@ -5,7 +5,7 @@ use crate::{
     memory::{MAPPER, framealloc::FRAME_ALLOCATOR},
 };
 use acpi::sdt::mcfg::Mcfg;
-use proka_kernel_common::devices::pcie::PcieCfgAccess;
+use proka_kernel_core::devices::pcie::PcieCfgAccess;
 use x86_64::{
     PhysAddr, align_down, align_up,
     structures::paging::{Mapper, PageTableFlags, PhysFrame, Size2MiB, mapper::MapToError},

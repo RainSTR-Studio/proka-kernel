@@ -4,7 +4,7 @@ use super::PCILIST;
 use acpi::sdt::mcfg::Mcfg;
 use pci_types::{PciAddress, PciHeader};
 use proka_kernel_arch::acpi::ACPI_PLATFORM;
-use proka_kernel_common::devices::pcie::PcieCfgAccess;
+use proka_kernel_core::devices::pcie::PcieCfgAccess;
 
 // XXX: Use 2 unit result can make code much more readable
 #[allow(clippy::result_unit_err)]

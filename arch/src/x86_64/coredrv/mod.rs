@@ -2,7 +2,7 @@
 mod drvtype;
 use crate::process::DRIVER_PROCESS;
 pub use drvtype::*;
-use proka_kernel_common::coredrv::Callnum;
+use proka_kernel_core::coredrv::Callnum;
 use x86_64::structures::idt::InterruptStackFrame;
 
 /// Common interrupt handler

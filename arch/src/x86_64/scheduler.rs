@@ -1,7 +1,7 @@
 //! The scheduler.
 use crate::process::{Context, DRIVER_PROCESS, NORMAL_PROCESS};
 use core::{mem::offset_of, sync::atomic::Ordering};
-use proka_kernel_common::scheduler::{CURRENT_ID, DRIVER_QUEUE, IS_DRIVER, NORMAL_QUEUE};
+use proka_kernel_core::scheduler::{CURRENT_ID, DRIVER_QUEUE, IS_DRIVER, NORMAL_QUEUE};
 use x86_64::structures::idt::InterruptStackFrame;
 
 /// The task switcher
