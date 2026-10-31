@@ -3,7 +3,7 @@
 //! Registered as syscall 1.
 use crate::acpi::power::{poweroff, reboot};
 use num_enum::TryFromPrimitive;
-use proka_kernel_arch::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
+use proka_kernel_common::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
 
 /// The power actions.
 #[derive(Debug, PartialEq, Eq, TryFromPrimitive)]

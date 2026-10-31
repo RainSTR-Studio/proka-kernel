@@ -404,6 +404,7 @@ name = "proka-kernel-common"
 version = "0.2.3"
 dependencies = [
  "log",
+ "num_enum",
  "pci_types",
  "proka-bootloader",
  "spin 0.12.2",

@@ -35,9 +35,9 @@ pub fn apic_id() -> usize {
         let apic_base = Msr::new(0x1B).read();
         let x2apic_enabled = apic_base & (1 << 10) != 0;
         if x2apic_enabled {
-            // x2APIC: the x2APIC ID lives in the low byte of MSR 0x802.
+            // x2APIC: the x2APIC ID lives in 0..=31 bits
             let id = Msr::new(0x802).read() as u32;
-            (id & 0xFF) as usize
+            id as usize
         } else {
             // xAPIC: the APIC ID lives in the high byte (bits 24..31) of the
             // MMIO ID register.

@@ -144,5 +144,5 @@ fn cpu_has_x2apic() -> bool {
 /// This function reads from `IA32_APIC_BASE`.
 pub unsafe fn xapic_base() -> u64 {
     x86_64::registers::model_specific::Msr::new(IA32_APIC_BASE).read()
-        & 0xFFFFFF000 as u64
+        & 0xFFFFFF000_u64
 }

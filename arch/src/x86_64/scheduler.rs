@@ -1,25 +1,8 @@
 //! The scheduler.
-extern crate alloc;
 use crate::process::{Context, DRIVER_PROCESS, NORMAL_PROCESS};
-use alloc::vec::Vec;
-use core::{
-    mem::offset_of,
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
-};
-use spin::Mutex;
+use core::{mem::offset_of, sync::atomic::Ordering};
+use proka_kernel_common::scheduler::{CURRENT_ID, DRIVER_QUEUE, IS_DRIVER, NORMAL_QUEUE};
 use x86_64::structures::idt::InterruptStackFrame;
-
-/// The normal process queue.
-pub static NORMAL_QUEUE: Mutex<Vec<usize>> = Mutex::new(Vec::new());
-
-/// The driver process queue.
-pub static DRIVER_QUEUE: Mutex<Vec<usize>> = Mutex::new(Vec::new());
-
-/// Assign is it driver running or normal process.
-pub static IS_DRIVER: AtomicBool = AtomicBool::new(false);
-
-// Contains the current PID/DID.
-pub static CURRENT_ID: AtomicUsize = AtomicUsize::new(16383);
 
 /// The task switcher
 #[unsafe(no_mangle)]

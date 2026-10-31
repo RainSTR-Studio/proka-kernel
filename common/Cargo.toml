@@ -9,6 +9,7 @@ log = { workspace = true }
 pci_types = { workspace = true }
 spin = { workspace = true }
 proka-bootloader = { workspace = true }
+num_enum = { workspace = true }
 
 [features]
 default = []
