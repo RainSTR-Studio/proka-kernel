@@ -8,7 +8,7 @@ use crate::{
 use acpi::{AcpiTables, Handle, Handler, aml::Interpreter, platform::AcpiPlatform};
 use core::ptr::NonNull;
 use pci_types::ConfigRegionAccess;
-use proka_kernel_common::devices::IS_PCIE;
+use proka_kernel_core::devices::IS_PCIE;
 use spin::LazyLock;
 use x86_64::{
     PhysAddr, align_up,

@@ -16,8 +16,8 @@ use pci_types::{
     Bar::{self, Memory32, Memory64},
     ConfigRegionAccess, EndpointHeader, HeaderType, PciHeader,
 };
-use proka_kernel_common::coredrv::drvtype::{DRVTYPE_INDEX, DrvType, DrvTypeTable};
-use proka_kernel_common::devices::{IS_PCIE, PCILIST};
+use proka_kernel_core::coredrv::drvtype::{DRVTYPE_INDEX, DrvType, DrvTypeTable};
+use proka_kernel_core::devices::{IS_PCIE, PCILIST};
 use x86_64::{
     PhysAddr, align_up,
     structures::paging::{

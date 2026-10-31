@@ -1,12 +1,12 @@
 //! The device init module.
 //!
 //! The PCI device list and the "PCIe or legacy PCI" flag are
-//! architecture-independent and live in `proka_kernel_common::devices`;
+//! architecture-independent and live in `proka_kernel_core::devices`;
 //! this module re-exports them and keeps the probing orchestration.
 extern crate alloc;
 use log::debug;
 use log::warn;
-pub use proka_kernel_common::devices::{IS_PCIE, PCILIST};
+pub use proka_kernel_core::devices::{IS_PCIE, PCILIST};
 pub mod pcie;
 
 pub fn init() {

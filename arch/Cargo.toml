@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-proka-kernel-common = { workspace = true }
+proka-kernel-core = { workspace = true }
 acpi = { workspace = true }
 hadris-fat = { workspace = true }
 log = { workspace = true }

@@ -1,5 +1,5 @@
 [workspace]
-members = ["arch", "common", "."]
+members = ["arch", "core", "."]
 resolver = "2"
 
 [package]
@@ -14,7 +14,7 @@ glob = "0.3.0"
 
 [workspace.dependencies]
 # Self-dependencies
-proka-kernel-common = { path = "common" }
+proka-kernel-core = { path = "core" }
 proka-kernel-arch = { path = "arch" }
 
 # 3rd-party dependencies
@@ -39,7 +39,7 @@ edition = "2024"
 license = "GPL-3.0"
 
 [dependencies]
-proka-kernel-common = { workspace = true }
+proka-kernel-core = { workspace = true }
 num_enum = { workspace = true }
 proka-kernel-arch = { workspace = true }
 proka-bootloader = { workspace = true }
@@ -61,5 +61,5 @@ incremental = false
 
 [features]
 default = []
-output_fb = ["proka-kernel-common/output_fb", "proka-kernel-arch/output_fb"]
-output_serial = ["proka-kernel-common/output_serial", "proka-kernel-arch/output_serial"]
+output_fb = ["proka-kernel-core/output_fb", "proka-kernel-arch/output_fb"]
+output_serial = ["proka-kernel-core/output_serial", "proka-kernel-arch/output_serial"]

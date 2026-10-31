@@ -7,7 +7,7 @@ use self::framealloc::FRAME_ALLOCATOR;
 pub use self::paging::{PDPT_HPROC_ADDR, PML4_ADDR};
 use alloc::vec::Vec;
 use proka_bootloader::{get_bootinfo, memory::MemoryType};
-use proka_kernel_common::println;
+use proka_kernel_core::println;
 use spin::{LazyLock, Mutex, Once};
 use x86_64::{
     PhysAddr, VirtAddr,
