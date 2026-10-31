@@ -1,6 +1,6 @@
 //! The syscall module (kernel-level orchestration).
 pub mod power;
-use proka_kernel_common::syscall::{SYSCALL, SyscallEntry};
+use proka_kernel_core::syscall::{SYSCALL, SyscallEntry};
 
 /// Syscall initializator.
 pub fn init() {

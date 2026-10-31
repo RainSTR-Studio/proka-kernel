@@ -1,14 +1,14 @@
 //! x86_64 frame allocator.
 //!
 //! This is a thin adapter over the architecture-independent bitmap core in
-//! `proka_kernel_common::memory::framealloc`. All of the actual memory
+//! `proka_kernel_core::memory::framealloc`. All of the actual memory
 //! tracking (which PFNs are free, contiguous allocation) lives there and is
 //! shared with every other architecture; this module only plugs in the
 //! x86_64 physical-frame type (`PhysFrame`) and the x86 `FrameAllocator` /
 //! `FrameDeallocator` trait implementations that the x86 page-table code
 //! requires.
 use proka_bootloader::{get_bootinfo, memory::MemoryMap};
-use proka_kernel_common::memory::{framealloc::FrameAlloc as CoreAlloc, heap::FrameProvider};
+use proka_kernel_core::memory::{framealloc::FrameAlloc as CoreAlloc, heap::FrameProvider};
 use spin::{LazyLock, mutex::SpinMutex};
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
 
@@ -84,5 +84,5 @@ impl FrameProvider for FrameAllocProvider {
 
 /// Register this architecture's frame provider so the shared heap works.
 pub fn register_provider() {
-    proka_kernel_common::memory::heap::set_frame_provider(&FRAME_ALLOC_PROVIDER);
+    proka_kernel_core::memory::heap::set_frame_provider(&FRAME_ALLOC_PROVIDER);
 }

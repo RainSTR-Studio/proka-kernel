@@ -21,5 +21,5 @@ pub fn _print(args: ::core::fmt::Arguments) {
 /// Register the serial print hook into the architecture-independent
 /// output layer, so the public `println!` macro can reach the serial port.
 pub fn register_hook() {
-    proka_kernel_common::output::SERIAL_PRINT.call_once(|| _print);
+    proka_kernel_core::output::SERIAL_PRINT.call_once(|| _print);
 }
