@@ -8,6 +8,7 @@ use spin::RwLock;
 
 /// The merged syscall / drvcall table.
 pub static SDMSTABLE: RwLock<SdmsTable> = RwLock::new(SdmsTable {
+    temp_stack: 0,
     smsh_pfn: Vec::new(),
     sms_entry: Vec::new(),
     dms_entry: Vec::new(),
@@ -17,6 +18,11 @@ pub static SDMSTABLE: RwLock<SdmsTable> = RwLock::new(SdmsTable {
 /// One call table, split by the class of the caller.
 #[derive(Debug)]
 pub struct SdmsTable {
+    /// SMS/DMS temporaty stack used count.
+    ///
+    /// Calc: 0xffff8008_00000000 + temp_stack * 0x40000
+    pub temp_stack: u64,
+
     /// Page frame numbers shared with normal processes.
     pub smsh_pfn: Vec<u64>,
 
