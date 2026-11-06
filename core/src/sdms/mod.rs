@@ -1,8 +1,8 @@
 //! SDMS - the merged Syscall & Drvcall (SMS/DMS) subsystem.
 extern crate alloc;
 pub mod dms;
-pub mod sms;
 pub mod memory;
+pub mod sms;
 use alloc::vec::Vec;
 use spin::RwLock;
 
