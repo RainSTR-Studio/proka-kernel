@@ -1,8 +1,7 @@
 //! x86_64 interrupt handler.
 mod apic;
 mod exception;
-mod syscall;
-
+mod sdms;
 pub use apic::*;
 pub use exception::*;
-pub use syscall::*;
+pub use sdms::*;

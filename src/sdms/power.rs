@@ -1,4 +1,4 @@
-//! The power action in syscall.
+//! The power action of the SDMS normal-process half.
 //!
 //! Registered as syscall 1.
 use crate::acpi::power::{poweroff, reboot};

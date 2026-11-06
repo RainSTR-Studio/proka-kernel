@@ -36,5 +36,5 @@ pub mod logger;
 pub mod memory;
 pub mod panic;
 pub mod process;
-pub mod syscall;
+pub mod sdms;
 pub mod test;

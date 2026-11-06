@@ -1,7 +1,11 @@
-//! The syscall handler.
+//! The `syscall`/`sysret` fast path of the SDMS subsystem.
+//!
+//! The setup half of the fast path (STAR/LSTAR/SFMask) lives in the parent
+//! module as [`super::init_reg`]; this file only owns the entry stub and the
+//! call dispatch itself.
 extern crate alloc;
 use core::arch::{asm, naked_asm};
-use proka_kernel_core::syscall::SYSCALL;
+use proka_kernel_core::sdms::SDMSTABLE;
 
 /// The syscall common entry.
 ///
@@ -99,20 +103,19 @@ pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, ar
         )
     }
 
-    // Get the syscall from syscall table.
-    let binding = SYSCALL.read();
-
-    let (entry, stack, page_table) = {
-        let syscall = binding.iter().find(|s| s.sysnum == call_num);
-
-        // Check: Is this result none
-        if syscall.is_none() {
-            return -1;
-        }
-
-        // Now we can get the exact table safely.
-        let syscall = syscall.expect("Shouldn't appear!"); // Won't panick!
-        (syscall.entry, syscall.stack, syscall.page_table)
+    // Look the syscall up in the normal-process half of the SDMS table.
+    // The entry is copied out and the guard is dropped before the switch,
+    // so a syscall is free to touch `SDMSTABLE` itself.
+    let found = {
+        let table = SDMSTABLE.read();
+        table
+            .sms_entry
+            .iter()
+            .find(|entry| entry.sysnum == call_num)
+            .map(|entry| (entry.entry, entry.page_table))
+    };
+    let Some((entry, page_table)) = found else {
+        return -1;
     };
 
     // If the user passed bufaddr/bufsize isn't empty, we
@@ -129,21 +132,18 @@ pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, ar
             "mov rsp, {stack}",
             "push rbp",         // Save to new stack #1
             "mov r15, {user_table}",
-            "push {buf_size}",
             "call {entry}",
             "pop rsp",          // Restore directly  #1
             "pop rbp",
             entry = in(reg) entry,
-            stack = in(reg) stack,
+            stack = in(reg) 0xffff80004003f000u64,
             table = in(reg) page_table,
             user_table = in(reg) user_table,
-            buf_size = in(reg) buf_size,
             in("rdi") arg1,
             in("rsi") arg2,
             in("rdx") arg3,
             in("rcx") arg4,
             in("r8") arg5,
-            in("r9") dbuf_addr,
             out("rax") result,
         )
     }

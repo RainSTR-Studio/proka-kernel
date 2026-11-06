@@ -333,7 +333,7 @@ void _start(void) {
 
 | 文件 | 功能 |
 |------|------|
-| `syscall/mod.rs` | IPC 调用入口 |
+| `sdms/mod.rs` | IPC 调用入口（系统调用/驱动调用统一入口） |
 | `service/mod.rs` | 服务注册和分发 |
 | `service/types.rs` | IPC 类型定义 |
 | `service/process.rs` | 进程服务 |

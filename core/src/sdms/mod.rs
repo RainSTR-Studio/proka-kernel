@@ -1,0 +1,47 @@
+//! SDMS - the merged Syscall & Drvcall (SMS/DMS) subsystem.
+extern crate alloc;
+pub mod dms;
+pub mod sms;
+pub mod memory;
+use alloc::vec::Vec;
+use spin::RwLock;
+
+/// The merged syscall / drvcall table.
+pub static SDMSTABLE: RwLock<SdmsTable> = RwLock::new(SdmsTable {
+    smsh_pfn: Vec::new(),
+    sms_entry: Vec::new(),
+    dms_entry: Vec::new(),
+    dmsh_pfn: Vec::new(),
+});
+
+/// One call table, split by the class of the caller.
+#[derive(Debug)]
+pub struct SdmsTable {
+    /// Page frame numbers shared with normal processes.
+    pub smsh_pfn: Vec<u64>,
+
+    /// Entry of each syscall...
+    pub sms_entry: Vec<SdmsEntry>,
+
+    /// Entry of each drvcall...
+    pub dms_entry: Vec<SdmsEntry>,
+
+    /// Page frame numbers shared with driver processes.
+    pub dmsh_pfn: Vec<u64>,
+}
+
+/// A single call entry.
+#[derive(Debug, Clone, Copy)]
+pub struct SdmsEntry {
+    /// The call number.
+    pub sysnum: u64,
+
+    /// The dest page table.
+    ///
+    /// The system will automatically switch into this table and pass the
+    /// arguments through.
+    pub page_table: u64,
+
+    /// The dest entry point address after switching table.
+    pub entry: extern "C" fn(u64, u64, u64, u64, u64, u64, u64) -> i64,
+}

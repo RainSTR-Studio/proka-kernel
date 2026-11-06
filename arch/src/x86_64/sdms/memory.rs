@@ -4,7 +4,7 @@ use crate::{
     memory::IdentityPageTableMapper, memory::framealloc::FRAME_ALLOCATOR, process::NORMAL_PROCESS,
 };
 use alloc::vec::Vec;
-use num_enum::TryFromPrimitive;
+use proka_kernel_core::sdms::memory::MemorySyscallType;
 use x86_64::{
     VirtAddr,
     structures::paging::{
@@ -12,17 +12,6 @@ use x86_64::{
         PageTableFlags, Size4KiB,
     },
 };
-
-/// Types of this syscall.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
-#[repr(u64)]
-enum MemorySyscallType {
-    /// Allocate heap memory.
-    Allocate = 0,
-
-    /// Deallocate specified address memory.
-    Deallocate = 1,
-}
 
 /// Main entry of this syscall 2.
 pub extern "C" fn memory(
