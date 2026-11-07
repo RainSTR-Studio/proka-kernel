@@ -8,6 +8,8 @@ use x86_64::structures::paging::{
 };
 pub mod driver;
 pub mod normal;
+pub use self::driver::DRIVER_PROCESS;
+pub use self::normal::NORMAL_PROCESS;
 use crate::memory::IdentityPageTableMapper;
 use crate::memory::PDPT_HPROC_ADDR;
 use crate::memory::PML4_ADDR;
@@ -20,9 +22,6 @@ pub use proka_kernel_core::process::{Error, ProcType, Status};
 use proka_kernel_core::scheduler::{DRIVER_QUEUE, NORMAL_QUEUE};
 use x86_64::registers::rflags::RFlags;
 use x86_64::{PhysAddr, VirtAddr, align_up};
-
-pub use self::driver::DRIVER_PROCESS;
-pub use self::normal::NORMAL_PROCESS;
 
 /// The max process numbers
 pub const MAX_PS: usize = 16384;
@@ -185,6 +184,8 @@ pub unsafe fn create(data: &[u8], priority: u8) -> Result<(), Error> {
             PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
         );
     }
+
+    // Create a mapper for convenience
     let mut proc_mapper = unsafe { MappedPageTable::new(pml4_table, IdentityPageTableMapper) };
 
     // Time to allocate 2MiB for stack

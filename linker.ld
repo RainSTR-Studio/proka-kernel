@@ -14,6 +14,9 @@ SECTIONS {
         *(.header*)
         *(.main*)
         *(.text*)
+	. = ALIGN(CONSTANT(MAXPAGESIZE));
+	__NONEXEC_END = .;
+	*(.public*)
     }
 
     /* Move to the next memory page */

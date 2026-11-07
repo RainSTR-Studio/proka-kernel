@@ -77,10 +77,10 @@ pub extern "C" fn kernel_main() -> ! {
     proka_kernel_arch::lapic::init();
     success!("Completed APIC initialization.");
 
-    // Init syscall
-    info!("Starting to initialize syscall module...");
-    proka_kernel::syscall::init();
-    success!("Successfully initialized syscall.");
+    // Init SDMS (syscall + driver-call)
+    info!("Starting to initialize sdms module...");
+    proka_kernel::sdms::init();
+    success!("Successfully initialized sdms.");
 
     // Time to parse INITPRT!
     info!("Loading initprt's content to prepare for system running...");

@@ -1,4 +1,4 @@
-//! Coredrv's drvtype part generic type definitions.
+//! SDMS driver-call (coredrv) drvtype part generic type definitions.
 extern crate alloc;
 use alloc::vec::Vec;
 use num_enum::FromPrimitive;
@@ -20,13 +20,16 @@ pub struct DrvTypeTable {
     pub typ: DrvType,
 }
 
-/// The type of coredrv.
+/// The type of a driver registered through the driver-call half.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
 #[non_exhaustive]
 #[repr(u64)]
 pub enum DrvType {
     /// Graphics driver.
     Graphics = 0,
+
+    /// Disk I/O operation driver.
+    DiskIO = 1,
 
     /// Invalid driver type.
     #[num_enum(default)]
@@ -38,6 +41,7 @@ impl DrvType {
     pub fn from_base_class(base_class: u8) -> Self {
         match base_class {
             0x03 => Self::Graphics,
+            0x01 => Self::DiskIO,
             _ => Self::Invalid,
         }
     }

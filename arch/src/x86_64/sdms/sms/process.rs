@@ -2,18 +2,7 @@
 //!
 //! Registered as syscall 0.
 use crate::process::ProcType;
-use num_enum::TryFromPrimitive;
-
-/// The process syscall request type.
-#[derive(Debug, PartialEq, Eq, TryFromPrimitive)]
-#[repr(u64)]
-pub enum ProcessSyscallRequest {
-    /// Request to kill tasks.
-    KillTasks,
-
-    /// Request to create tasks.
-    CreateTasks,
-}
+use proka_kernel_core::sdms::sms::process::ProcessSyscallRequest;
 
 /// The entry point of process syscall.
 // TODO: Write this function once the structure of memory got refactored.
@@ -23,6 +12,8 @@ pub extern "C" fn process(
     buf: u64,
     len: u64,
     proctyp: u64,
+    _buf_addr: u64,
+    _buf_size: u64,
 ) -> i64 {
     // Get user table
     let user_table: u64;
