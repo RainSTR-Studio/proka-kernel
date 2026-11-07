@@ -26,11 +26,10 @@ pub extern "C" fn syscall_entry() {
         "push rbp",
         "mov rbp, rsp",
         // Push all of the registers (no RAX)
+        "cli",
         "push rbx",
         "push rcx",
         "push rdx",
-        "push rsp",
-        "push rbp",
         "push rsi",
         "push rdi",
         "push r8",
@@ -47,16 +46,60 @@ pub extern "C" fn syscall_entry() {
         "mov r13, 0x100000",
         "mov cr3, r13",
         "mov rsp, 0xffff80004007f000",
+        // Save return info
         "push r14",
         "push r15",
-        // Convert our own origin ABI to System V ABI, as the RCX has been overwrited.
+        /* Alloc temporary stack */
+        // Save arguments first
+        "push rax",
+        "push rdi",
+        "push rsi",
+        "push rdx",
+        "push r8",
+        "push r9",
+        "push r12",
+        "push r13",
+        // Call stack allocator
+        "mov rdi, r15",
+        "call alloc_tempstack",
+        // Restore register value
+        "pop r13",
+        "pop r12",
+        "pop r9",
+        "pop r8",
+        "pop rdx",
+        "pop rsi",
+        "pop rdi",
+        "pop r13", // push rax
+        "pop r15",
+        "pop r14",
+        // Switch stack and restore sysnum
+        "mov rsp, rax",
+        "mov rax, r13", // Move back sysnum
+        "push r14",
+        "push r15",
+        // Convert our own origin ABI to System V ABI
         "mov rcx, r8",
         "mov r8, r9",
         // Enter main function
+        "sti",
         "call syscall_handler",
+        "cli",
         // Recover original stack and table.
         "pop r15",
         "pop r14",
+        /* Deallocate temporary stack */
+        // Move to temporary stack
+        "mov r13, rsp", // Get current stack top
+        "mov rsp, 0xffff80004007fff0",
+        "mov rdi, r13", // Arg #1 (stack_top)
+        "mov rsi, r15", // Arg #2 (target_pml4)
+        "push r14",
+        "push r15",
+        "call dealloc_tempstack",
+        "pop r15",
+        "pop r14",
+        // Recover origin stack and table
         "mov rsp, r14",
         "mov cr3, r15",
         // Recover common registers
@@ -70,12 +113,11 @@ pub extern "C" fn syscall_entry() {
         "pop r8",
         "pop rdi",
         "pop rsi",
-        "pop rbp",
-        "pop rsp",
         "pop rdx",
         "pop rcx",
         "pop rbx",
         // Pop RBP and return
+        "sti",
         "pop rbp",
         "sysretq",
     );
@@ -99,7 +141,7 @@ pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, ar
             out("rax") call_num,
             out("r12") buf_addr,
             out("r13") buf_size,
-            out("r15") user_table
+            out("r15") user_table,
         )
     }
 
@@ -122,31 +164,16 @@ pub extern "C" fn syscall_handler(arg1: u64, arg2: u64, arg3: u64, arg4: u64, ar
     // should map it to the current syscall process's space.
     let dbuf_addr = map_to_desc_syscall(buf_addr, buf_size);
 
-    // Since we get return value, we can write to registers and return...
-    let result: u64;
+    // Move to target table
     unsafe {
         asm!(
-            "mov cr3, {table}",
-            "push rbp",
-            "mov rbp, rsp",     // Use RBP to save the original stack address
-            "mov rsp, {stack}",
-            "push rbp",         // Save to new stack #1
-            "mov r15, {user_table}",
-            "call {entry}",
-            "pop rsp",          // Restore directly  #1
-            "pop rbp",
-            entry = in(reg) entry,
-            stack = in(reg) 0xffff80004003f000u64,
-            table = in(reg) page_table,
-            user_table = in(reg) user_table,
-            in("rdi") arg1,
-            in("rsi") arg2,
-            in("rdx") arg3,
-            in("rcx") arg4,
-            in("r8") arg5,
-            out("rax") result,
+            "mov cr3, {}",
+            in(reg) page_table,
+            in("r15") user_table,
         )
     }
+
+    let result = entry(arg1, arg2, arg3, arg4, arg5, dbuf_addr, buf_size);
 
     // Demap the target syscall address and return
     demap(dbuf_addr, buf_size);

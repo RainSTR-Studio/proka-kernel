@@ -27,6 +27,7 @@ const BASE_VA: u64 = 0xffff8004_00000000;
 ///
 /// # Return
 /// u64: addr (phys), size is fixed as 256KiB
+#[unsafe(no_mangle)]
 pub extern "C" fn alloc_tempstack(target_pml4: u64) -> u64 {
     let Some(stack_bottom) = FRAME_ALLOCATOR.lock().allocate_contiguous(64) else {
         return 0;
@@ -63,6 +64,7 @@ pub extern "C" fn alloc_tempstack(target_pml4: u64) -> u64 {
 /// - `stack_top` must be the exact return value from a prior successful `alloc_tempstack`.
 /// - `target_pml4` must match the target PML4 physical address used at allocation time.
 /// - No CPU may still be executing on this stack when deallocated.
+#[unsafe(no_mangle)]
 pub extern "C" fn dealloc_tempstack(stack_top: u64, target_pml4: u64) {
     let stack_start_va = stack_top - STACK_OFFSET;
 

@@ -13,15 +13,15 @@ use x86_64::{
     structures::paging::PhysFrame,
 };
 
-/// The kernel page table the driver-call handler runs under.
-const KERNEL_PAGE_TABLE: u64 = 0x100000;
-
-/// The driver-call entry (IDT vector `0x40`).
+/// The driver-call entry.
 ///
-/// # Register layout (set up by the driver before `int 0x40`)
+/// # Register layout (tbh it based on SysV ABI):
 ///  - RAX: the driver-call number
 ///  - RDI: the call arg 1
 ///  - RSI: the call arg 2
+///  - RCX: the call arg 3
+///  - R8: the call arg 4
+///  - R9: the call arg 5
 ///
 /// # Stack arrangement
 /// On entry (64-bit mode, vector without an error code) the CPU has pushed
@@ -31,8 +31,12 @@ const KERNEL_PAGE_TABLE: u64 = 0x100000;
 #[unsafe(naked)]
 pub extern "C" fn coredrv() {
     naked_asm!(
-        // Preserve the caller-saved registers; `extern "C"` preserves the rest.
-        "push rax",
+        // Save and update RBP
+        "push rbp",
+        "mov rbp, rsp",
+        // Push all of the registers
+        "cli",
+        "push rbx",
         "push rcx",
         "push rdx",
         "push rsi",
@@ -41,12 +45,69 @@ pub extern "C" fn coredrv() {
         "push r9",
         "push r10",
         "push r11",
-        // Reorder into the System V argument registers: (num, arg1, arg2).
-        "mov rdx, rsi",
-        "mov rsi, rdi",
-        "mov rdi, rax",
+        "push r12",
+        "push r13",
+        "push r14",
+        "push r15",
+        // Save original rsp, original cr3
+        "mov r14, rsp",
+        "mov r15, cr3",
+        // Switch to kernel fixed temp stack area for alloc
+        "mov r13, 0x100000",
+        "mov cr3, r13",
+        "mov rsp, 0xffff80004004f000",
+        // Save return info
+        "push r14",
+        "push r15",
+        // Save arguments for alloc_tempstack
+        "push rax",
+        "push rdi",
+        "push rsi",
+        "push rdx",
+        "push r8",
+        "push r9",
+        "push r12",
+        "push r13",
+        // call alloc_tempstack(original_cr3 = r15)
+        "mov rdi, r15",
+        "call alloc_tempstack",
+        // restore argument registers
+        "pop r13",
+        "pop r12",
+        "pop r9",
+        "pop r8",
+        "pop rdx",
+        "pop rsi",
+        "pop rdi",
+        "pop r13", // push rax
+        // Restore info registers
+        "pop r15",
+        "pop r14",
+        // rax = allocated temp stack pointer
+        "mov rsp, rax",
+        "mov r13, rax",
+        // Call main handler
+        "sti",
         "call coredrv_handler",
-        // Restore the interrupted context.
+        "cli",
+        /* Deallocate temp stack */
+        "mov r13, rsp", // current stack top
+        "mov rsp, 0xffff80004004fff0",
+        "mov rdi, r13", // arg1: stack_top
+        "mov rsi, r15", // arg2: target_pml4
+        "push r14",
+        "push r15",
+        "call dealloc_tempstack",
+        "pop r15",
+        "pop r14",
+        // Restore original cr3 and original rsp
+        "mov rsp, r14",
+        "mov cr3, r15",
+        // Restore general registers (reverse push order)
+        "pop r15",
+        "pop r14",
+        "pop r13",
+        "pop r12",
         "pop r11",
         "pop r10",
         "pop r9",
@@ -55,27 +116,22 @@ pub extern "C" fn coredrv() {
         "pop rsi",
         "pop rdx",
         "pop rcx",
-        "pop rax",
-        "iretq",
+        "pop rbx",
+        // Pop RBP and return
+        "sti",
+        "pop rbp",
+        "ret",
     );
 }
 
-/// The `extern "C"` body of [`coredrv`].
-///
-/// # Arguments
-///  - `call_num`: the driver-call number (was in RAX)
-///  - `arg1`: the call arg 1 (was in RDI)
-///  - `arg2`: the call arg 2 (was in RSI)
+/// The body of [`coredrv`].
 ///
 /// The stub above reaches this function through its raw symbol, hence
 /// `no_mangle`.
 #[unsafe(no_mangle)]
 pub extern "C" fn coredrv_handler(call_num: u64, arg1: u64, arg2: u64) {
-    // Switch to the kernel table first: the driver list is only reachable
-    // from the kernel address space. Remember the caller's table for the
-    // restore at the end.
-    let caller_table = Cr3::read().0.start_address().as_u64();
-    switch_table(KERNEL_PAGE_TABLE);
+    let caller_table: u64;
+    unsafe { core::arch::asm!("mov {}, r15", out(reg) caller_table) }
 
     // Since we got the PML4 address, we can convert from PML4 to DID.
     let did = {
