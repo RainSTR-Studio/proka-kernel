@@ -3,8 +3,8 @@ extern crate alloc;
 pub mod dms;
 pub mod memory;
 pub mod sms;
-use alloc::vec::Vec;
 use alloc::collections::BTreeSet;
+use alloc::vec::Vec;
 use spin::RwLock;
 
 /// The merged syscall / drvcall table.
