@@ -16,8 +16,8 @@ use pci_types::{
     Bar::{self, Memory32, Memory64},
     ConfigRegionAccess, EndpointHeader, HeaderType, PciHeader,
 };
-use proka_kernel_core::coredrv::drvtype::{DRVTYPE_INDEX, DrvType, DrvTypeTable};
 use proka_kernel_core::devices::{IS_PCIE, PCILIST};
+use proka_kernel_core::sdms::dms::drvtype::{DRVTYPE_INDEX, DrvType, DrvTypeTable};
 use x86_64::{
     PhysAddr, align_up,
     structures::paging::{
@@ -36,13 +36,29 @@ pub struct AddrFormat {
     pub size: u64,
 }
 
-pub fn driver_type_reg(arg1: u64, _arg2: u64, did: u16) {
+/// The driver-call entry point of this call.
+///
+/// The signature matches [`proka_kernel_core::sdms::SdmsEntry::entry`]:
+/// the driver-call dispatcher passes `arg1`, `arg2` and the caller's DID
+/// in the first three slots, so this can be registered in
+/// `SDMSTABLE.dms_entry` directly.
+pub extern "C" fn driver_type_reg(
+    arg1: u64,
+    _arg2: u64,
+    did: u64,
+    _: u64,
+    _: u64,
+    _: u64,
+    _: u64,
+) -> i64 {
     let typ = DrvType::from(arg1);
 
     // Check: is type invalid?
     if typ == DrvType::Invalid {
-        return;
+        return -1;
     }
+
+    let did = did as u16;
 
     // Update index...
     let obj = DrvTypeTable { id: did, typ };
@@ -144,6 +160,8 @@ pub fn driver_type_reg(arg1: u64, _arg2: u64, did: u16) {
     unsafe {
         core::ptr::copy_nonoverlapping(bar_list.as_ptr(), 0xffff800080000000 as *mut AddrFormat, 1)
     }
+
+    0
 }
 
 fn map_mmio<C>(

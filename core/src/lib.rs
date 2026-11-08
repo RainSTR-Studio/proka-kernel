@@ -11,11 +11,10 @@
 /// The kernel version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub mod coredrv;
 pub mod devices;
 pub mod logger;
 pub mod memory;
 pub mod output;
 pub mod process;
 pub mod scheduler;
-pub mod syscall;
+pub mod sdms;

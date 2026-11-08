@@ -1,5 +1,4 @@
 //! The IDT table
-use crate::coredrv::coredrv;
 use crate::handler::*;
 use crate::scheduler::switch_task;
 use spin::LazyLock;
@@ -63,9 +62,6 @@ pub static IDT: LazyLock<InterruptDescriptorTable> = LazyLock::new(|| unsafe {
     idt[0x30].set_handler_fn(switch_task).set_stack_index(0);
     idt[0xF0].set_handler_fn(spurious);
     idt[0xF1].set_handler_fn(error);
-
-    // Self-specified interrupts
-    idt[0x40].set_handler_fn(coredrv).set_stack_index(0);
 
     idt
 });
