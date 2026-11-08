@@ -70,12 +70,12 @@ pub extern "C" fn syscall_entry() {
         "pop rdx",
         "pop rsi",
         "pop rdi",
-        "pop r13", // push rax
+        "pop rbx", // push rax
         "pop r15",
         "pop r14",
         // Switch stack and restore sysnum
         "mov rsp, rax",
-        "mov rax, r13", // Move back sysnum
+        "mov rax, rbx", // Move back sysnum
         "push r14",
         "push r15",
         // Convert our own origin ABI to System V ABI
