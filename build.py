@@ -9,8 +9,6 @@
 #     python3 build.py clippy              # run cargo clippy
 #     python3 build.py fmt                 # run cargo fmt
 #     python3 build.py menuconfig          # run cargo anaxa menuconfig
-#     python3 build.py doc                 # build mdBook + rustdoc documentation
-#     python3 build.py docs-clean          # clean documentation
 
 import os
 import shutil
@@ -127,28 +125,7 @@ class Kernel(Builder):
     def fmt(self):
         run(["cargo", "fmt"])
 
-    def doc(self):
-        logger.info("Building guide (mdBook)...")
-        run(["mdbook", "build"])
-        logger.info("Building API documentation (rustdoc)...")
-        run(["cargo", "doc", "--no-deps"])
-        book_api = os.path.join(BASE_DIR, "book", "api")
-        shutil.rmtree(book_api, ignore_errors=True)
-        shutil.copytree(
-            os.path.join(BASE_DIR, "target", "doc"),
-            book_api,
-            dirs_exist_ok=True,
-        )
-        logger.info("Documentation has successfully built in book")
-
-    def docs_clean(self):
-        logger.info("Cleaning documentation...")
-        run(["mdbook", "clean"])
-        shutil.rmtree(os.path.join(BASE_DIR, "book"), ignore_errors=True)
-        run(["cargo", "clean", "--doc"])
-
     def clean(self):
-        self.docs_clean()
         run(["cargo", "clean"])
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 

@@ -17,17 +17,15 @@ Welcome to use Proka Kernel, an operating system kernel developed by young talen
 Primarily for learning and practice, our goal is to evolve it into a stable and reliable system.
 
 ## Project Highlights
-*   **Hybrid Language Design**: Leverages Rust's memory safety and C's low-level control.
-*   **Modular Architecture**: Designed for clarity and extensibility.
+*   **Unique Architecture**: Designed with self-developed architecture (experimental).
 *   **Modern Development**: Uses advanced tools and practices for quality code.
 *   **Community-Driven**: Actively maintained by passionate developers.
 
 ## Languages Used
 
-Proka Kernel is primarily written in **C and Rust**.
+Proka Kernel is primarily written in **Rust**.
 
-*   **Rust**: Forms the kernel's core, offering memory safety to enhance stability and security by preventing common errors. Most high-level logic and new features are in Rust.
-*   **C Language**: Utilized for direct hardware access, low-level operations (e.g., boot code, assembly interfaces), and integrating existing drivers.
+**The Rust Programming Language** forms the kernel's core, offering memory safety to enhance stability and security by preventing common errors. Most high-level logic and new features are in Rust.
 
 ## How to Build Proka Kernel?
 
@@ -37,15 +35,11 @@ To build and run Proka Kernel, install these components:
 
 #### Core Build Tools
 *   **Rust Toolchain**: `nightly` channel with `x86_64-unknown-none` target (Rust `>= 1.77.0`).
-*   **GCC**: C language compiler.
-*   **Make**: Build automation tool.
+*   **Python**: Build script interpreting support.
 
-#### Runtime & Image Creation
+#### Optional tools
 *   **QEMU**: For kernel emulation.
-*   **xorriso**: To create bootable ISO images.
-*   **cpio**: To create initrd (initial RAM disk) images.
-
-**Note**: GCC might be pre-installed on your OS.
+*   **hadris-fat**: For INITPRT creation.
 
 ### Installation Commands
 
@@ -62,13 +56,14 @@ rustup target add x86_64-unknown-none
 
 # Install core build tools
 sudo apt-get update
-sudo apt-get install -y gcc make
-
-# Install runtime and image creation tools
-sudo apt-get install -y xorriso cpio qemu-system-x86
+sudo apt-get install python3
 
 # Install Kernel Config Generator
 cargo install cargo-anaxa
+
+# Optional: Install optional tools
+sudo apt-get install qemu-system-x86
+cargo install hadris-fat-cli
 ```
 
 ### Build Process
@@ -77,28 +72,26 @@ From the project root:
 
 1.  **Make up config (Optional)**:
     ```bash
-    make menuconfig
+    ./build.py menuconfig
     ```
     Please follow its instructions to configure the kernel's settings.
 
 2.  **Compile Kernel**:
     ```bash
-    make
+    # For release mode
+    ./build.py
+    
+    # For debug mode
+    ./build.py --profile dev
     ```
     The kernel file will be put at `output/kernel` in project root.
 
-3.  **Build ISO Image**:
-    ```bash
-    make iso
-    ```
-    The ISO file will be put at `output/proka-kernel.iso` in project root.
-
-4.  **Run in QEMU**:
-    ```bash
-    make run
-    ```
-    QEMU will launch, displaying kernel output in the terminal.
-
+> [!NOTE]
+> This project is based on self-developed bootloader. Since this project is in early development, the structure of files is strictly fixed.
+>
+> But don't worry, the [ProkaOS Main Repository](https://github.com/RainSTR-Studio/proka-os)'s build script can help us intergrate them, so that you can directly start simulator by passing an ISO file.
+> 
+> Consequently, if you want to run the whole operating system, consider cloning [ProkaOS Main Repository](https://github.com/RainSTR-Studio/proka-os) and follow its steps in README.
 
 ## Contributors
 Thank you to all contributors!
